@@ -1,0 +1,8 @@
+Render deployment package for Salon Karola CRM
+
+1. Push these files to GitHub.
+2. On Render create a new Web Service from the repo.
+3. Attach a persistent disk mounted at /opt/render/project/src/data
+4. Upload your salon_karola.db file into that disk path or copy this included DB there after first shell access.
+5. Set environment variables in Render dashboard: SECRET_KEY, ADMIN_USERNAME, ADMIN_PASSWORD, SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_SENDER, SMTP_USE_TLS, APP_TIMEZONE, DATABASE_PATH
+6. Start command uses a single Gunicorn worker so the APScheduler loop runs only once.
