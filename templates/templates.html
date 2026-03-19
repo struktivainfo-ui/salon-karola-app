@@ -5,14 +5,37 @@
   <h1 class="hero-title">Mail-Vorlagen</h1>
   <p class="hero-text">Geburtstagsmails und Terminerinnerungen direkt bearbeiten.</p>
 </section>
+
 <section class="card">
   <form method="post">
     <h2>Geburtstag</h2>
-    <div class="form-group"><label>Betreff</label><input type="text" name="birthdate_subject" value="{{ templates.get('birthdate', {}).get('subject', '') if templates.get('birthdate') else '' }}"></div>
-    <div class="form-group"><label>Text</label><textarea name="birthdate_body">{{ templates.get('birthdate', {}).get('body', '') if templates.get('birthdate') else '' }}</textarea></div>
+    <div class="form-group">
+      <label>Betreff</label>
+      <input
+        type="text"
+        name="birthdate_subject"
+        value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}"
+      >
+    </div>
+    <div class="form-group">
+      <label>Text</label>
+      <textarea name="birthdate_body">{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}</textarea>
+    </div>
+
     <h2>Termin</h2>
-    <div class="form-group"><label>Betreff</label><input type="text" name="appointment_subject" value="{{ templates.get('appointment', {}).get('subject', '') if templates.get('appointment') else '' }}"></div>
-    <div class="form-group"><label>Text</label><textarea name="appointment_body">{{ templates.get('appointment', {}).get('body', '') if templates.get('appointment') else '' }}</textarea></div>
+    <div class="form-group">
+      <label>Betreff</label>
+      <input
+        type="text"
+        name="appointment_subject"
+        value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}"
+      >
+    </div>
+    <div class="form-group">
+      <label>Text</label>
+      <textarea name="appointment_body">{{ templates['appointment']['body'] if 'appointment' in templates else '' }}</textarea>
+    </div>
+
     <button type="submit">Vorlagen speichern</button>
   </form>
 </section>
