@@ -1,15 +1,14 @@
 {% extends 'base.html' %}
+{% block title %}Import - Salon Karola{% endblock %}
 {% block content %}
-<div class="hero slim">
-  <div>
-    <h1>CSV-Import</h1>
-    <p>Erwartete Spalten: Vorname; Nachname; E-Mail; Geburtstag; Telefon; Mobil; Adresse; PLZ; Stadt; Notizen</p>
-  </div>
-</div>
+<section class="hero-card">
+  <h1 class="hero-title">CSV-Import</h1>
+  <p class="hero-text">Kontakte aus einer CSV-Datei übernehmen.</p>
+</section>
 <section class="card">
-  <form method="post" enctype="multipart/form-data" class="form-grid onecol">
-    <label>CSV-Datei<input type="file" name="csv_file" accept=".csv" required></label>
-    <div class="actions"><button type="submit">Import starten</button></div>
+  <form method="post" enctype="multipart/form-data">
+    <div class="form-group"><label>CSV-Datei</label><input type="file" name="csv_file" accept=".csv" required></div>
+    <button type="submit">Import starten</button>
   </form>
 </section>
 {% endblock %}

@@ -1,31 +1,35 @@
 {% extends 'base.html' %}
+{% block title %}Kalender - Salon Karola{% endblock %}
 {% block content %}
-<div class="hero slim">
-  <div>
-    <h1>Termin-Kalender</h1>
-    <p>Alle gebuchten Termine als Tagesübersicht für die nächsten Wochen.</p>
-  </div>
-</div>
-<div class="card">
-  {% for day, appts in grouped.items() %}
-    <h2 class="day-head">{{ day }}</h2>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Zeit</th><th>Kunde</th><th>Termin</th><th>Telefon</th></tr></thead>
-        <tbody>
-        {% for appt in appts %}
-          <tr>
-            <td>{{ appt['appointment_at']|dt }}</td>
-            <td>{{ appt['_firstname'] }} {{ appt['_name'] }}</td>
-            <td>{{ appt['title'] }}</td>
-            <td>{{ appt['Customer_Mobiltelefon'] or appt['Customer_PersönlichesTelefon'] or '–' }}</td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
+<section class="hero-card">
+  <h1 class="hero-title">Kalender</h1>
+  <p class="hero-text">Termine übersichtlich nach Tagen sortiert.</p>
+</section>
+<section class="card">
+  <form method="get" class="grid grid-2">
+    <div class="form-group"><label>Startmonat</label><input type="date" name="start" value="{{ start }}"></div>
+    <div class="actions"><button type="submit">Anzeigen</button></div>
+  </form>
+</section>
+<section class="space-top list-stack">
+  {% for day, items in grouped.items() %}
+  <div class="card">
+    <h2>{{ day }}</h2>
+    <div class="list-stack">
+      {% for appt in items %}
+      <div class="list-item">
+        <div class="row-between">
+          <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
+          <span class="badge">{{ appt['appointment_at']|dt }}</span>
+        </div>
+        <div class="mobile-line">{{ appt['title'] }}</div>
+        <div class="mobile-line">{{ appt['Customer_Mobiltelefon'] or appt['Customer_PersönlichesTelefon'] or '-' }}</div>
+      </div>
+      {% endfor %}
     </div>
+  </div>
   {% else %}
-    <p>Keine Termine im gewählten Zeitraum.</p>
+  <div class="card">Keine Termine im gewählten Zeitraum.</div>
   {% endfor %}
-</div>
+</section>
 {% endblock %}

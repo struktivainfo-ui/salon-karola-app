@@ -1,26 +1,19 @@
 {% extends 'base.html' %}
+{% block title %}Vorlagen - Salon Karola{% endblock %}
 {% block content %}
-<div class="hero slim">
-  <div>
-    <h1>Mail-Vorlagen</h1>
-    <p>Platzhalter: {vorname}, {nachname}, {name}, {email}, {telefon}, {termin}, {salon}</p>
-  </div>
-</div>
-<form method="post" class="stack">
-  <section class="card">
-    <div class="section-head"><h2>Geburtstagsmail</h2></div>
-    <div class="form-grid onecol">
-      <label>Betreff<input type="text" name="birthdate_subject" value="{{ templates['birthdate']['subject'] if templates.get('birthdate') else '' }}"></label>
-      <label>Inhalt<textarea name="birthdate_body" rows="8">{{ templates['birthdate']['body'] if templates.get('birthdate') else '' }}</textarea></label>
-    </div>
-  </section>
-  <section class="card">
-    <div class="section-head"><h2>Terminerinnerung</h2></div>
-    <div class="form-grid onecol">
-      <label>Betreff<input type="text" name="appointment_subject" value="{{ templates['appointment']['subject'] if templates.get('appointment') else '' }}"></label>
-      <label>Inhalt<textarea name="appointment_body" rows="8">{{ templates['appointment']['body'] if templates.get('appointment') else '' }}</textarea></label>
-    </div>
-  </section>
-  <div class="actions"><button type="submit">Vorlagen speichern</button></div>
-</form>
+<section class="hero-card">
+  <h1 class="hero-title">Mail-Vorlagen</h1>
+  <p class="hero-text">Geburtstagsmails und Terminerinnerungen direkt bearbeiten.</p>
+</section>
+<section class="card">
+  <form method="post">
+    <h2>Geburtstag</h2>
+    <div class="form-group"><label>Betreff</label><input type="text" name="birthdate_subject" value="{{ templates.get('birthdate', {}).get('subject', '') if templates.get('birthdate') else '' }}"></div>
+    <div class="form-group"><label>Text</label><textarea name="birthdate_body">{{ templates.get('birthdate', {}).get('body', '') if templates.get('birthdate') else '' }}</textarea></div>
+    <h2>Termin</h2>
+    <div class="form-group"><label>Betreff</label><input type="text" name="appointment_subject" value="{{ templates.get('appointment', {}).get('subject', '') if templates.get('appointment') else '' }}"></div>
+    <div class="form-group"><label>Text</label><textarea name="appointment_body">{{ templates.get('appointment', {}).get('body', '') if templates.get('appointment') else '' }}</textarea></div>
+    <button type="submit">Vorlagen speichern</button>
+  </form>
+</section>
 {% endblock %}

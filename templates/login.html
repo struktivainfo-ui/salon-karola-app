@@ -1,24 +1,22 @@
-<!doctype html>
-<html lang="de">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Login · Salon Karola CRM Ultra</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body class="login-body">
-  <div class="login-card card">
-    <div class="logo center">Salon <span>Karola</span></div>
-    <p class="sub center">Ultra-Version mit Login, Kalender, CSV und Mail-Automatik</p>
-    <form method="post" class="form-grid onecol">
-      <label>Benutzername<input type="text" name="username" required></label>
-      <label>Passwort<input type="password" name="password" required></label>
+{% extends 'base.html' %}
+{% block title %}Login - Salon Karola{% endblock %}
+{% block content %}
+<div class="login-shell">
+  <div class="login-card">
+    <img class="login-logo" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
+    <h1>Salon Karola</h1>
+    <p class="hero-text center">Premium CRM für Termine, Kontakte und automatische Erinnerungen.</p>
+    <form method="post" class="space-top">
+      <div class="form-group">
+        <label>Benutzername</label>
+        <input type="text" name="username" autocomplete="username" required>
+      </div>
+      <div class="form-group">
+        <label>Passwort</label>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </div>
       <button type="submit">Einloggen</button>
     </form>
-    <div class="hint">Standard: karola / Karola123!</div>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}<div class="flash-wrap">{% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}</div>{% endif %}
-    {% endwith %}
   </div>
-</body>
-</html>
+</div>
+{% endblock %}

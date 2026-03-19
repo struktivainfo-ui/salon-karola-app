@@ -1,5 +1,59 @@
-<!DOCTYPE html><html><head>
-<link rel="manifest" href="/static/manifest.webmanifest">
-<link rel="apple-touch-icon" href="/static/icon-192.png">
-<link rel="icon" href="/static/icon-192.png">
-</head><body>OK</body></html>
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Salon Karola" />
+  <title>{% block title %}Salon Karola{% endblock %}</title>
+  <link rel="manifest" href="{{ url_for('manifest') }}" />
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}" />
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icon-192.png') }}" />
+  <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icon-512.png') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  {% if session.get('admin_logged_in') %}
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
+        <div>
+          <div class="brand-title">Salon Karola</div>
+          <div class="brand-subtitle">Version 2 Premium</div>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a href="{{ url_for('index') }}">Dashboard</a>
+        <a href="{{ url_for('customer_new') }}">Neuer Kontakt</a>
+        <a href="{{ url_for('calendar_view') }}">Kalender</a>
+        <a href="{{ url_for('templates_view') }}">Vorlagen</a>
+        <a href="{{ url_for('import_customers') }}">Import</a>
+        <a href="{{ url_for('email_logs') }}">Logs</a>
+        <a href="{{ url_for('database_tools') }}">Datenbank</a>
+        <a href="{{ url_for('logout') }}">Logout</a>
+      </nav>
+    </div>
+  </header>
+  {% endif %}
+  <main class="container">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/service-worker.js");
+      });
+    }
+  </script>
+</body>
+</html>
