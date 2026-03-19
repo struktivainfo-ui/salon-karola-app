@@ -1,4 +1,3 @@
-from app import app, boot_app
+from app import app
 
-boot_app()
 application = app
