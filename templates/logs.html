@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="hero slim">
+  <div>
+    <h1>E-Mail-Log</h1>
+    <p>Die letzten gesendeten oder fehlgeschlagenen E-Mails.</p>
+  </div>
+</div>
+<section class="card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Zeit</th><th>Typ</th><th>Empfänger</th><th>Status</th><th>Betreff</th></tr></thead>
+      <tbody>
+      {% for log in logs %}
+      <tr>
+        <td>{{ log['sent_at']|dt }}</td>
+        <td>{{ log['email_type'] }}</td>
+        <td>{{ log['recipient'] or '–' }}</td>
+        <td>{{ log['status'] }}</td>
+        <td>{{ log['subject'] }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">Noch keine Log-Einträge vorhanden.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

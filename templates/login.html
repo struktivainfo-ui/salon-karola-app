@@ -1,1 +1,24 @@
-
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login · Salon Karola CRM Ultra</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-card card">
+    <div class="logo center">Salon <span>Karola</span></div>
+    <p class="sub center">Ultra-Version mit Login, Kalender, CSV und Mail-Automatik</p>
+    <form method="post" class="form-grid onecol">
+      <label>Benutzername<input type="text" name="username" required></label>
+      <label>Passwort<input type="password" name="password" required></label>
+      <button type="submit">Einloggen</button>
+    </form>
+    <div class="hint">Standard: karola / Karola123!</div>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}<div class="flash-wrap">{% for message in messages %}<div class="flash">{{ message }}</div>{% endfor %}</div>{% endif %}
+    {% endwith %}
+  </div>
+</body>
+</html>

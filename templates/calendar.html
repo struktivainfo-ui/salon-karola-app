@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="hero slim">
+  <div>
+    <h1>Termin-Kalender</h1>
+    <p>Alle gebuchten Termine als Tagesübersicht für die nächsten Wochen.</p>
+  </div>
+</div>
+<div class="card">
+  {% for day, appts in grouped.items() %}
+    <h2 class="day-head">{{ day }}</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Zeit</th><th>Kunde</th><th>Termin</th><th>Telefon</th></tr></thead>
+        <tbody>
+        {% for appt in appts %}
+          <tr>
+            <td>{{ appt['appointment_at']|dt }}</td>
+            <td>{{ appt['_firstname'] }} {{ appt['_name'] }}</td>
+            <td>{{ appt['title'] }}</td>
+            <td>{{ appt['Customer_Mobiltelefon'] or appt['Customer_PersönlichesTelefon'] or '–' }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p>Keine Termine im gewählten Zeitraum.</p>
+  {% endfor %}
+</div>
+{% endblock %}

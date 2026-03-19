@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="hero">
+  <div>
+    <h1>CRM Ultra Dashboard</h1>
+    <p>Stärkere Version für Salon Karola mit Login, Tags, Kalender, CSV-Import/Export, WhatsApp-Link und Mail-Automatik.</p>
+  </div>
+  <form method="get" class="search stack-inline">
+    <input type="text" name="q" value="{{ q }}" placeholder="Suche nach Name, E-Mail, Telefon oder Stadt">
+    <button type="submit">Suchen</button>
+  </form>
+</div>
+
+<div class="stats-grid six">
+  <div class="card stat"><div class="label">Kontakte</div><div class="value">{{ stats.total_customers }}</div></div>
+  <div class="card stat"><div class="label">mit E-Mail</div><div class="value">{{ stats.total_emails }}</div></div>
+  <div class="card stat"><div class="label">mit Mobil</div><div class="value">{{ stats.total_mobile }}</div></div>
+  <div class="card stat"><div class="label">kommende Termine</div><div class="value">{{ stats.upcoming_appointments }}</div></div>
+  <div class="card stat"><div class="label">heute gesendet</div><div class="value">{{ stats.sent_today }}</div></div>
+  <div class="card stat"><div class="label">Geburtstage 30 Tage</div><div class="value">{{ stats.birthdays_30 }}</div></div>
+</div>
+
+<div class="notice {{ 'ok' if smtp_ready else 'warn' }}">SMTP-Status: {{ 'bereit' if smtp_ready else 'nicht konfiguriert – bitte .env eintragen' }}</div>
+
+<div class="card automation-box">
+  <div class="section-head">
+    <h2>Automatik-Status</h2>
+    <a class="btn-link dark" href="{{ url_for('run_automation_now') }}">Jetzt prüfen</a>
+  </div>
+  <div class="automation-grid">
+    <div><strong>Letzter Lauf:</strong><br>{{ automation.last_run_at or 'noch nie' }}</div>
+    <div><strong>Intervall:</strong><br>alle {{ automation.scheduler_interval_minutes }} Minuten</div>
+  </div>
+  <p class="small-top"><strong>Zusammenfassung:</strong> {{ automation.last_run_summary or 'Noch kein Automatiklauf protokolliert.' }}</p>
+  {% if automation.last_run_error %}
+    <div class="notice warn">Letzter Automatikfehler: {{ automation.last_run_error }}</div>
+  {% endif %}
+</div>
+
+<div class="grid-3">
+  <section class="card">
+    <div class="section-head">
+      <h2>Kontakte</h2>
+      <a class="btn-link dark" href="{{ url_for('customer_new') }}">Kontakt hinzufügen</a>
+    </div>
+    <div class="tags-row">
+      <a class="chip {% if not tag %}active{% endif %}" href="{{ url_for('index') }}">Alle</a>
+      {% for t in tags %}
+      <a class="chip {% if tag == t['tag'] %}active{% endif %}" href="{{ url_for('index', tag=t['tag']) }}">{{ t['tag'] }} ({{ t['cnt'] }})</a>
+      {% endfor %}
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>E-Mail</th><th>Telefon</th><th>Stadt</th></tr>
+        </thead>
+        <tbody>
+          {% for customer in customers %}
+          <tr>
+            <td><a href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">{{ customer['_firstname'] }} {{ customer['_name'] }}</a></td>
+            <td>{{ customer['_mail'] or '–' }}</td>
+            <td>{{ customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] or '–' }}</td>
+            <td>{{ customer['Customer_Stadt'] or '–' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4">Keine Kontakte gefunden.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-head"><h2>Nächste Termine</h2><a class="btn-link dark" href="{{ url_for('calendar_view') }}">Kalender</a></div>
+    <div class="timeline">
+      {% for appt in upcoming %}
+        <div class="timeline-item">
+          <div class="time">{{ appt['appointment_at']|dt }}</div>
+          <div class="title">{{ appt['title'] }}</div>
+          <div class="meta">{{ appt['_firstname'] }} {{ appt['_name'] }}</div>
+        </div>
+      {% else %}
+        <p>Aktuell keine kommenden Termine gespeichert.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-head"><h2>Nächste Geburtstage</h2></div>
+    <div class="timeline">
+      {% for customer in birthdays %}
+        <div class="timeline-item">
+          <div class="time">{{ customer['_birthdate']|birthday }}</div>
+          <div class="title">{{ customer['_firstname'] }} {{ customer['_name'] }}</div>
+          <div class="meta">{{ customer['_mail'] or customer['Customer_Mobiltelefon'] or 'kein Kontaktkanal' }}</div>
+        </div>
+      {% else %}
+        <p>Keine Geburtstage hinterlegt.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="hero slim">
+  <div>
+    <h1>CSV-Import</h1>
+    <p>Erwartete Spalten: Vorname; Nachname; E-Mail; Geburtstag; Telefon; Mobil; Adresse; PLZ; Stadt; Notizen</p>
+  </div>
+</div>
+<section class="card">
+  <form method="post" enctype="multipart/form-data" class="form-grid onecol">
+    <label>CSV-Datei<input type="file" name="csv_file" accept=".csv" required></label>
+    <div class="actions"><button type="submit">Import starten</button></div>
+  </form>
+</section>
+{% endblock %}

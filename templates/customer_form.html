@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="hero slim">
+  <div>
+    <h1>{% if customer %}Kontakt bearbeiten{% else %}Neuen Kontakt anlegen{% endif %}</h1>
+    <p>Kontaktdaten, Tags, Termine, WhatsApp und E-Mail-Historie an einem Ort.</p>
+  </div>
+  {% if customer %}
+  <div class="stack-inline">
+    {% if wa_link %}<a class="btn-link dark" href="{{ wa_link }}" target="_blank">WhatsApp öffnen</a>{% endif %}
+    <a class="btn-link" href="{{ url_for('send_test', customer_id=customer['_id'], template_id='birthdate') }}">Geburtstags-Test</a>
+    <a class="btn-link" href="{{ url_for('send_test', customer_id=customer['_id'], template_id='appointment') }}">Termin-Test</a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="grid-2 details">
+  <section class="card">
+    <form method="post" class="form-grid">
+      <label>Vorname<input type="text" name="firstname" value="{{ customer['_firstname'] if customer else '' }}"></label>
+      <label>Nachname<input type="text" name="name" value="{{ customer['_name'] if customer else '' }}"></label>
+      <label>E-Mail<input type="email" name="mail" value="{{ customer['_mail'] if customer else '' }}"></label>
+      <label>Geburtstag<input type="date" name="birthdate" value="{{ customer['_birthdate'] if customer else '' }}"></label>
+      <label>Telefon<input type="text" name="phone" value="{{ customer['Customer_PersönlichesTelefon'] if customer else '' }}"></label>
+      <label>Mobil<input type="text" name="mobile" value="{{ customer['Customer_Mobiltelefon'] if customer else '' }}"></label>
+      <label class="wide">Adresse<input type="text" name="address" value="{{ customer['Customer_Adresse'] if customer else '' }}"></label>
+      <label>PLZ<input type="text" name="zip" value="{{ customer['Customer_Postleitzahl'] if customer else '' }}"></label>
+      <label>Stadt<input type="text" name="city" value="{{ customer['Customer_Stadt'] if customer else '' }}"></label>
+      <label class="wide">Tags (mit Komma trennen)<input type="text" name="tags" value="{{ tags_text }}" placeholder="VIP, Farbe, Stammkunde"></label>
+      <label class="wide">Notizen<textarea name="notes" rows="5">{{ customer['_notes'] if customer else '' }}</textarea></label>
+      <div class="wide actions"><button type="submit">Speichern</button></div>
+    </form>
+  </section>
+
+  {% if customer %}
+  <section class="stack">
+    <section class="card">
+      <div class="section-head"><h2>Termin hinzufügen</h2></div>
+      <form method="post" action="{{ url_for('appointment_new', customer_id=customer['_id']) }}" class="form-grid compact">
+        <label>Titel<input type="text" name="title" value="Salon-Termin"></label>
+        <label>Terminzeit<input type="datetime-local" name="appointment_at" required></label>
+        <label>Erinnerung (Stunden vorher)<input type="number" name="reminder_hours" value="24" min="1" max="168"></label>
+        <label class="wide">Notiz<textarea name="notes" rows="3"></textarea></label>
+        <div class="wide actions"><button type="submit">Termin speichern</button></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="section-head"><h2>Termine</h2></div>
+      {% for appt in appointments %}
+        <div class="timeline-item with-action">
+          <div>
+            <div class="time">{{ appt['appointment_at']|dt }}</div>
+            <div class="title">{{ appt['title'] }}</div>
+            <div class="meta">Erinnerung {{ appt['reminder_hours'] }}h vorher · {% if appt['reminder_sent_at'] %}gesendet {{ appt['reminder_sent_at']|dt }}{% else %}offen{% endif %}</div>
+          </div>
+          <form method="post" action="{{ url_for('appointment_delete', appointment_id=appt['id']) }}">
+            <button class="danger" type="submit">Löschen</button>
+          </form>
+        </div>
+      {% else %}
+        <p>Noch keine Termine hinterlegt.</p>
+      {% endfor %}
+    </section>
+
+    <section class="card">
+      <div class="section-head"><h2>E-Mail-Log</h2></div>
+      {% for log in logs %}
+        <div class="log-item {{ log['status'] }}">
+          <div><strong>{{ log['email_type'] }}</strong> – {{ log['subject'] }}</div>
+          <div>{{ log['recipient'] or 'kein Empfänger' }} · {{ log['sent_at']|dt }}</div>
+          {% if log['error_message'] %}<div class="error">{{ log['error_message'] }}</div>{% endif %}
+        </div>
+      {% else %}
+        <p>Noch keine E-Mails protokolliert.</p>
+      {% endfor %}
+    </section>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

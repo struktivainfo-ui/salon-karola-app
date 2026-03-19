@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h1>Datenbank-Import & Export</h1>
+    <p>Echte SQLite-Backups herunterladen oder eine bestehende Datenbank importieren. Für den Import kannst du entweder alles komplett ersetzen oder neue Kontakte und Termine in die bestehende Datenbank zusammenführen.</p>
+  </div>
+</section>
+
+<section class="cards two">
+  <article class="card">
+    <h3>Aktueller Datenbank-Status</h3>
+    {% if db_info %}
+    <ul class="clean-list">
+      <li><strong>Kontakte:</strong> {{ db_info.counts.get('_Customers', 0) }}</li>
+      <li><strong>Termine:</strong> {{ db_info.counts.get('appointments', 0) }}</li>
+      <li><strong>Mail-Vorlagen:</strong> {{ db_info.counts.get('_MailTemplates', 0) }}</li>
+      <li><strong>E-Mail-Log:</strong> {{ db_info.counts.get('email_log', 0) }}</li>
+      <li><strong>Tabellen:</strong> {{ db_info.tables|join(', ') }}</li>
+    </ul>
+    {% else %}
+    <p>Es wurde noch keine lokale Datenbank gefunden.</p>
+    {% endif %}
+    <div class="btn-row" style="margin-top:16px">
+      <a class="btn" href="{{ url_for('export_database') }}">SQLite exportieren</a>
+      <a class="btn secondary" href="{{ url_for('export_database_zip') }}">Backup als ZIP</a>
+    </div>
+  </article>
+
+  <article class="card">
+    <h3>Datenbank importieren</h3>
+    <p>Unterstützte Formate: <code>.sqlite</code>, <code>.db</code>, <code>.backup</code>.</p>
+    <form method="post" enctype="multipart/form-data" class="stack-form">
+      <label>Datei auswählen</label>
+      <input type="file" name="db_file" accept=".sqlite,.db,.backup" required>
+
+      <label>Import-Art</label>
+      <select name="action">
+        <option value="replace">Aktuelle Datenbank komplett ersetzen</option>
+        <option value="merge">Mit bestehender Datenbank zusammenführen</option>
+      </select>
+
+      <div class="info-box">
+        <strong>Hinweis:</strong><br>
+        Ersetzen = gesamte aktuelle Datenbank wird vorher gesichert und dann ausgetauscht.<br>
+        Zusammenführen = neue Kontakte, Vorlagen und Termine werden zusätzlich übernommen, Dubletten werden bestmöglich vermieden.
+      </div>
+
+      <button class="btn" type="submit">Import starten</button>
+    </form>
+  </article>
+</section>
+
+<section class="card">
+  <h3>Automatische Sicherungen</h3>
+  {% if backup_files %}
+  <table>
+    <thead><tr><th>Datei</th><th>Download</th></tr></thead>
+    <tbody>
+      {% for backup in backup_files %}
+      <tr>
+        <td>{{ backup.name }}</td>
+        <td><a class="btn secondary" href="{{ url_for('download_backup', filename=backup.name) }}">Backup laden</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Noch keine Sicherungen vorhanden.</p>
+  {% endif %}
+</section>
+{% endblock %}
