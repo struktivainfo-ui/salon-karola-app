@@ -483,15 +483,30 @@ def dashboard_stats():
 
 
 def upcoming_birthdays(limit=12):
-    return get_db().execute(
+    rows = get_db().execute(
         """
         SELECT * FROM _Customers
-        WHERE _birthdate IS NOT NULL AND _birthdate <> ''
-        ORDER BY strftime('%m-%d', _birthdate) ASC
-        LIMIT ?
-        """,
-        (limit,),
+        WHERE _birthdate IS NOT NULL AND TRIM(_birthdate) <> ''
+        """
     ).fetchall()
+
+    today = datetime.now().date()
+    enriched = []
+
+    for row in rows:
+        try:
+            birthdate = datetime.fromisoformat(str(row["_birthdate"])).date()
+
+            next_birthday = birthdate.replace(year=today.year)
+            if next_birthday < today:
+                next_birthday = birthdate.replace(year=today.year + 1)
+
+            enriched.append((next_birthday, row))
+        except Exception:
+            continue
+
+    enriched.sort(key=lambda item: item[0])
+    return [row for _, row in enriched[:limit]]
 
 
 def next_appointments(limit=12):
