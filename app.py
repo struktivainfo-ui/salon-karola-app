@@ -1,3 +1,4 @@
+
 import csv
 import io
 import os
@@ -23,13 +24,13 @@ from flask import (
     render_template,
     request,
     send_file,
+    send_from_directory,
     session,
     url_for,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
-
 DB_PATH = Path(os.getenv("DATABASE_PATH", str(BASE_DIR / "salon_karola.db")))
 
 app = Flask(
@@ -38,7 +39,7 @@ app = Flask(
     static_folder=str(BASE_DIR / "static"),
 )
 app.secret_key = os.getenv("SECRET_KEY", "salon-karola-ultra-secret")
-app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
 
@@ -50,13 +51,13 @@ def login_required(view):
         if not session.get("admin_logged_in"):
             return redirect(url_for("login", next=request.path))
         return view(*args, **kwargs)
-
     return wrapped
 
 
 # ---------- Database helpers ----------
 def get_db():
     if "db" not in g:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         g.db = sqlite3.connect(DB_PATH)
         g.db.row_factory = sqlite3.Row
     return g.db
@@ -71,10 +72,7 @@ def close_db(exc):
 
 def get_setting(key, default=""):
     with sqlite3.connect(DB_PATH) as conn:
-        row = conn.execute(
-            "SELECT value FROM app_settings WHERE key = ?",
-            (key,),
-        ).fetchone()
+        row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
     return row[0] if row else default
 
 
@@ -82,8 +80,7 @@ def set_setting(key, value):
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             """
-            INSERT INTO app_settings(key, value)
-            VALUES(?, ?)
+            INSERT INTO app_settings(key, value) VALUES(?, ?)
             ON CONFLICT(key) DO UPDATE SET value = excluded.value
             """,
             (key, value),
@@ -114,7 +111,6 @@ def init_db():
             )
             """
         )
-
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS appointments (
@@ -130,7 +126,6 @@ def init_db():
             )
             """
         )
-
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS email_log (
@@ -146,7 +141,6 @@ def init_db():
             )
             """
         )
-
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS app_settings (
@@ -155,7 +149,6 @@ def init_db():
             )
             """
         )
-
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS customer_tags (
@@ -168,7 +161,6 @@ def init_db():
             )
             """
         )
-
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS staff_users (
@@ -180,7 +172,6 @@ def init_db():
             )
             """
         )
-
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS _MailTemplates (
@@ -194,11 +185,7 @@ def init_db():
         admin_user = os.getenv("ADMIN_USERNAME", "karola")
         admin_password = os.getenv("ADMIN_PASSWORD", "Karola123!")
 
-        exists = conn.execute(
-            "SELECT 1 FROM staff_users WHERE username = ?",
-            (admin_user,),
-        ).fetchone()
-
+        exists = conn.execute("SELECT 1 FROM staff_users WHERE username = ?", (admin_user,)).fetchone()
         if not exists:
             conn.execute(
                 """
@@ -213,16 +200,9 @@ def init_db():
                 ),
             )
 
-        mail_tpl = conn.execute(
-            "SELECT 1 FROM _MailTemplates WHERE id='appointment'"
-        ).fetchone()
-
-        if not mail_tpl:
+        if not conn.execute("SELECT 1 FROM _MailTemplates WHERE id='appointment'").fetchone():
             conn.execute(
-                """
-                INSERT INTO _MailTemplates(id, subject, body)
-                VALUES (?, ?, ?)
-                """,
+                "INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)",
                 (
                     "appointment",
                     "Terminerinnerung für {name}",
@@ -230,16 +210,9 @@ def init_db():
                 ),
             )
 
-        birth_tpl = conn.execute(
-            "SELECT 1 FROM _MailTemplates WHERE id='birthdate'"
-        ).fetchone()
-
-        if not birth_tpl:
+        if not conn.execute("SELECT 1 FROM _MailTemplates WHERE id='birthdate'").fetchone():
             conn.execute(
-                """
-                INSERT INTO _MailTemplates(id, subject, body)
-                VALUES (?, ?, ?)
-                """,
+                "INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)",
                 (
                     "birthdate",
                     "Alles Gute zum Geburtstag, {vorname}! 🎉",
@@ -287,10 +260,7 @@ def customer_phone(customer):
 def render_template_text(template_id, customer, appointment=None):
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        template = conn.execute(
-            "SELECT subject, body FROM _MailTemplates WHERE id = ?",
-            (template_id,),
-        ).fetchone()
+        template = conn.execute("SELECT subject, body FROM _MailTemplates WHERE id = ?", (template_id,)).fetchone()
 
     full_name = customer_full_name(customer)
     when = ""
@@ -326,7 +296,6 @@ def render_template_text(template_id, customer, appointment=None):
     for key, value in placeholders.items():
         subject = subject.replace(key, value)
         body = body.replace(key, value)
-
     return subject, body
 
 
@@ -439,7 +408,6 @@ def run_appointment_job():
             checked += 1
             appt_time = datetime.fromisoformat(appt["appointment_at"])
             reminder_at = appt_time - timedelta(hours=int(appt["reminder_hours"] or 24))
-
             if now < reminder_at:
                 continue
 
@@ -465,12 +433,10 @@ def scheduler_tick():
     try:
         birthday_result = run_birthday_job()
         appointment_result = run_appointment_job()
-
         summary = (
             f"Geburtstage geprüft: {birthday_result['checked']}, gesendet: {birthday_result['sent']}, Fehler: {birthday_result['errors']} | "
             f"Termine geprüft: {appointment_result['checked']}, gesendet: {appointment_result['sent']}, Fehler: {appointment_result['errors']}"
         )
-
         set_setting("automation:last_run_at", started_at)
         set_setting("automation:last_run_summary", summary)
         set_setting("automation:last_run_error", "")
@@ -484,14 +450,9 @@ def scheduler_tick():
 # ---------- Dashboard ----------
 def dashboard_stats():
     db = get_db()
-
     total_customers = db.execute("SELECT COUNT(*) FROM _Customers").fetchone()[0]
-    total_emails = db.execute(
-        "SELECT COUNT(*) FROM _Customers WHERE _mail IS NOT NULL AND TRIM(_mail) <> ''"
-    ).fetchone()[0]
-    total_mobile = db.execute(
-        "SELECT COUNT(*) FROM _Customers WHERE Customer_Mobiltelefon IS NOT NULL AND TRIM(Customer_Mobiltelefon) <> ''"
-    ).fetchone()[0]
+    total_emails = db.execute("SELECT COUNT(*) FROM _Customers WHERE _mail IS NOT NULL AND TRIM(_mail) <> ''").fetchone()[0]
+    total_mobile = db.execute("SELECT COUNT(*) FROM _Customers WHERE Customer_Mobiltelefon IS NOT NULL AND TRIM(Customer_Mobiltelefon) <> ''").fetchone()[0]
     upcoming_appointments = db.execute(
         "SELECT COUNT(*) FROM appointments WHERE appointment_at >= ?",
         (datetime.now().isoformat(timespec="minutes"),),
@@ -522,7 +483,7 @@ def dashboard_stats():
 
 
 def upcoming_birthdays(limit=12):
-    rows = get_db().execute(
+    return get_db().execute(
         """
         SELECT * FROM _Customers
         WHERE _birthdate IS NOT NULL AND _birthdate <> ''
@@ -531,7 +492,6 @@ def upcoming_birthdays(limit=12):
         """,
         (limit,),
     ).fetchall()
-    return rows
 
 
 def next_appointments(limit=12):
@@ -548,27 +508,34 @@ def next_appointments(limit=12):
     ).fetchall()
 
 
+# ---------- PWA ----------
+@app.route("/manifest.webmanifest")
+def manifest():
+    return send_from_directory(app.static_folder, "manifest.webmanifest", mimetype="application/manifest+json")
+
+
+@app.route("/service-worker.js")
+def service_worker():
+    return send_from_directory(app.static_folder, "service-worker.js", mimetype="application/javascript")
+
+
 # ---------- Routes ----------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-
         db = get_db()
         user = db.execute(
             "SELECT * FROM staff_users WHERE username = ? AND password = ?",
             (username, password),
         ).fetchone()
-
         if user:
             session["admin_logged_in"] = True
             session["admin_name"] = user["display_name"] or user["username"]
             flash("Login erfolgreich.")
             return redirect(request.args.get("next") or url_for("index"))
-
         flash("Login fehlgeschlagen.")
-
     return render_template("login.html")
 
 
@@ -586,15 +553,12 @@ def index():
     q = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
 
-    base_query = """
-        SELECT c.*
-        FROM _Customers c
-    """
+    base_query = "SELECT c.* FROM _Customers c"
     params = []
     conditions = []
 
     if tag:
-        base_query += " JOIN customer_tags t ON t.customer_id = c._id "
+        base_query += " JOIN customer_tags t ON t.customer_id = c._id"
         conditions.append("t.tag = ?")
         params.append(tag)
 
@@ -610,10 +574,7 @@ def index():
 
     base_query += " ORDER BY c._name, c._firstname LIMIT 200"
     customers = db.execute(base_query, params).fetchall()
-
-    tags = db.execute(
-        "SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag"
-    ).fetchall()
+    tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
 
     return render_template(
         "index.html",
@@ -657,15 +618,13 @@ def customer_new():
         save_tags(cur.lastrowid, request.form.get("tags", ""))
         flash("Kontakt wurde hinzugefügt.")
         return redirect(url_for("customer_detail", customer_id=cur.lastrowid))
-
-    return render_template("customer_form.html", customer=None, appointments=[], logs=[], tags_text="")
+    return render_template("customer_form.html", customer=None, appointments=[], logs=[], tags_text="", wa_link="")
 
 
 @app.route("/customer/<int:customer_id>", methods=["GET", "POST"])
 @login_required
 def customer_detail(customer_id):
     db = get_db()
-
     if request.method == "POST":
         db.execute(
             """
@@ -702,20 +661,13 @@ def customer_detail(customer_id):
         "SELECT * FROM appointments WHERE customer_id = ? ORDER BY appointment_at DESC",
         (customer_id,),
     ).fetchall()
-
     logs = db.execute(
         "SELECT * FROM email_log WHERE customer_id = ? ORDER BY sent_at DESC LIMIT 25",
         (customer_id,),
     ).fetchall()
-
     tags_text = ", ".join(
-        r["tag"]
-        for r in db.execute(
-            "SELECT tag FROM customer_tags WHERE customer_id = ? ORDER BY tag",
-            (customer_id,),
-        ).fetchall()
+        r["tag"] for r in db.execute("SELECT tag FROM customer_tags WHERE customer_id = ? ORDER BY tag", (customer_id,)).fetchall()
     )
-
     return render_template(
         "customer_form.html",
         customer=customer,
@@ -732,10 +684,7 @@ def save_tags(customer_id, tags_text):
     db.execute("DELETE FROM customer_tags WHERE customer_id = ?", (customer_id,))
     for tag in tags:
         db.execute(
-            """
-            INSERT OR IGNORE INTO customer_tags(customer_id, tag, created_at)
-            VALUES (?, ?, ?)
-            """,
+            "INSERT OR IGNORE INTO customer_tags(customer_id, tag, created_at) VALUES (?, ?, ?)",
             (customer_id, tag, datetime.now().isoformat(timespec="seconds")),
         )
     db.commit()
@@ -768,17 +717,12 @@ def appointment_new(customer_id):
 @login_required
 def appointment_delete(appointment_id):
     db = get_db()
-    row = db.execute(
-        "SELECT customer_id FROM appointments WHERE id = ?",
-        (appointment_id,),
-    ).fetchone()
-
+    row = db.execute("SELECT customer_id FROM appointments WHERE id = ?", (appointment_id,)).fetchone()
     if row:
         db.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
         db.commit()
         flash("Termin wurde gelöscht.")
         return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
-
     flash("Termin nicht gefunden.")
     return redirect(url_for("index"))
 
@@ -789,7 +733,6 @@ def calendar_view():
     db = get_db()
     start = request.args.get("start") or datetime.now().strftime("%Y-%m-01")
     end_dt = datetime.fromisoformat(start) + timedelta(days=45)
-
     appointments = db.execute(
         """
         SELECT a.*, c._firstname, c._name, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
@@ -800,12 +743,10 @@ def calendar_view():
         """,
         (start, end_dt.isoformat(timespec="minutes")),
     ).fetchall()
-
     grouped = {}
     for appt in appointments:
         day = appt["appointment_at"][:10]
         grouped.setdefault(day, []).append(appt)
-
     return render_template("calendar.html", grouped=grouped, start=start)
 
 
@@ -813,39 +754,23 @@ def calendar_view():
 @login_required
 def templates_view():
     db = get_db()
-
     if request.method == "POST":
         for template_id in ["birthdate", "appointment"]:
             subject = request.form.get(f"{template_id}_subject", "").strip()
             body = request.form.get(f"{template_id}_body", "").strip()
-
-            existing = db.execute(
-                "SELECT rowid FROM _MailTemplates WHERE id = ? LIMIT 1",
-                (template_id,),
-            ).fetchone()
-
+            existing = db.execute("SELECT rowid FROM _MailTemplates WHERE id = ? LIMIT 1", (template_id,)).fetchone()
             if existing:
-                db.execute(
-                    "UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?",
-                    (subject, body, template_id),
-                )
+                db.execute("UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?", (subject, body, template_id))
             else:
-                db.execute(
-                    "INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)",
-                    (template_id, subject, body),
-                )
-
+                db.execute("INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)", (template_id, subject, body))
         db.commit()
         flash("Vorlagen wurden gespeichert.")
         return redirect(url_for("templates_view"))
 
     templates = {
         r["id"]: r
-        for r in db.execute(
-            "SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')"
-        ).fetchall()
+        for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
     }
-
     return render_template("templates.html", templates=templates)
 
 
@@ -854,7 +779,6 @@ def templates_view():
 def send_test(customer_id, template_id):
     db = get_db()
     customer = db.execute("SELECT * FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
-
     if not customer or not customer["_mail"]:
         flash("Dieser Kontakt hat keine E-Mail-Adresse.")
         return redirect(url_for("customer_detail", customer_id=customer_id))
@@ -863,7 +787,6 @@ def send_test(customer_id, template_id):
         "SELECT * FROM appointments WHERE customer_id = ? ORDER BY appointment_at ASC LIMIT 1",
         (customer_id,),
     ).fetchone()
-
     subject, body = render_template_text(template_id, customer, appointment)
 
     try:
@@ -873,7 +796,6 @@ def send_test(customer_id, template_id):
     except Exception as exc:
         log_email(customer_id, f"test_{template_id}", f"TEST: {subject}", body, customer["_mail"], "error", str(exc))
         flash(f"Test-E-Mail fehlgeschlagen: {exc}")
-
     return redirect(url_for("customer_detail", customer_id=customer_id))
 
 
@@ -889,33 +811,15 @@ def run_automation_now():
 @login_required
 def export_customers():
     rows = get_db().execute("SELECT * FROM _Customers ORDER BY _name, _firstname").fetchall()
-
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";")
     writer.writerow(["ID", "Vorname", "Nachname", "E-Mail", "Geburtstag", "Telefon", "Mobil", "Adresse", "PLZ", "Stadt", "Notizen"])
-
     for row in rows:
-        writer.writerow(
-            [
-                row["_id"],
-                row["_firstname"],
-                row["_name"],
-                row["_mail"],
-                row["_birthdate"],
-                row["Customer_PersönlichesTelefon"],
-                row["Customer_Mobiltelefon"],
-                row["Customer_Adresse"],
-                row["Customer_Postleitzahl"],
-                row["Customer_Stadt"],
-                row["_notes"],
-            ]
-        )
-
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=salon_karola_kunden.csv"},
-    )
+        writer.writerow([
+            row["_id"], row["_firstname"], row["_name"], row["_mail"], row["_birthdate"], row["Customer_PersönlichesTelefon"],
+            row["Customer_Mobiltelefon"], row["Customer_Adresse"], row["Customer_Postleitzahl"], row["Customer_Stadt"], row["_notes"]
+        ])
+    return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=salon_karola_kunden.csv"})
 
 
 @app.route("/import", methods=["GET", "POST"])
@@ -931,24 +835,19 @@ def import_customers():
         reader = csv.DictReader(io.StringIO(content), delimiter=";")
         db = get_db()
         inserted = 0
-
         for row in reader:
             email = (row.get("E-Mail") or row.get("Email") or "").strip()
             firstname = (row.get("Vorname") or "").strip()
             lastname = (row.get("Nachname") or "").strip()
-
             if not (firstname or lastname or email):
                 continue
-
             db.execute(
                 """
                 INSERT INTO _Customers(_name, _firstname, _mail, _birthdate, _notes, Customer_Adresse, Customer_PersönlichesTelefon, Customer_Mobiltelefon, Customer_Postleitzahl, Customer_Stadt)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    lastname,
-                    firstname,
-                    email,
+                    lastname, firstname, email,
                     (row.get("Geburtstag") or "").strip() or None,
                     (row.get("Notizen") or "").strip(),
                     (row.get("Adresse") or "").strip(),
@@ -959,20 +858,16 @@ def import_customers():
                 ),
             )
             inserted += 1
-
         db.commit()
         flash(f"{inserted} Kontakte importiert.")
         return redirect(url_for("index"))
-
     return render_template("import.html")
 
 
 @app.route("/logs")
 @login_required
 def email_logs():
-    logs = get_db().execute(
-        "SELECT * FROM email_log ORDER BY sent_at DESC LIMIT 200"
-    ).fetchall()
+    logs = get_db().execute("SELECT * FROM email_log ORDER BY sent_at DESC LIMIT 200").fetchall()
     return render_template("logs.html", logs=logs)
 
 
@@ -1001,6 +896,7 @@ def format_birthday(value):
 def inject_globals():
     return {
         "admin_name": session.get("admin_name"),
+        "automation": get_automation_status() if session.get("admin_logged_in") else {},
     }
 
 
@@ -1008,7 +904,6 @@ def boot_app():
     init_db()
     interval_minutes = int(os.getenv("AUTOMATION_INTERVAL_MINUTES", "15"))
     set_setting("automation:scheduler_interval_minutes", str(interval_minutes))
-
     if not scheduler.running:
         existing_jobs = {job.id for job in scheduler.get_jobs()}
         if "automation_loop" not in existing_jobs:
@@ -1038,31 +933,20 @@ def timestamp_slug():
 
 
 def inspect_sqlite_database(path):
-    info = {
-        "tables": [],
-        "counts": {},
-        "has_customers": False,
-        "has_appointments": False,
-        "has_templates": False,
-    }
-
+    info = {"tables": [], "counts": {}, "has_customers": False, "has_appointments": False, "has_templates": False}
     with sqlite3.connect(path) as conn:
-        rows = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        ).fetchall()
+        rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
         tables = [row[0] for row in rows]
         info["tables"] = tables
         info["has_customers"] = "_Customers" in tables
         info["has_appointments"] = "appointments" in tables
         info["has_templates"] = "_MailTemplates" in tables
-
         for table in ["_Customers", "appointments", "_MailTemplates", "email_log", "customer_tags", "staff_users"]:
             if table in tables:
                 try:
                     info["counts"][table] = conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
                 except Exception:
                     info["counts"][table] = "—"
-
     return info
 
 
@@ -1076,7 +960,6 @@ def backup_current_database(label="manual"):
 
 def replace_database_from_upload(uploaded_file):
     suffix = Path(uploaded_file.filename or "").suffix or ".sqlite"
-
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         uploaded_file.save(tmp.name)
         tmp_path = Path(tmp.name)
@@ -1096,7 +979,6 @@ def replace_database_from_upload(uploaded_file):
 
 def merge_database_from_upload(uploaded_file):
     suffix = Path(uploaded_file.filename or "").suffix or ".sqlite"
-
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         uploaded_file.save(tmp.name)
         tmp_path = Path(tmp.name)
@@ -1108,24 +990,16 @@ def merge_database_from_upload(uploaded_file):
 
     backup_path = backup_current_database("before_merge")
     init_db()
-
     dest = sqlite3.connect(DB_PATH)
     dest.row_factory = sqlite3.Row
     src = sqlite3.connect(tmp_path)
     src.row_factory = sqlite3.Row
-
     merged = {"customers": 0, "appointments": 0, "templates": 0}
 
     try:
         existing_keys = set()
         for row in dest.execute("SELECT _firstname, _name, COALESCE(_mail, '') as mail FROM _Customers"):
-            existing_keys.add(
-                (
-                    (row["_firstname"] or "").strip().lower(),
-                    (row["_name"] or "").strip().lower(),
-                    (row["mail"] or "").strip().lower(),
-                )
-            )
+            existing_keys.add(((row["_firstname"] or "").strip().lower(), (row["_name"] or "").strip().lower(), (row["mail"] or "").strip().lower()))
 
         src_tables = set(source_info["tables"])
 
@@ -1137,10 +1011,8 @@ def merge_database_from_upload(uploaded_file):
                     ((row["_name"] if "_name" in keys else "") or "").strip().lower(),
                     ((row["_mail"] if "_mail" in keys else "") or "").strip().lower(),
                 )
-
                 if key in existing_keys:
                     continue
-
                 dest.execute(
                     """
                     INSERT INTO _Customers(_name, _firstname, _mail, _birthdate, _notes, Customer_Adresse, Customer_PersönlichesTelefon, Customer_Mobiltelefon, Customer_Postleitzahl, Customer_Stadt)
@@ -1164,36 +1036,22 @@ def merge_database_from_upload(uploaded_file):
 
         if "_MailTemplates" in src_tables:
             for row in src.execute("SELECT id, subject, body FROM _MailTemplates"):
-                exists = dest.execute(
-                    "SELECT 1 FROM _MailTemplates WHERE id = ?",
-                    (row["id"],),
-                ).fetchone()
-
+                exists = dest.execute("SELECT 1 FROM _MailTemplates WHERE id = ?", (row["id"],)).fetchone()
                 if exists:
-                    dest.execute(
-                        "UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?",
-                        (row["subject"], row["body"], row["id"]),
-                    )
+                    dest.execute("UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?", (row["subject"], row["body"], row["id"]))
                 else:
-                    dest.execute(
-                        "INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)",
-                        (row["id"], row["subject"], row["body"]),
-                    )
+                    dest.execute("INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)", (row["id"], row["subject"], row["body"]))
                     merged["templates"] += 1
 
         if "appointments" in src_tables and "_Customers" in src_tables:
-            src_customers = src.execute(
-                "SELECT _id, _firstname, _name, COALESCE(_mail, '') as _mail FROM _Customers"
-            ).fetchall()
-
+            src_customers = src.execute("SELECT _id, _firstname, _name, COALESCE(_mail, '') as _mail FROM _Customers").fetchall()
             customer_map = {}
             for row in src_customers:
                 key = (
-                    ((row["_firstname"] or "").strip().lower()),
-                    ((row["_name"] or "").strip().lower()),
-                    ((row["_mail"] or "").strip().lower()),
+                    (row["_firstname"] or "").strip().lower(),
+                    (row["_name"] or "").strip().lower(),
+                    (row["_mail"] or "").strip().lower(),
                 )
-
                 dest_customer = dest.execute(
                     """
                     SELECT _id FROM _Customers
@@ -1204,7 +1062,6 @@ def merge_database_from_upload(uploaded_file):
                     """,
                     key,
                 ).fetchone()
-
                 if dest_customer:
                     customer_map[row["_id"]] = dest_customer["_id"]
 
@@ -1212,19 +1069,12 @@ def merge_database_from_upload(uploaded_file):
                 mapped_customer = customer_map.get(row["customer_id"])
                 if not mapped_customer:
                     continue
-
                 duplicate = dest.execute(
-                    """
-                    SELECT 1 FROM appointments
-                    WHERE customer_id = ? AND appointment_at = ? AND title = ?
-                    LIMIT 1
-                    """,
+                    "SELECT 1 FROM appointments WHERE customer_id = ? AND appointment_at = ? AND title = ? LIMIT 1",
                     (mapped_customer, row["appointment_at"], row["title"]),
                 ).fetchone()
-
                 if duplicate:
                     continue
-
                 dest.execute(
                     """
                     INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, reminder_sent_at, created_at)
@@ -1241,7 +1091,6 @@ def merge_database_from_upload(uploaded_file):
                     ),
                 )
                 merged["appointments"] += 1
-
         dest.commit()
     finally:
         src.close()
@@ -1256,11 +1105,9 @@ def merge_database_from_upload(uploaded_file):
 def database_tools():
     db_info = inspect_sqlite_database(DB_PATH) if DB_PATH.exists() else None
     backup_files = sorted(BACKUP_DIR.glob("*.sqlite"), reverse=True)[:10]
-
     if request.method == "POST":
         action = request.form.get("action", "replace")
         file = request.files.get("db_file")
-
         if not file or not file.filename:
             flash("Bitte eine Datenbank-Datei auswählen (.sqlite, .db oder .backup).")
             return redirect(url_for("database_tools"))
@@ -1283,9 +1130,7 @@ def database_tools():
                 )
         except Exception as exc:
             flash(f"Datenbank-Import fehlgeschlagen: {exc}")
-
         return redirect(url_for("database_tools"))
-
     return render_template("database_tools.html", db_info=db_info, backup_files=backup_files)
 
 
@@ -1296,13 +1141,7 @@ def export_database():
     if not DB_PATH.exists():
         flash("Es wurde noch keine Datenbank gefunden.")
         return redirect(url_for("database_tools"))
-
-    return send_file(
-        DB_PATH,
-        as_attachment=True,
-        download_name=f"salon_karola_export_{timestamp_slug()}.sqlite",
-        mimetype="application/octet-stream",
-    )
+    return send_file(DB_PATH, as_attachment=True, download_name=f"salon_karola_export_{timestamp_slug()}.sqlite", mimetype="application/octet-stream")
 
 
 @app.route("/database/backup-zip")
@@ -1312,18 +1151,11 @@ def export_database_zip():
     if not DB_PATH.exists():
         flash("Es wurde noch keine Datenbank gefunden.")
         return redirect(url_for("database_tools"))
-
     mem = io.BytesIO()
     with zipfile.ZipFile(mem, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(DB_PATH, arcname="salon_karola.db")
     mem.seek(0)
-
-    return send_file(
-        mem,
-        as_attachment=True,
-        download_name=f"salon_karola_backup_{timestamp_slug()}.zip",
-        mimetype="application/zip",
-    )
+    return send_file(mem, as_attachment=True, download_name=f"salon_karola_backup_{timestamp_slug()}.zip", mimetype="application/zip")
 
 
 @app.route("/database/backup/<path:filename>")
@@ -1333,18 +1165,11 @@ def download_backup(filename):
     if not file_path.exists():
         flash("Backup-Datei wurde nicht gefunden.")
         return redirect(url_for("database_tools"))
-
-    return send_file(
-        file_path,
-        as_attachment=True,
-        download_name=file_path.name,
-        mimetype="application/octet-stream",
-    )
+    return send_file(file_path, as_attachment=True, download_name=file_path.name, mimetype="application/octet-stream")
 
 
 if __name__ == "__main__":
     import sys
-
     if len(sys.argv) > 1 and sys.argv[1] == "run-jobs":
         init_db()
         result = scheduler_tick()
