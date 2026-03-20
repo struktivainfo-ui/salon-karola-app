@@ -5,7 +5,7 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Dashboard</h1>
-      <p class="hero-text">Version 2.9 Pro mit Mitarbeiter-Zuordnung für Termine, Kalenderansichten und WhatsApp-Vorlagen.</p>
+      <p class="hero-text">Version 3.3 Pro mit stabilisiertem Dashboard, verbesserter Datenbank-Übernahme und robusterer E-Mail-Automatik.</p>
     </div>
     <div class="actions">
       <a class="btn" href="{{ url_for('customer_new') }}">Neuen Kontakt anlegen</a>
@@ -24,7 +24,7 @@
 <section class="card space-top">
   <div class="row-between wrap-mobile">
     <h2>Schnellaktionen</h2>
-    <span class="badge">{{ app_version|default("2.9 Pro") }}</span>
+    <span class="badge">{{ app_version|default("3.3 Pro") }}</span>
   </div>
   <div class="quick-actions">
     <a class="quick-action" href="{{ url_for('customer_new') }}">➕ Kunde anlegen</a>
@@ -60,6 +60,7 @@
     {% if automation %}
     <div class="tiny-note">Letzter Lauf: {{ automation.last_run_at|default('', true) or '-' }}</div>
     <div class="tiny-note">Status: {{ automation.last_run_summary|default('', true) or '-' }}</div>
+    {% if automation.last_run_error %}<div class="tiny-note" style="color:#b42318;">Letzter Fehler: {{ automation.last_run_error }}</div>{% endif %}
     {% endif %}
   </div>
 
