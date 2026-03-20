@@ -7,6 +7,7 @@ import smtplib
 import sqlite3
 import tempfile
 import zipfile
+import calendar as pycalendar
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from functools import wraps
@@ -854,6 +855,120 @@ def appointment_update_status(appointment_id):
     flash("Terminstatus wurde aktualisiert.")
     return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
 
+
+
+
+def _parse_date(value):
+    try:
+        return datetime.fromisoformat(str(value)).date()
+    except Exception:
+        return datetime.now().date()
+
+
+def _calendar_event_dict(appt):
+    return {
+        "id": appt["id"],
+        "customer_id": appt["customer_id"],
+        "title": appt["title"],
+        "appointment_at": appt["appointment_at"],
+        "status": appt["status"] or "geplant",
+        "firstname": appt["_firstname"],
+        "lastname": appt["_name"],
+        "phone": appt["Customer_Mobiltelefon"] or appt["Customer_PersönlichesTelefon"] or "-",
+    }
+
+
+def _fetch_calendar_appointments(start_dt, end_dt):
+    db = get_db()
+    rows = db.execute(
+        """
+        SELECT a.*, c._firstname, c._name, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
+        FROM appointments a
+        JOIN _Customers c ON c._id = a.customer_id
+        WHERE a.appointment_at >= ? AND a.appointment_at < ?
+        ORDER BY a.appointment_at ASC
+        """,
+        (start_dt.isoformat(timespec="minutes"), end_dt.isoformat(timespec="minutes")),
+    ).fetchall()
+    return rows
+
+
+def _build_day_view(selected_date):
+    start_dt = datetime.combine(selected_date, datetime.min.time())
+    end_dt = start_dt + timedelta(days=1)
+    rows = _fetch_calendar_appointments(start_dt, end_dt)
+    return {
+        "selected_date": selected_date.isoformat(),
+        "items": [_calendar_event_dict(r) for r in rows],
+        "label": selected_date.strftime("%A, %d.%m.%Y"),
+    }
+
+
+def _build_week_view(selected_date):
+    monday = selected_date - timedelta(days=selected_date.weekday())
+    sunday = monday + timedelta(days=6)
+    start_dt = datetime.combine(monday, datetime.min.time())
+    end_dt = datetime.combine(sunday + timedelta(days=1), datetime.min.time())
+    rows = _fetch_calendar_appointments(start_dt, end_dt)
+
+    by_day = { (monday + timedelta(days=i)).isoformat(): [] for i in range(7) }
+    for row in rows:
+        day_key = str(row["appointment_at"])[:10]
+        by_day.setdefault(day_key, []).append(_calendar_event_dict(row))
+
+    days = []
+    for i in range(7):
+        current = monday + timedelta(days=i)
+        days.append({
+            "date": current.isoformat(),
+            "name": current.strftime("%A"),
+            "label": current.strftime("%d.%m."),
+            "items": by_day.get(current.isoformat(), []),
+            "is_today": current == datetime.now().date(),
+        })
+    return {
+        "selected_date": selected_date.isoformat(),
+        "monday": monday.isoformat(),
+        "sunday": sunday.isoformat(),
+        "days": days,
+        "label": f"{monday.strftime('%d.%m.%Y')} – {sunday.strftime('%d.%m.%Y')}",
+    }
+
+
+def _build_month_view(selected_date):
+    first_day = selected_date.replace(day=1)
+    _, days_in_month = pycalendar.monthrange(first_day.year, first_day.month)
+    start_weekday = first_day.weekday()  # Monday=0
+    start_cell = first_day - timedelta(days=start_weekday)
+    end_cell = start_cell + timedelta(days=42)
+
+    rows = _fetch_calendar_appointments(
+        datetime.combine(start_cell, datetime.min.time()),
+        datetime.combine(end_cell, datetime.min.time()),
+    )
+    by_day = {}
+    for row in rows:
+        day_key = str(row["appointment_at"])[:10]
+        by_day.setdefault(day_key, []).append(_calendar_event_dict(row))
+
+    cells = []
+    for i in range(42):
+        current = start_cell + timedelta(days=i)
+        cells.append({
+            "date": current.isoformat(),
+            "day": current.day,
+            "items": by_day.get(current.isoformat(), []),
+            "in_month": current.month == first_day.month,
+            "is_today": current == datetime.now().date(),
+        })
+
+    weeks = [cells[i:i+7] for i in range(0, 42, 7)]
+    return {
+        "selected_date": selected_date.isoformat(),
+        "month_label": first_day.strftime("%B %Y"),
+        "weeks": weeks,
+        "weekday_headers": ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"],
+    }
 
 @app.route("/calendar")
 @login_required
