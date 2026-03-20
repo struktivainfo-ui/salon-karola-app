@@ -407,3 +407,86 @@ td {
     text-align:center;
   }
 }
+
+
+.calendar-toolbar { display:grid; gap:14px; }
+.view-switch { display:flex; flex-wrap:wrap; gap:10px; }
+.view-chip {
+  display:inline-flex; align-items:center; justify-content:center;
+  min-height:44px; padding:10px 14px; border-radius:12px;
+  background:#171717; border:1px solid var(--border); color:var(--text); font-weight:700;
+}
+.view-chip.active { border-color:rgba(212,175,55,.55); background:rgba(212,175,55,.12); color:var(--gold-soft); }
+.calendar-nav { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+
+.week-grid {
+  display:grid;
+  grid-template-columns:repeat(7, minmax(0, 1fr));
+  gap:12px;
+}
+.week-day {
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:#171717;
+  min-height:260px;
+  display:flex;
+  flex-direction:column;
+}
+.week-day.today,
+.month-cell.today,
+.today-outline { outline:2px solid rgba(212,175,55,.45); }
+.week-day-head {
+  padding:12px;
+  border-bottom:1px solid var(--border);
+}
+.week-day-name { color:var(--gold-soft); font-weight:700; }
+.week-day-label { color:var(--muted); font-size:.92rem; margin-top:4px; }
+.week-events { padding:12px; display:grid; gap:10px; }
+.week-event {
+  display:block;
+  padding:10px;
+  border-radius:12px;
+  background:#202020;
+  border:1px solid rgba(255,255,255,.06);
+  color:var(--text);
+}
+.week-event-time { font-size:.86rem; color:var(--gold-soft); font-weight:700; }
+.week-event-title { margin-top:4px; font-weight:700; }
+.week-event-meta { margin-top:4px; color:var(--muted); font-size:.88rem; }
+.week-empty { color:var(--muted); font-size:.92rem; }
+
+.month-grid {
+  display:grid;
+  grid-template-columns:repeat(7, minmax(0, 1fr));
+  gap:10px;
+}
+.month-header {
+  padding:10px;
+  text-align:center;
+  color:var(--gold-soft);
+  font-weight:700;
+}
+.month-cell {
+  min-height:150px;
+  border-radius:16px;
+  border:1px solid var(--border);
+  background:#171717;
+  padding:10px;
+}
+.month-cell.muted { opacity:.55; }
+.month-cell-day { font-weight:700; margin-bottom:8px; }
+.month-cell-items { display:grid; gap:6px; }
+.month-item {
+  display:block;
+  font-size:.86rem;
+  line-height:1.3;
+  padding:6px 8px;
+  border-radius:10px;
+  background:#202020;
+  color:var(--text);
+}
+.month-more { color:var(--muted); font-size:.82rem; margin-top:4px; }
+
+@media (max-width: 960px) {
+  .week-grid { grid-template-columns:1fr; }
+}
