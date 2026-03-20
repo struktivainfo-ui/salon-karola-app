@@ -348,3 +348,16 @@ td {
     font-size: 16px;
   }
 }
+
+
+.badge-status-geplant { background: rgba(212, 175, 55, 0.12); }
+.badge-status-bestätigt { background: rgba(45, 143, 90, 0.18); border-color: rgba(45, 143, 90, 0.4); color: #96e2b8; }
+.badge-status-erledigt { background: rgba(80, 140, 255, 0.18); border-color: rgba(80, 140, 255, 0.4); color: #b9d1ff; }
+.badge-status-nicht-erschienen { background: rgba(217, 83, 79, 0.15); border-color: rgba(217, 83, 79, 0.4); color: #ffb6b3; }
+.inline-form { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.inline-form select { min-width: 180px; }
+.wrap-mobile { flex-wrap: wrap; }
+@media (max-width: 768px) {
+  .inline-form { width:100%; }
+  .inline-form select, .inline-form button { width:100%; }
+}
