@@ -5,7 +5,7 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Dashboard</h1>
-      <p class="hero-text">Version 2.4 mit App-Navigation, Schnellaktionen, Kundenstatus und WhatsApp-Vorlagen.</p>
+      <p class="hero-text">Version 2.6 mit App-Navigation, Schnellaktionen, Kundenstatus und WhatsApp-Vorlagen.</p>
     </div>
     <div class="actions">
       <a class="btn" href="{{ url_for('customer_new') }}">Neuen Kontakt anlegen</a>
@@ -24,13 +24,13 @@
 <section class="card space-top">
   <div class="row-between wrap-mobile">
     <h2>Schnellaktionen</h2>
-    <span class="badge">Version 2.4</span>
+    <span class="badge">Version 2.6</span>
   </div>
   <div class="quick-actions">
     <a class="quick-action" href="{{ url_for('customer_new') }}">➕ Kunde anlegen</a>
     <a class="quick-action" href="{{ url_for('calendar_view') }}">📅 Termine öffnen</a>
-    <a class="quick-action" href="{{ url_for('templates_view') }}">💬 Vorlagen bearbeiten</a>
-    <a class="quick-action" href="{{ url_for('run_automation_now') }}">⚡ Automatik prüfen</a>
+    <a class="quick-action" href="{{ url_for('templates_view') }}">💬 Vorlagen</a>
+    <a class="quick-action" href="{{ url_for('run_automation_now') }}">⚡ Automatik</a>
   </div>
 </section>
 
