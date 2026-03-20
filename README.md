@@ -12,3 +12,10 @@ Diese Version enthält:
 - Dateien in GitHub hochladen
 - in Render die Persistent Disk unter `/opt/render/project/src/data` nutzen
 - Start Command: `gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application`
+
+
+Version 2.6:
+- Tagesstart-Dashboard
+- offene Erinnerungen in den nächsten 24 Stunden
+- Kalender- und Workflow-Feinschliff
+- Versions-Texte bereinigt

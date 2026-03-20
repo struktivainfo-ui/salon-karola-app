@@ -686,6 +686,8 @@ def index():
         smtp_ready=smtp_ready(),
         automation=get_automation_status(),
         inactive=inactive_customers(),
+        today_items=today_appointments(),
+        due_items=due_reminders(),
         now=datetime.now(),
         current_endpoint="index",
     )
