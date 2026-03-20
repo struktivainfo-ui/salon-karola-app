@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">Version 2.4</div>
+          <div class="brand-subtitle">{{ app_version|default("2.9 Pro") }}</div>
         </div>
       </div>
       <nav class="nav-links">

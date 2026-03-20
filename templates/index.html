@@ -5,7 +5,7 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Dashboard</h1>
-      <p class="hero-text">Version 2.4 mit App-Navigation, Schnellaktionen, Kundenstatus und WhatsApp-Vorlagen.</p>
+      <p class="hero-text">Version 2.9 Pro mit Mitarbeiter-Zuordnung für Termine, Kalenderansichten und WhatsApp-Vorlagen.</p>
     </div>
     <div class="actions">
       <a class="btn" href="{{ url_for('customer_new') }}">Neuen Kontakt anlegen</a>
@@ -24,7 +24,7 @@
 <section class="card space-top">
   <div class="row-between wrap-mobile">
     <h2>Schnellaktionen</h2>
-    <span class="badge">Version 2.4</span>
+    <span class="badge">{{ app_version|default("2.9 Pro") }}</span>
   </div>
   <div class="quick-actions">
     <a class="quick-action" href="{{ url_for('customer_new') }}">➕ Kunde anlegen</a>

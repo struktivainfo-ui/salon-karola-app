@@ -5,7 +5,7 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">{% if customer %}{{ customer['_firstname'] }} {{ customer['_name'] }}{% else %}Neuer Kontakt{% endif %}</h1>
-      <p class="hero-text">Version 2.4 mit WhatsApp-Vorlagen, visuellem Kundenstatus und schneller Mobile-Nutzung.</p>
+      <p class="hero-text">Version 3.0 Pro mit Terminbearbeitung, farbigen Status, Mitarbeiter-Schnellwahl und besserer Mobile-Ansicht.</p>
     </div>
     <div class="actions">
       <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurück</a>
@@ -71,10 +71,14 @@
           </select>
         </div>
         <div class="form-group"><label>Mitarbeiterin</label>
-          <select name="staff_name">
+          <select name="staff_name" id="newAppointmentStaff">
             <option value="Ute">Ute</option>
             <option value="Jessi">Jessi</option>
           </select>
+          <div class="staff-quick-switch">
+            <button type="button" class="staff-pill active" data-target="newAppointmentStaff" data-value="Ute">Ute</button>
+            <button type="button" class="staff-pill" data-target="newAppointmentStaff" data-value="Jessi">Jessi</button>
+          </div>
         </div>
       </div>
       <div class="form-group"><label>Notizen</label><textarea name="notes"></textarea></div>
@@ -86,13 +90,46 @@
     <h2>Termine</h2>
     <div class="list-stack">
       {% for appt in appointments %}
-      <div class="list-item">
+      <div class="list-item appointment-card appointment-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">
         <div class="row-between wrap-mobile">
           <strong>{{ appt['title'] }}</strong>
           <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
         </div>
         <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt['appointment_at']|dt }}</div>
+        <div class="mobile-line"><span class="mobile-label">Mitarbeiterin:</span> {{ appt['staff_name'] or 'Ute' }}</div>
         <div class="mobile-line">{{ appt['notes'] or 'Keine Notiz' }}</div>
+        <details class="space-top appointment-edit-box">
+          <summary>Termin bearbeiten</summary>
+          <form method="post" action="{{ url_for('appointment_edit', appointment_id=appt['id']) }}" class="space-top">
+            <div class="form-row">
+              <div class="form-group"><label>Titel</label><input type="text" name="title" value="{{ appt['title'] }}"></div>
+              <div class="form-group"><label>Termin</label><input type="datetime-local" name="appointment_at" value="{{ appt['appointment_at'][:16] }}" required></div>
+              <div class="form-group"><label>Erinnerung in Stunden</label><input type="number" name="reminder_hours" value="{{ appt['reminder_hours'] or 24 }}"></div>
+              <div class="form-group"><label>Status</label>
+                <select name="status">
+                  <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
+                  <option value="bestätigt" {% if appt['status'] == 'bestätigt' %}selected{% endif %}>bestätigt</option>
+                  <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
+                  <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
+                </select>
+              </div>
+              <div class="form-group"><label>Mitarbeiterin</label>
+                <select name="staff_name" id="staff_{{ appt['id'] }}">
+                  <option value="Ute" {% if (appt['staff_name'] or 'Ute') == 'Ute' %}selected{% endif %}>Ute</option>
+                  <option value="Jessi" {% if appt['staff_name'] == 'Jessi' %}selected{% endif %}>Jessi</option>
+                </select>
+                <div class="staff-quick-switch">
+                  <button type="button" class="staff-pill {% if (appt['staff_name'] or 'Ute') == 'Ute' %}active{% endif %}" data-target="staff_{{ appt['id'] }}" data-value="Ute">Ute</button>
+                  <button type="button" class="staff-pill {% if appt['staff_name'] == 'Jessi' %}active{% endif %}" data-target="staff_{{ appt['id'] }}" data-value="Jessi">Jessi</button>
+                </div>
+              </div>
+            </div>
+            <div class="form-group"><label>Notizen</label><textarea name="notes">{{ appt['notes'] or '' }}</textarea></div>
+            <div class="actions">
+              <button class="btn btn-secondary" type="submit">Änderungen speichern</button>
+            </div>
+          </form>
+        </details>
         <div class="actions space-top">
           <form method="post" action="{{ url_for('appointment_update_status', appointment_id=appt['id']) }}" class="inline-form">
             <select name="status">
@@ -101,7 +138,7 @@
               <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
               <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
             </select>
-            <button class="btn btn-secondary" type="submit">Status speichern</button>
+            <button class="btn btn-secondary" type="submit">Nur Status speichern</button>
           </form>
           <form method="post" action="{{ url_for('appointment_delete', appointment_id=appt['id']) }}">
             <button class="btn btn-danger" type="submit">Termin löschen</button>
@@ -134,4 +171,23 @@
   </div>
 </section>
 {% endif %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".staff-pill").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const targetId = button.dataset.target;
+      const value = button.dataset.value;
+      const select = document.getElementById(targetId);
+      if (!select) return;
+      select.value = value;
+      const wrapper = button.closest('.staff-quick-switch');
+      if (wrapper) {
+        wrapper.querySelectorAll('.staff-pill').forEach(function (pill) {
+          pill.classList.toggle('active', pill === button);
+        });
+      }
+    });
+  });
+});
+</script>
 {% endblock %}

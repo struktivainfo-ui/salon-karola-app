@@ -1,13 +1,48 @@
 {% extends 'base.html' %}
-{% block title %}Kalender - Salon Karola{% endblock %}
+{% block title %}Kalender - Salon Karola<section class="card space-top mobile-only">
+  <div class="row-between wrap-mobile">
+    <h2>Mobile Schnellübersicht</h2>
+    <span class="badge">{{ staff }} • {{ selected_date }}</span>
+  </div>
+  {% if view == 'week' and week_view %}
+    <div class="mobile-summary-list space-top">
+      {% for day in week_view['days'] %}
+        <div class="mobile-day-card {% if day['is_today'] %}today-outline{% endif %}">
+          <div class="row-between wrap-mobile">
+            <strong>{{ day['name'] }} {{ day['label'] }}</strong>
+            <span class="badge">{{ day['items']|length }} Termine</span>
+          </div>
+          {% for appt in day['items'] %}
+            <a class="mobile-summary-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+              <strong>{{ appt['time_short'] }}</strong> — {{ appt['customer_name'] }} — {{ appt['staff_name'] }}
+            </a>
+          {% else %}
+            <div class="week-empty">Keine Termine</div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% elif view == 'day' and day_view %}
+    <div class="mobile-summary-list space-top">
+      {% for appt in day_view['items'] %}
+      <a class="mobile-summary-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+        <strong>{{ appt['time_short'] }}</strong> — {{ appt['customer_name'] }} — {{ appt['title'] }} — {{ appt['staff_name'] }}
+      </a>
+      {% else %}
+      <div class="week-empty">Keine Termine</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
 {% block content %}
 <section class="hero-card">
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Kalender</h1>
-      <p class="hero-text">Tages-, Wochen- und Monatsansicht für Ute, Jessi oder den gesamten Salon.</p>
+      <p class="hero-text">Tages-, Wochen- und Monatsansicht mit farbigen Status und verbesserter Mobile-Übersicht.</p>
     </div>
-    <span class="badge">Version 2.7</span>
+    <span class="badge">{{ app_version|default("3.0 Pro") }}</span>
   </div>
 </section>
 
@@ -76,7 +111,7 @@
       </div>
       <div class="week-events">
         {% for appt in day['items'] %}
-        <a class="week-event" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+        <a class="week-event week-event-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
           <div class="week-event-time">{{ appt['appointment_at']|dt }}</div>
           <div class="week-event-title">{{ appt['firstname'] }} {{ appt['lastname'] }}</div>
           <div class="week-event-meta">{{ appt['title'] }} • {{ appt['staff_name'] }}</div>
@@ -102,15 +137,14 @@
     {% for header in month_view['weekday_headers'] %}
     <div class="month-header">{{ header }}</div>
     {% endfor %}
-
     {% for week in month_view['weeks'] %}
       {% for cell in week %}
       <div class="month-cell {% if not cell['in_month'] %}muted{% endif %} {% if cell['is_today'] %}today{% endif %}">
         <div class="month-cell-day">{{ cell['day'] }}</div>
         <div class="month-cell-items">
           {% for appt in cell['items'][:3] %}
-          <a class="month-item" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-            {{ appt['appointment_at'][11:16] }} {{ appt['firstname'] }} {{ appt['lastname'] }} • {{ appt['staff_name'] }}
+          <a class="month-item month-item-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+            {{ appt['time_short'] }} {{ appt['firstname'] }} {{ appt['lastname'] }} • {{ appt['staff_name'] }}
           </a>
           {% endfor %}
           {% if cell['items']|length > 3 %}
@@ -140,4 +174,39 @@
   </div>
 </section>
 {% endif %}
+<section class="card space-top mobile-only">
+  <div class="row-between wrap-mobile">
+    <h2>Mobile Schnellübersicht</h2>
+    <span class="badge">{{ staff }} • {{ selected_date }}</span>
+  </div>
+  {% if view == 'week' and week_view %}
+    <div class="mobile-summary-list space-top">
+      {% for day in week_view['days'] %}
+        <div class="mobile-day-card {% if day['is_today'] %}today-outline{% endif %}">
+          <div class="row-between wrap-mobile">
+            <strong>{{ day['name'] }} {{ day['label'] }}</strong>
+            <span class="badge">{{ day['items']|length }} Termine</span>
+          </div>
+          {% for appt in day['items'] %}
+            <a class="mobile-summary-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+              <strong>{{ appt['time_short'] }}</strong> — {{ appt['customer_name'] }} — {{ appt['staff_name'] }}
+            </a>
+          {% else %}
+            <div class="week-empty">Keine Termine</div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% elif view == 'day' and day_view %}
+    <div class="mobile-summary-list space-top">
+      {% for appt in day_view['items'] %}
+      <a class="mobile-summary-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+        <strong>{{ appt['time_short'] }}</strong> — {{ appt['customer_name'] }} — {{ appt['title'] }} — {{ appt['staff_name'] }}
+      </a>
+      {% else %}
+      <div class="week-empty">Keine Termine</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
 {% endblock %}
