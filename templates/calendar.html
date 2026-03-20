@@ -5,26 +5,33 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Kalender</h1>
-      <p class="hero-text">Tages-, Wochen- und Monatsansicht für alle Termine.</p>
+      <p class="hero-text">Tages-, Wochen- und Monatsansicht für Ute, Jessi oder den gesamten Salon.</p>
     </div>
-    <span class="badge">Version 2.6</span>
+    <span class="badge">Version 2.7</span>
   </div>
 </section>
 
 <section class="card">
   <form method="get" class="calendar-toolbar">
     <div class="view-switch">
-      <a class="view-chip {% if view == 'day' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date) }}">Tag</a>
-      <a class="view-chip {% if view == 'week' %}active{% endif %}" href="{{ url_for('calendar_view', view='week', date=selected_date) }}">Woche</a>
-      <a class="view-chip {% if view == 'month' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', date=selected_date) }}">Monat</a>
+      <a class="view-chip {% if staff == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Alle') }}">Alle</a>
+      <a class="view-chip {% if staff == 'Ute' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Ute') }}">Ute</a>
+      <a class="view-chip {% if staff == 'Jessi' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Jessi') }}">Jessi</a>
+    </div>
+
+    <div class="view-switch">
+      <a class="view-chip {% if view == 'day' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=staff) }}">Tag</a>
+      <a class="view-chip {% if view == 'week' %}active{% endif %}" href="{{ url_for('calendar_view', view='week', date=selected_date, staff=staff) }}">Woche</a>
+      <a class="view-chip {% if view == 'month' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', date=selected_date, staff=staff) }}">Monat</a>
     </div>
 
     <div class="calendar-nav">
-      <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=prev_date) }}">← Zurück</a>
+      <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=prev_date, staff=staff) }}">← Zurück</a>
       <input type="date" name="date" value="{{ selected_date }}">
       <input type="hidden" name="view" value="{{ view }}">
+      <input type="hidden" name="staff" value="{{ staff }}">
       <button type="submit">Anzeigen</button>
-      <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=next_date) }}">Weiter →</a>
+      <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=next_date, staff=staff) }}">Weiter →</a>
     </div>
   </form>
 </section>
@@ -33,7 +40,7 @@
 <section class="card space-top">
   <div class="row-between wrap-mobile">
     <h2>{{ day_view.label }}</h2>
-    <span class="badge">{{ day_view.items|length }} Termine</span>
+    <span class="badge">{{ staff }} • {{ day_view.items|length }} Termine</span>
   </div>
   <div class="list-stack space-top">
     {% for appt in day_view.items %}
@@ -44,6 +51,7 @@
       </div>
       <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt.appointment_at|dt }}</div>
       <div class="mobile-line"><span class="mobile-label">Leistung:</span> {{ appt.title }}</div>
+      <div class="mobile-line"><span class="mobile-label">Mitarbeiterin:</span> {{ appt.staff_name }}</div>
       <div class="mobile-line"><span class="mobile-label">Telefon:</span> {{ appt.phone }}</div>
     </div>
     {% else %}
@@ -71,7 +79,7 @@
         <a class="week-event" href="{{ url_for('customer_detail', customer_id=appt.customer_id) }}">
           <div class="week-event-time">{{ appt.appointment_at|dt }}</div>
           <div class="week-event-title">{{ appt.firstname }} {{ appt.lastname }}</div>
-          <div class="week-event-meta">{{ appt.title }}</div>
+          <div class="week-event-meta">{{ appt.title }} • {{ appt.staff_name }}</div>
         </a>
         {% else %}
         <div class="week-empty">Keine Termine</div>
@@ -100,7 +108,7 @@
         <div class="month-cell-day">{{ cell.day }}</div>
         <div class="month-cell-items">
           {% for appt in cell.items[:3] %}
-          <a class="month-item" href="{{ url_for('customer_detail', customer_id=appt.customer_id) }}">{{ appt.appointment_at[11:16] }} {{ appt.firstname }} {{ appt.lastname }}</a>
+          <a class="month-item" href="{{ url_for('customer_detail', customer_id=appt.customer_id) }}">{{ appt.appointment_at[11:16] }} {{ appt.firstname }} {{ appt.lastname }} • {{ appt.staff_name }}</a>
           {% endfor %}
           {% if cell.items|length > 3 %}
           <div class="month-more">+{{ cell.items|length - 3 }} weitere</div>
