@@ -616,7 +616,19 @@ def customer_activity_status(last_appointment_at):
         return "rueckholung"
     except Exception:
         return "neu"
-
+def customer_activity_status(last_appointment_at):
+    if not last_appointment_at:
+        return "neu"
+    try:
+        last_dt = datetime.fromisoformat(str(last_appointment_at))
+        days = (datetime.now() - last_dt).days
+        if days <= 60:
+            return "aktiv"
+        if days <= 120:
+            return "beobachten"
+        return "rueckholung"
+    except Exception:
+        return "neu"
 
 def next_appointments(limit=12):
     return get_db().execute(
