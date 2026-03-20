@@ -49,7 +49,7 @@ app = Flask(
 app.secret_key = os.getenv("SECRET_KEY", "salon-karola-ultra-secret")
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
-APP_VERSION = "3.2 Pro"
+APP_VERSION = "3.3 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -260,15 +260,16 @@ def init_db():
 
 # ---------- Mail ----------
 def send_email(to_email, subject, body):
-    host = os.getenv("SMTP_HOST")
-    port = int(os.getenv("SMTP_PORT", "587"))
-    username = os.getenv("SMTP_USERNAME")
-    password = os.getenv("SMTP_PASSWORD")
-    sender = os.getenv("SMTP_SENDER", username or "")
-    use_tls = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+    host = (os.getenv("SMTP_HOST") or "").strip()
+    port = int((os.getenv("SMTP_PORT") or "587").strip())
+    username = (os.getenv("SMTP_USERNAME") or "").strip()
+    password = os.getenv("SMTP_PASSWORD") or ""
+    sender = (os.getenv("SMTP_SENDER") or username or "").strip()
+    use_tls = (os.getenv("SMTP_USE_TLS", "true") or "true").lower() == "true"
+    use_ssl = (os.getenv("SMTP_USE_SSL", "false") or "false").lower() == "true"
 
     if not all([host, port, username, password, sender]):
-        raise RuntimeError("SMTP ist nicht vollständig konfiguriert. Bitte .env prüfen.")
+        raise RuntimeError("SMTP ist nicht vollständig konfiguriert. Bitte SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD und SMTP_SENDER prüfen.")
 
     msg = EmailMessage()
     msg["From"] = sender
@@ -276,11 +277,26 @@ def send_email(to_email, subject, body):
     msg["Subject"] = subject
     msg.set_content(body)
 
-    with smtplib.SMTP(host, port, timeout=20) as server:
-        if use_tls:
-            server.starttls()
-        server.login(username, password)
-        server.send_message(msg)
+    try:
+        if use_ssl:
+            with smtplib.SMTP_SSL(host, port, timeout=25) as server:
+                server.ehlo()
+                server.login(username, password)
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP(host, port, timeout=25) as server:
+                server.ehlo()
+                if use_tls:
+                    server.starttls()
+                    server.ehlo()
+                server.login(username, password)
+                server.send_message(msg)
+    except smtplib.SMTPAuthenticationError as exc:
+        raise RuntimeError("SMTP Anmeldung fehlgeschlagen. Benutzername oder Passwort stimmen nicht.") from exc
+    except smtplib.SMTPConnectError as exc:
+        raise RuntimeError("SMTP Verbindung fehlgeschlagen. Host oder Port bitte prüfen.") from exc
+    except OSError as exc:
+        raise RuntimeError(f"SMTP Netzwerkfehler: {exc}") from exc
 
 
 # ---------- Utilities ----------
@@ -357,7 +373,14 @@ def log_email(customer_id, email_type, subject, body, recipient, status, error_m
 
 def smtp_ready():
     needed = ["SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_SENDER"]
-    return all(os.getenv(k) for k in needed)
+    return all((os.getenv(k) or "").strip() for k in needed)
+
+
+def safe_count(query, params=()):
+    try:
+        return get_db().execute(query, params).fetchone()[0]
+    except Exception:
+        return 0
 
 
 def whatsapp_link(customer, text=None):
@@ -610,16 +633,16 @@ def scheduler_tick():
 # ---------- Dashboard ----------
 def dashboard_stats():
     db = get_db()
-    total_customers = db.execute("SELECT COUNT(*) FROM _Customers").fetchone()[0]
-    total_emails = db.execute("SELECT COUNT(*) FROM _Customers WHERE _mail IS NOT NULL AND TRIM(_mail) <> ''").fetchone()[0]
-    total_mobile = db.execute("SELECT COUNT(*) FROM _Customers WHERE Customer_Mobiltelefon IS NOT NULL AND TRIM(Customer_Mobiltelefon) <> ''").fetchone()[0]
-    upcoming_appointments = db.execute(
+    total_customers = safe_count("SELECT COUNT(*) FROM _Customers")
+    total_emails = safe_count("SELECT COUNT(*) FROM _Customers WHERE _mail IS NOT NULL AND TRIM(_mail) <> ''")
+    total_mobile = safe_count("SELECT COUNT(*) FROM _Customers WHERE Customer_Mobiltelefon IS NOT NULL AND TRIM(Customer_Mobiltelefon) <> ''")
+    upcoming_appointments = safe_count(
         "SELECT COUNT(*) FROM appointments WHERE appointment_at >= ?",
         (datetime.now().isoformat(timespec="minutes"),),
-    ).fetchone()[0]
-    sent_today = db.execute(
+    )
+    sent_today = safe_count(
         "SELECT COUNT(*) FROM email_log WHERE date(sent_at) = date('now', 'localtime') AND status = 'sent'"
-    ).fetchone()[0]
+    )
 
     birthdays_30 = 0
     for row in db.execute("SELECT _birthdate FROM _Customers WHERE _birthdate IS NOT NULL AND TRIM(_birthdate) <> ''").fetchall():
@@ -634,7 +657,8 @@ def dashboard_stats():
         except Exception:
             continue
 
-    inactive_60 = db.execute(
+    try:
+        inactive_60 = db.execute(
         """
         SELECT COUNT(*)
         FROM _Customers c
@@ -647,19 +671,21 @@ def dashboard_stats():
         """,
         ((datetime.now() - timedelta(days=60)).isoformat(timespec="minutes"),),
     ).fetchone()[0]
+    except Exception:
+        inactive_60 = 0
 
     today_start = datetime.now().strftime("%Y-%m-%dT00:00")
     tomorrow_start = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%dT00:00")
     week_end = (datetime.now() + timedelta(days=7)).isoformat(timespec="minutes")
 
-    appointments_today = db.execute(
+    appointments_today = safe_count(
         "SELECT COUNT(*) FROM appointments WHERE appointment_at >= ? AND appointment_at < ?",
         (today_start, tomorrow_start),
-    ).fetchone()[0]
-    appointments_week = db.execute(
+    )
+    appointments_week = safe_count(
         "SELECT COUNT(*) FROM appointments WHERE appointment_at >= ? AND appointment_at < ?",
         (datetime.now().isoformat(timespec="minutes"), week_end),
-    ).fetchone()[0]
+    )
 
     return {
         "total_customers": total_customers,
@@ -869,12 +895,16 @@ def index():
     customers = db.execute(base_query, params).fetchall()
     tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
 
+    stats = dashboard_stats()
+    if customers and not stats.get("total_customers"):
+        stats["total_customers"] = len(customers)
+
     return render_template(
         "index.html",
         customers=customers,
         q=q,
         tag=tag,
-        stats=dashboard_stats(),
+        stats=stats,
         upcoming=next_appointments(),
         birthdays=upcoming_birthdays(),
         tags=tags,
@@ -1648,9 +1678,13 @@ def replace_database_from_upload(uploaded_file):
 
     backup_path = backup_current_database("before_replace")
     close_live_db_connection()
+    if DB_PATH.exists():
+        DB_PATH.unlink()
     shutil.copy2(tmp_path, DB_PATH)
     tmp_path.unlink(missing_ok=True)
     init_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("PRAGMA wal_checkpoint(FULL)")
     return backup_path, inspect_sqlite_database(DB_PATH)
 
 
@@ -1752,19 +1786,24 @@ def merge_database_from_upload(uploaded_file):
                 ).fetchone()
                 if duplicate:
                     continue
+                row_keys = row.keys()
                 dest.execute(
                     """
-                    INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, reminder_sent_at, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, reminder_sent_at, created_at, status, staff_name, created_by, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         mapped_customer,
                         row["title"],
                         row["appointment_at"],
-                        row["notes"],
-                        row["reminder_hours"],
-                        row["reminder_sent_at"],
-                        row["created_at"],
+                        row["notes"] if "notes" in row_keys else "",
+                        row["reminder_hours"] if "reminder_hours" in row_keys else 24,
+                        row["reminder_sent_at"] if "reminder_sent_at" in row_keys else None,
+                        row["created_at"] if "created_at" in row_keys else datetime.now().isoformat(timespec="seconds"),
+                        row["status"] if "status" in row_keys and row["status"] else "geplant",
+                        row["staff_name"] if "staff_name" in row_keys and row["staff_name"] else "Ute",
+                        row["created_by"] if "created_by" in row_keys and row["created_by"] else (row["staff_name"] if "staff_name" in row_keys and row["staff_name"] else "Ute"),
+                        row["updated_at"] if "updated_at" in row_keys and row["updated_at"] else (row["created_at"] if "created_at" in row_keys else datetime.now().isoformat(timespec="seconds")),
                     ),
                 )
                 merged["appointments"] += 1
@@ -1798,17 +1837,17 @@ def database_tools():
             if action == "merge":
                 backup_path, merged, info_after = merge_database_from_upload(file)
                 flash(
-                    f"Datenbank zusammengeführt. Neue Kontakte: {merged['customers']}, neue Termine: {merged['appointments']}, neue Vorlagen: {merged['templates']}. Backup: {backup_path.name if backup_path else 'keins'}"
+                    f"Datenbank zusammengeführt. Neue Kontakte: {merged['customers']}, neue Termine: {merged['appointments']}, neue Vorlagen: {merged['templates']}. Aktuell insgesamt: {info_after['counts'].get('_Customers', 0)} Kontakte. Backup: {backup_path.name if backup_path else 'keins'}"
                 )
             else:
                 backup_path, info_after = replace_database_from_upload(file)
                 flash(
-                    f"Datenbank komplett ersetzt. Aktuelle Kontakte: {info_after['counts'].get('_Customers', 0)}. Backup: {backup_path.name if backup_path else 'keins'}"
+                    f"Datenbank komplett ersetzt. Aktuell: {info_after['counts'].get('_Customers', 0)} Kontakte und {info_after['counts'].get('appointments', 0)} Termine. Backup: {backup_path.name if backup_path else 'keins'}"
                 )
         except Exception as exc:
             flash(f"Datenbank-Import fehlgeschlagen: {exc}")
         return redirect(url_for("database_tools"))
-    return render_template("database_tools.html", db_info=db_info, backup_files=backup_files, current_endpoint="database_tools")
+    return render_template("database_tools.html", db_info=db_info, backup_files=backup_files, current_endpoint="database_tools", app_version=APP_VERSION)
 
 
 @app.route("/database/export")
