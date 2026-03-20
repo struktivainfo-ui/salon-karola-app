@@ -1,0 +1,15 @@
+Salon Karola Version 2.7
+
+Neu:
+- Team-Kalender für Ute und Jessi
+- Extra Menü oben im Dashboard für Ute, Jessi und Gesamter Salon
+- Terminzuordnung pro Mitarbeiterin beim Speichern
+- Kalenderfilter für Alle / Ute / Jessi
+- Kein Umsatzmodul
+
+Deploy:
+1. ZIP komplett entpacken
+2. alles in GitHub ersetzen
+3. Render deployen
+4. Start Command unverändert lassen:
+   gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application

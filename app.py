@@ -224,6 +224,8 @@ def init_db():
         columns = [row[1] for row in conn.execute("PRAGMA table_info(appointments)").fetchall()]
         if "status" not in columns:
             conn.execute("ALTER TABLE appointments ADD COLUMN status TEXT DEFAULT 'geplant'")
+        if "staff_name" not in columns:
+            conn.execute("ALTER TABLE appointments ADD COLUMN staff_name TEXT DEFAULT 'Ute'")
 
         conn.commit()
 
@@ -533,6 +535,27 @@ def dashboard_stats():
     }
 
 
+
+def staff_dashboard_counts():
+    db = get_db()
+    today_start = datetime.now().strftime("%Y-%m-%dT00:00")
+    tomorrow_start = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%dT00:00")
+    rows = db.execute(
+        """
+        SELECT COALESCE(staff_name, 'Ute') AS staff_name, COUNT(*) AS cnt
+        FROM appointments
+        WHERE appointment_at >= ? AND appointment_at < ?
+        GROUP BY COALESCE(staff_name, 'Ute')
+        """,
+        (today_start, tomorrow_start),
+    ).fetchall()
+    data = {"Ute": 0, "Jessi": 0}
+    for row in rows:
+        if row["staff_name"] in data:
+            data[row["staff_name"]] = row["cnt"]
+    return data
+
+
 def upcoming_birthdays(limit=12):
     rows = get_db().execute(
         """
@@ -586,48 +609,6 @@ def customer_activity_status(last_appointment_at):
         return "rueckholung"
     except Exception:
         return "neu"
-
-
-
-def today_appointments(limit=20):
-    start_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    end_dt = start_dt + timedelta(days=1)
-    return get_db().execute(
-        """
-        SELECT a.*, c._firstname, c._name, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
-        FROM appointments a
-        JOIN _Customers c ON c._id = a.customer_id
-        WHERE a.appointment_at >= ? AND a.appointment_at < ?
-        ORDER BY a.appointment_at ASC
-        LIMIT ?
-        """,
-        (
-            start_dt.isoformat(timespec="minutes"),
-            end_dt.isoformat(timespec="minutes"),
-            limit,
-        ),
-    ).fetchall()
-
-
-def due_reminders(limit=20):
-    now = datetime.now()
-    upcoming_limit = now + timedelta(hours=24)
-    return get_db().execute(
-        """
-        SELECT a.*, c._firstname, c._name, c._mail, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
-        FROM appointments a
-        JOIN _Customers c ON c._id = a.customer_id
-        WHERE a.appointment_at >= ? AND a.appointment_at <= ?
-          AND a.reminder_sent_at IS NULL
-        ORDER BY a.appointment_at ASC
-        LIMIT ?
-        """,
-        (
-            now.isoformat(timespec="minutes"),
-            upcoming_limit.isoformat(timespec="minutes"),
-            limit,
-        ),
-    ).fetchall()
 
 
 def next_appointments(limit=12):
@@ -728,8 +709,7 @@ def index():
         smtp_ready=smtp_ready(),
         automation=get_automation_status(),
         inactive=inactive_customers(),
-        today_items=today_appointments(),
-        due_items=due_reminders(),
+        staff_counts=staff_dashboard_counts(),
         now=datetime.now(),
         current_endpoint="index",
     )
@@ -853,8 +833,8 @@ def appointment_new(customer_id):
     db = get_db()
     db.execute(
         """
-        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             customer_id,
@@ -864,6 +844,7 @@ def appointment_new(customer_id):
             int(request.form.get("reminder_hours", "24") or 24),
             datetime.now().isoformat(timespec="seconds"),
             request.form.get("status", "geplant").strip() or "geplant",
+            request.form.get("staff_name", "Ute").strip() or "Ute",
         ),
     )
     db.commit()
@@ -916,31 +897,34 @@ def _calendar_event_dict(appt):
         "title": appt["title"],
         "appointment_at": appt["appointment_at"],
         "status": appt["status"] or "geplant",
+        "staff_name": appt["staff_name"] or "Ute",
         "firstname": appt["_firstname"],
         "lastname": appt["_name"],
         "phone": appt["Customer_Mobiltelefon"] or appt["Customer_PersönlichesTelefon"] or "-",
     }
 
 
-def _fetch_calendar_appointments(start_dt, end_dt):
+def _fetch_calendar_appointments(start_dt, end_dt, staff_filter=None):
     db = get_db()
-    rows = db.execute(
-        """
+    sql = """
         SELECT a.*, c._firstname, c._name, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
         FROM appointments a
         JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ? AND a.appointment_at < ?
-        ORDER BY a.appointment_at ASC
-        """,
-        (start_dt.isoformat(timespec="minutes"), end_dt.isoformat(timespec="minutes")),
-    ).fetchall()
+    """
+    params = [start_dt.isoformat(timespec="minutes"), end_dt.isoformat(timespec="minutes")]
+    if staff_filter in {"Ute", "Jessi"}:
+        sql += " AND COALESCE(a.staff_name, 'Ute') = ?"
+        params.append(staff_filter)
+    sql += " ORDER BY a.appointment_at ASC"
+    rows = db.execute(sql, tuple(params)).fetchall()
     return rows
 
 
-def _build_day_view(selected_date):
+def _build_day_view(selected_date, staff_filter=None):
     start_dt = datetime.combine(selected_date, datetime.min.time())
     end_dt = start_dt + timedelta(days=1)
-    rows = _fetch_calendar_appointments(start_dt, end_dt)
+    rows = _fetch_calendar_appointments(start_dt, end_dt, staff_filter)
     return {
         "selected_date": selected_date.isoformat(),
         "items": [_calendar_event_dict(r) for r in rows],
@@ -948,12 +932,12 @@ def _build_day_view(selected_date):
     }
 
 
-def _build_week_view(selected_date):
+def _build_week_view(selected_date, staff_filter=None):
     monday = selected_date - timedelta(days=selected_date.weekday())
     sunday = monday + timedelta(days=6)
     start_dt = datetime.combine(monday, datetime.min.time())
     end_dt = datetime.combine(sunday + timedelta(days=1), datetime.min.time())
-    rows = _fetch_calendar_appointments(start_dt, end_dt)
+    rows = _fetch_calendar_appointments(start_dt, end_dt, staff_filter)
 
     by_day = { (monday + timedelta(days=i)).isoformat(): [] for i in range(7) }
     for row in rows:
@@ -979,7 +963,7 @@ def _build_week_view(selected_date):
     }
 
 
-def _build_month_view(selected_date):
+def _build_month_view(selected_date, staff_filter=None):
     first_day = selected_date.replace(day=1)
     _, days_in_month = pycalendar.monthrange(first_day.year, first_day.month)
     start_weekday = first_day.weekday()  # Monday=0
@@ -989,6 +973,7 @@ def _build_month_view(selected_date):
     rows = _fetch_calendar_appointments(
         datetime.combine(start_cell, datetime.min.time()),
         datetime.combine(end_cell, datetime.min.time()),
+        staff_filter,
     )
     by_day = {}
     for row in rows:
@@ -1017,24 +1002,39 @@ def _build_month_view(selected_date):
 @app.route("/calendar")
 @login_required
 def calendar_view():
-    db = get_db()
-    start = request.args.get("start") or datetime.now().strftime("%Y-%m-01")
-    end_dt = datetime.fromisoformat(start) + timedelta(days=45)
-    appointments = db.execute(
-        """
-        SELECT a.*, c._firstname, c._name, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
-        FROM appointments a
-        JOIN _Customers c ON c._id = a.customer_id
-        WHERE a.appointment_at >= ? AND a.appointment_at < ?
-        ORDER BY a.appointment_at ASC
-        """,
-        (start, end_dt.isoformat(timespec="minutes")),
-    ).fetchall()
-    grouped = {}
-    for appt in appointments:
-        day = appt["appointment_at"][:10]
-        grouped.setdefault(day, []).append(appt)
-    return render_template("calendar.html", grouped=grouped, start=start, current_endpoint="calendar_view")
+    view = (request.args.get("view") or "week").strip().lower()
+    if view not in {"day", "week", "month"}:
+        view = "week"
+
+    staff = (request.args.get("staff") or "Alle").strip()
+    if staff not in {"Alle", "Ute", "Jessi"}:
+        staff = "Alle"
+
+    selected_date = _parse_date(request.args.get("date") or datetime.now().date().isoformat())
+    staff_filter = None if staff == "Alle" else staff
+
+    if view == "day":
+        payload = _build_day_view(selected_date, staff_filter)
+    elif view == "month":
+        payload = _build_month_view(selected_date, staff_filter)
+    else:
+        payload = _build_week_view(selected_date, staff_filter)
+
+    prev_date = selected_date - timedelta(days=1 if view == "day" else 7 if view == "week" else 30)
+    next_date = selected_date + timedelta(days=1 if view == "day" else 7 if view == "week" else 30)
+
+    return render_template(
+        "calendar.html",
+        view=view,
+        staff=staff,
+        selected_date=selected_date.isoformat(),
+        prev_date=prev_date.isoformat(),
+        next_date=next_date.isoformat(),
+        day_view=payload if view == "day" else None,
+        week_view=payload if view == "week" else None,
+        month_view=payload if view == "month" else None,
+        current_endpoint="calendar_view",
+    )
 
 
 @app.route("/templates", methods=["GET", "POST"])
@@ -1184,8 +1184,8 @@ def inject_globals():
     return {
         "admin_name": session.get("admin_name"),
         "automation": get_automation_status() if session.get("admin_logged_in") else {},
-        "customer_activity_status": customer_activity_status,
     }
+
 
 def boot_app():
     init_db()
