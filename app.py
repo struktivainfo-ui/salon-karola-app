@@ -981,6 +981,10 @@ def _parse_date(value):
         return datetime.now().date()
 
 
+def parse_iso_date(value):
+    return _parse_date(value)
+
+
 def _calendar_event_dict(appt):
     status = appt["status"] or "geplant"
     try:
