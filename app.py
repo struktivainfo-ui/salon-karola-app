@@ -928,7 +928,7 @@ def _build_day_view(selected_date, staff_filter=None):
     return {
         "selected_date": selected_date.isoformat(),
         "items": [_calendar_event_dict(r) for r in rows],
-        "label": selected_date.strftime("%A, %d.%m.%Y"),
+        "label": f"{weekday_name_de(selected_date)}, {selected_date.strftime('%d.%m.%Y')}",
     }
 
 
@@ -949,7 +949,7 @@ def _build_week_view(selected_date, staff_filter=None):
         current = monday + timedelta(days=i)
         days.append({
             "date": current.isoformat(),
-            "name": current.strftime("%A"),
+            "name": weekday_name_de(current),
             "label": current.strftime("%d.%m."),
             "items": by_day.get(current.isoformat(), []),
             "is_today": current == datetime.now().date(),
