@@ -1,5 +1,18 @@
 {% extends 'base.html' %}
-{% block title %}{% if customer %}Kontakt{% else %}Neuer Kontakt{% endif %} - Salon Karola{% endblock %}
+{% block title %}{% if customer %}Kontakt{% else %}Neuer Kontakt{% endif %} - Salon Karola<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const deviceStaff = localStorage.getItem("sk_device_staff") || "Ute";
+    document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
+    const newStaff = document.getElementById("newAppointmentStaff");
+    if (newStaff) {
+      newStaff.value = deviceStaff;
+      document.querySelectorAll('.staff-pill[data-target="newAppointmentStaff"]').forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.value === deviceStaff);
+      });
+    }
+  });
+</script>
+{% endblock %}
 {% block content %}
 <section class="hero-card">
   <div class="hero-row">
@@ -57,7 +70,7 @@
 <section class="grid grid-2 space-top">
   <div class="card">
     <h2>Termin hinzufügen</h2>
-    <form method="post" action="{{ url_for('appointment_new', customer_id=customer['_id']) }}">
+    <form method="post" action="{{ url_for('appointment_new', customer_id=customer['_id']) }}" class="appointment-sync-form">
       <div class="form-row">
         <div class="form-group"><label>Titel</label><input type="text" name="title" value="Salon-Termin"></div>
         <div class="form-group"><label>Termin</label><input type="datetime-local" name="appointment_at" required></div>
@@ -81,7 +94,9 @@
           </div>
         </div>
       </div>
+      <input type="hidden" name="actor_name" class="actor-name-field" value="">
       <div class="form-group"><label>Notizen</label><textarea name="notes"></textarea></div>
+      <div class="helper-text">Die Kollegin bekommt auf dem anderen Handy eine Live-Benachrichtigung, sobald der Termin gespeichert wird.</div>
       <button type="submit">Termin speichern</button>
     </form>
   </div>
@@ -100,7 +115,7 @@
         <div class="mobile-line">{{ appt['notes'] or 'Keine Notiz' }}</div>
         <details class="space-top appointment-edit-box">
           <summary>Termin bearbeiten</summary>
-          <form method="post" action="{{ url_for('appointment_edit', appointment_id=appt['id']) }}" class="space-top">
+          <form method="post" action="{{ url_for('appointment_edit', appointment_id=appt['id']) }}" class="space-top appointment-sync-form">
             <div class="form-row">
               <div class="form-group"><label>Titel</label><input type="text" name="title" value="{{ appt['title'] }}"></div>
               <div class="form-group"><label>Termin</label><input type="datetime-local" name="appointment_at" value="{{ appt['appointment_at'][:16] }}" required></div>
@@ -124,6 +139,7 @@
                 </div>
               </div>
             </div>
+            <input type="hidden" name="actor_name" class="actor-name-field" value="">
             <div class="form-group"><label>Notizen</label><textarea name="notes">{{ appt['notes'] or '' }}</textarea></div>
             <div class="actions">
               <button class="btn btn-secondary" type="submit">Änderungen speichern</button>
@@ -189,5 +205,18 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const deviceStaff = localStorage.getItem("sk_device_staff") || "Ute";
+    document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
+    const newStaff = document.getElementById("newAppointmentStaff");
+    if (newStaff) {
+      newStaff.value = deviceStaff;
+      document.querySelectorAll('.staff-pill[data-target="newAppointmentStaff"]').forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.value === deviceStaff);
+      });
+    }
+  });
 </script>
 {% endblock %}

@@ -1,53 +1,25 @@
 {% extends 'base.html' %}
-{% block title %}Kalender - Salon Karola<section class="card space-top mobile-only">
-  <div class="row-between wrap-mobile">
-    <h2>Mobile Schnellübersicht</h2>
-    <span class="badge">{{ staff }} • {{ selected_date }}</span>
-  </div>
-  {% if view == 'week' and week_view %}
-    <div class="mobile-summary-list space-top">
-      {% for day in week_view['days'] %}
-        <div class="mobile-day-card {% if day['is_today'] %}today-outline{% endif %}">
-          <div class="row-between wrap-mobile">
-            <strong>{{ day['name'] }} {{ day['label'] }}</strong>
-            <span class="badge">{{ day['items']|length }} Termine</span>
-          </div>
-          {% for appt in day['items'] %}
-            <a class="mobile-summary-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-              <strong>{{ appt['time_short'] }}</strong> — {{ appt['customer_name'] }} — {{ appt['staff_name'] }}
-            </a>
-          {% else %}
-            <div class="week-empty">Keine Termine</div>
-          {% endfor %}
-        </div>
-      {% endfor %}
-    </div>
-  {% elif view == 'day' and day_view %}
-    <div class="mobile-summary-list space-top">
-      {% for appt in day_view['items'] %}
-      <a class="mobile-summary-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-        <strong>{{ appt['time_short'] }}</strong> — {{ appt['customer_name'] }} — {{ appt['title'] }} — {{ appt['staff_name'] }}
-      </a>
-      {% else %}
-      <div class="week-empty">Keine Termine</div>
-      {% endfor %}
-    </div>
-  {% endif %}
-</section>
-{% endblock %}
+{% block title %}Kalender - Salon Karola{% endblock %}
 {% block content %}
 <section class="hero-card">
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Kalender</h1>
-      <p class="hero-text">Tages-, Wochen- und Monatsansicht mit farbigen Status und verbesserter Mobile-Übersicht.</p>
+      <p class="hero-text">Tag, Woche und Monat jetzt sauber auf Deutsch – mit echter Hintergrund-Push-Funktion und klarer Tagesansicht mit Uhrzeiten.</p>
     </div>
-    <span class="badge">{{ app_version|default("3.0 Pro") }}</span>
+    <span class="badge">{{ app_version|default("3.2 Pro") }}</span>
   </div>
 </section>
 
 <section class="card">
-  <form method="get" class="calendar-toolbar">
+  <div class="row-between wrap-mobile">
+    <div>
+      <h2>Kalendersteuerung</h2>
+      <div class="helper-text">Monate, Wochentage und Ansichten sind auf Deutsch. Die Tagesansicht zeigt jetzt die Öffnungszeiten mit Uhrzeiten, und Push kann auch im Hintergrund laufen.</div>
+    </div>
+    <span class="badge">{{ staff }} • {{ selected_date }}</span>
+  </div>
+  <form method="get" class="calendar-toolbar space-top">
     <div class="view-switch">
       <a class="view-chip {% if staff == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Alle') }}">Alle</a>
       <a class="view-chip {% if staff == 'Ute' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Ute') }}">Ute</a>
@@ -74,9 +46,34 @@
 {% if view == 'day' and day_view %}
 <section class="card space-top">
   <div class="row-between wrap-mobile">
-    <h2>{{ day_view['label'] }}</h2>
-    <span class="badge">{{ staff }} • {{ day_view['items']|length }} Termine</span>
+    <div>
+      <h2>{{ day_view['label'] }}</h2>
+      <div class="helper-text">{{ day_view['timeline']['open_label'] }}</div>
+    </div>
+    <span class="badge">{{ day_view['items']|length }} Termine</span>
   </div>
+
+  {% if day_view['timeline']['open'] %}
+  <div class="day-timeline space-top">
+    {% for slot in day_view['timeline']['slots'] %}
+    <div class="day-slot">
+      <div class="day-slot-time">{{ slot['time'] }}</div>
+      <div class="day-slot-content">
+        {% for appt in slot['items'] %}
+        <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+          <strong>{{ appt['customer_name'] }}</strong> — {{ appt['title'] }} — {{ appt['staff_name'] }}
+        </a>
+        {% else %}
+        <div class="day-slot-empty">frei</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="list-item space-top">Sonntag ist geschlossen.</div>
+  {% endif %}
+
   <div class="list-stack space-top">
     {% for appt in day_view['items'] %}
     <div class="list-item">
@@ -100,7 +97,7 @@
 <section class="card space-top">
   <div class="row-between wrap-mobile">
     <h2>Wochenansicht</h2>
-    <span class="badge">{{ staff }} • {{ week_view['label'] }}</span>
+    <span class="badge">{{ week_view['label'] }}</span>
   </div>
   <div class="week-grid space-top">
     {% for day in week_view['days'] %}
@@ -130,9 +127,8 @@
 <section class="card space-top">
   <div class="row-between wrap-mobile">
     <h2>Monatsansicht</h2>
-    <span class="badge">{{ staff }} • {{ month_view['month_label'] }}</span>
+    <span class="badge">{{ month_view['month_label'] }}</span>
   </div>
-
   <div class="month-grid space-top desktop-only">
     {% for header in month_view['weekday_headers'] %}
     <div class="month-header">{{ header }}</div>
@@ -163,9 +159,7 @@
         <div class="mobile-card {% if cell['is_today'] %}today-outline{% endif %}">
           <h3>{{ cell['date'] }}</h3>
           {% for appt in cell['items'] %}
-          <div class="mobile-line">
-            {{ appt['appointment_at']|dt }} — {{ appt['firstname'] }} {{ appt['lastname'] }} — {{ appt['title'] }} — {{ appt['staff_name'] }}
-          </div>
+          <div class="mobile-line">{{ appt['appointment_at']|dt }} — {{ appt['firstname'] }} {{ appt['lastname'] }} — {{ appt['title'] }} — {{ appt['staff_name'] }}</div>
           {% endfor %}
         </div>
         {% endif %}
@@ -174,6 +168,7 @@
   </div>
 </section>
 {% endif %}
+
 <section class="card space-top mobile-only">
   <div class="row-between wrap-mobile">
     <h2>Mobile Schnellübersicht</h2>

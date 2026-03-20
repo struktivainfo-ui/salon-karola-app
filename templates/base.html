@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("2.9 Pro") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.2 Pro") }}</div>
         </div>
       </div>
       <nav class="nav-links">
@@ -56,12 +56,120 @@
     <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('templates_view') }}">Vorlagen</a>
   </nav>
   {% endif %}
+  {% if session.get('admin_logged_in') %}
+  <div class="device-staff-bar mobile-only-flex" id="deviceStaffBar">
+    <span>Dieses Handy:</span>
+    <select id="deviceStaffSelect">
+      <option value="Ute">Ute</option>
+      <option value="Jessi">Jessi</option>
+    </select>
+    <button type="button" class="btn btn-secondary btn-small" id="enablePushBtn">Push aktivieren</button>
+  </div>
+  {% endif %}
   <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/service-worker.js");
+    (function () {
+      const isLoggedIn = {{ 'true' if session.get('admin_logged_in') else 'false' }};
+      if (!isLoggedIn) return;
+
+      const STORAGE_KEY_STAFF = "sk_device_staff";
+      const staffSelect = document.getElementById("deviceStaffSelect");
+      const enablePushBtn = document.getElementById("enablePushBtn");
+
+      async function registerServiceWorker() {
+        if (!("serviceWorker" in navigator)) return null;
+        return navigator.serviceWorker.register("/service-worker.js");
+      }
+
+      const currentStaff = localStorage.getItem(STORAGE_KEY_STAFF) || "Ute";
+      if (staffSelect) {
+        staffSelect.value = currentStaff;
+        staffSelect.addEventListener("change", async () => {
+          localStorage.setItem(STORAGE_KEY_STAFF, staffSelect.value);
+          try {
+            await registerPushSubscription(false);
+          } catch (e) {}
+        });
+      }
+
+      function urlBase64ToUint8Array(base64String) {
+        const padding = "=".repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+      }
+
+      async function fetchPushConfig() {
+        const res = await fetch("/api/push/public-key", { cache: "no-store" });
+        if (!res.ok) throw new Error("Push-Konfiguration konnte nicht geladen werden.");
+        return res.json();
+      }
+
+      async function registerPushSubscription(showMessage = true) {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+          alert("Dieser Browser unterstützt keine Hintergrund-Pushs.");
+          return;
+        }
+
+        const config = await fetchPushConfig();
+        if (!config.enabled || !config.public_key) {
+          if (showMessage) {
+            alert("Push ist serverseitig noch nicht vollständig eingerichtet. Bitte VAPID-Keys in Render setzen.");
+          }
+          return;
+        }
+
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          alert("Benachrichtigungen wurden nicht erlaubt.");
+          return;
+        }
+
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(config.public_key),
+          });
+        }
+
+        const staffName = (localStorage.getItem(STORAGE_KEY_STAFF) || "Ute").trim() || "Ute";
+        const saveRes = await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ staff_name: staffName, subscription }),
+        });
+
+        if (!saveRes.ok) {
+          throw new Error("Push-Abo konnte nicht gespeichert werden.");
+        }
+
+        await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staffName)}`, { cache: "no-store" });
+        if (showMessage) {
+          alert(`Hintergrund-Push ist jetzt für ${staffName} aktiv.`);
+        }
+      }
+
+      if (enablePushBtn) {
+        enablePushBtn.addEventListener("click", async () => {
+          try {
+            await registerPushSubscription(true);
+          } catch (error) {
+            alert(error.message || "Push konnte nicht aktiviert werden.");
+          }
+        });
+      }
+
+      window.addEventListener("load", async () => {
+        try {
+          await registerServiceWorker();
+        } catch (e) {}
       });
-    }
+    })();
   </script>
 </body>
 </html>
