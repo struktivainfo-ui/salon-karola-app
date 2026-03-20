@@ -511,8 +511,41 @@ td {
   font-weight:700;
   color:var(--gold-soft);
 }
-.team-menu-meta { margin-top:8px; color:var(--muted); }
-.team-menu-link { margin-top:14px; font-weight:700; }
-@media (max-width:768px) {
-  .team-menu-grid { grid-template-columns:1fr; }
+.team-menu-meta {
+  margin-top:8px;
+  color:var(--muted);
 }
+.team-menu-link {
+  margin-top:14px;
+  font-weight:700;
+}
+.badge-health-aktiv { background: rgba(45,143,90,.15); border-color: rgba(45,143,90,.35); color: #b8f1c9; }
+.badge-health-beobachten { background: rgba(240,180,0,.12); border-color: rgba(240,180,0,.28); color: #ffe08a; }
+.badge-health-rueckholung { background: rgba(217,83,79,.12); border-color: rgba(217,83,79,.28); color: #ffb3af; }
+.badge-health-neu { background: rgba(120,120,255,.12); border-color: rgba(120,120,255,.28); color: #c7ccff; }
+
+@media (max-width:768px) {
+  .team-menu-grid {
+    grid-template-columns:1fr;
+  }
+}
+
+
+.staff-quick-switch { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
+.staff-pill { border:1px solid var(--border); background:#141414; color:var(--text); border-radius:999px; padding:8px 14px; font-weight:700; cursor:pointer; }
+.staff-pill.active { border-color:rgba(212,175,55,.65); background:rgba(212,175,55,.15); color:var(--gold); }
+.appointment-card { border-left:4px solid rgba(212,175,55,.35); }
+.appointment-status-geplant { border-left-color: rgba(212,175,55,.55); }
+.appointment-status-bestätigt { border-left-color: rgba(45,143,90,.75); }
+.appointment-status-erledigt { border-left-color: rgba(80,140,255,.8); }
+.appointment-status-nicht-erschienen { border-left-color: rgba(217,83,79,.8); }
+.appointment-edit-box summary { cursor:pointer; font-weight:700; color:var(--gold-soft); }
+.week-event-geplant, .month-item-geplant, .mobile-summary-geplant { border-left:3px solid rgba(212,175,55,.65); }
+.week-event-bestätigt, .month-item-bestätigt, .mobile-summary-bestätigt { border-left:3px solid rgba(45,143,90,.85); }
+.week-event-erledigt, .month-item-erledigt, .mobile-summary-erledigt { border-left:3px solid rgba(80,140,255,.9); }
+.week-event-nicht-erschienen, .month-item-nicht-erschienen, .mobile-summary-nicht-erschienen { border-left:3px solid rgba(217,83,79,.9); }
+.month-item, .mobile-summary-item { padding-left:8px; }
+.mobile-summary-list { display:grid; gap:12px; }
+.mobile-day-card { border:1px solid var(--border); background:#111; border-radius:18px; padding:14px; }
+.mobile-summary-item { display:block; border:1px solid var(--border); border-radius:14px; padding:10px 12px; background:#171717; color:var(--text); margin-top:10px; }
+.mobile-summary-item strong { color:var(--gold-soft); }
