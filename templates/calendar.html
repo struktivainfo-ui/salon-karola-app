@@ -18,10 +18,11 @@
     <div class="list-stack">
       {% for appt in items %}
       <div class="list-item">
-        <div class="row-between">
+        <div class="row-between wrap-mobile">
           <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
-          <span class="badge">{{ appt['appointment_at']|dt }}</span>
+          <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
         </div>
+        <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt['appointment_at']|dt }}</div>
         <div class="mobile-line">{{ appt['title'] }}</div>
         <div class="mobile-line">{{ appt['Customer_Mobiltelefon'] or appt['Customer_PersönlichesTelefon'] or '-' }}</div>
       </div>

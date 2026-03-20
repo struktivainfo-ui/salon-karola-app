@@ -5,12 +5,18 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">{% if customer %}{{ customer['_firstname'] }} {{ customer['_name'] }}{% else %}Neuer Kontakt{% endif %}</h1>
-      <p class="hero-text">Kontaktverwaltung mit großer Handy-Ansicht und klaren Eingabefeldern.</p>
+      <p class="hero-text">Kontaktverwaltung mit Version 2.3 Features: WhatsApp, Rückholung und Terminstatus.</p>
     </div>
     <div class="actions">
       <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurück</a>
       {% if customer and wa_link %}
       <a class="btn" href="{{ wa_link }}" target="_blank" rel="noopener">WhatsApp öffnen</a>
+      {% endif %}
+      {% if customer and wa_comeback_link %}
+      <a class="btn btn-secondary" href="{{ wa_comeback_link }}" target="_blank" rel="noopener">Rückhol-WhatsApp</a>
+      {% endif %}
+      {% if customer and wa_next_appt_link %}
+      <a class="btn btn-secondary" href="{{ wa_next_appt_link }}" target="_blank" rel="noopener">Termin-WhatsApp</a>
       {% endif %}
     </div>
   </div>
@@ -28,12 +34,12 @@
       <div class="form-group"><label>Adresse</label><input type="text" name="address" value="{{ customer['Customer_Adresse'] if customer else '' }}"></div>
       <div class="form-group"><label>PLZ</label><input type="text" name="zip" value="{{ customer['Customer_Postleitzahl'] if customer else '' }}"></div>
       <div class="form-group"><label>Stadt</label><input type="text" name="city" value="{{ customer['Customer_Stadt'] if customer else '' }}"></div>
-      <div class="form-group"><label>Tags (mit Komma)</label><input type="text" name="tags" value="{{ tags_text }}"></div>
+      <div class="form-group"><label>Tags (Komma getrennt)</label><input type="text" name="tags" value="{{ tags_text or '' }}"></div>
     </div>
     <div class="form-group"><label>Notizen</label><textarea name="notes">{{ customer['_notes'] if customer else '' }}</textarea></div>
     <div class="actions">
       <button type="submit">Speichern</button>
-      {% if customer and customer['_mail'] %}
+      {% if customer %}
       <a class="btn btn-secondary" href="{{ url_for('send_test', customer_id=customer['_id'], template_id='appointment') }}">Test Terminmail</a>
       <a class="btn btn-secondary" href="{{ url_for('send_test', customer_id=customer['_id'], template_id='birthdate') }}">Test Geburtstagsmail</a>
       {% endif %}
@@ -50,6 +56,14 @@
         <div class="form-group"><label>Titel</label><input type="text" name="title" value="Salon-Termin"></div>
         <div class="form-group"><label>Termin</label><input type="datetime-local" name="appointment_at" required></div>
         <div class="form-group"><label>Erinnerung in Stunden</label><input type="number" name="reminder_hours" value="24"></div>
+        <div class="form-group"><label>Status</label>
+          <select name="status">
+            <option value="geplant">geplant</option>
+            <option value="bestätigt">bestätigt</option>
+            <option value="erledigt">erledigt</option>
+            <option value="nicht erschienen">nicht erschienen</option>
+          </select>
+        </div>
       </div>
       <div class="form-group"><label>Notizen</label><textarea name="notes"></textarea></div>
       <button type="submit">Termin speichern</button>
@@ -61,14 +75,26 @@
     <div class="list-stack">
       {% for appt in appointments %}
       <div class="list-item">
-        <div class="row-between">
+        <div class="row-between wrap-mobile">
           <strong>{{ appt['title'] }}</strong>
-          <span class="badge">{{ appt['appointment_at']|dt }}</span>
+          <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
         </div>
+        <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt['appointment_at']|dt }}</div>
         <div class="mobile-line">{{ appt['notes'] or 'Keine Notiz' }}</div>
-        <form method="post" action="{{ url_for('appointment_delete', appointment_id=appt['id']) }}" class="space-top">
-          <button class="btn btn-danger" type="submit">Termin löschen</button>
-        </form>
+        <div class="actions space-top">
+          <form method="post" action="{{ url_for('appointment_update_status', appointment_id=appt['id']) }}" class="inline-form">
+            <select name="status">
+              <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
+              <option value="bestätigt" {% if appt['status'] == 'bestätigt' %}selected{% endif %}>bestätigt</option>
+              <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
+              <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
+            </select>
+            <button class="btn btn-secondary" type="submit">Status speichern</button>
+          </form>
+          <form method="post" action="{{ url_for('appointment_delete', appointment_id=appt['id']) }}">
+            <button class="btn btn-danger" type="submit">Termin löschen</button>
+          </form>
+        </div>
       </div>
       {% else %}
       <div class="list-item">Noch keine Termine vorhanden.</div>
@@ -82,7 +108,7 @@
   <div class="list-stack">
     {% for log in logs %}
     <div class="list-item">
-      <div class="row-between">
+      <div class="row-between wrap-mobile">
         <strong>{{ log['subject'] }}</strong>
         <span class="badge">{{ log['sent_at']|dt }}</span>
       </div>
