@@ -1,0 +1,14 @@
+Salon Karola Version 2.6 – Fehlerbereinigt
+
+Behoben:
+- customer_activity_status jetzt korrekt verfügbar
+- today_appointments und due_reminders korrekt eingebaut
+- Icon-Pfade auf /static/icon-192.png und /static/icon-512.png vereinheitlicht
+- Versions-Texte auf 2.6 bereinigt
+
+Deploy:
+1. ZIP komplett entpacken
+2. alles in GitHub ersetzen
+3. Render deployen
+4. Start Command unverändert lassen:
+   gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application
