@@ -361,3 +361,49 @@ td {
   .inline-form { width:100%; }
   .inline-form select, .inline-form button { width:100%; }
 }
+
+
+.hero-row { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
+.space-top { margin-top:16px; }
+.row-between { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.wrap-mobile { flex-wrap:wrap; }
+.quick-actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-top:12px; }
+.quick-action { display:flex; align-items:center; justify-content:center; text-align:center; min-height:64px; padding:14px; border-radius:16px; background:#171717; border:1px solid var(--border); color:var(--text); font-weight:700; }
+.quick-action:hover { border-color:rgba(212,175,55,.55); }
+.nav-links a.active, .bottom-nav a.active { border-color:rgba(212,175,55,.55); background:rgba(212,175,55,.12); color:var(--gold-soft); }
+.badge.ok { color: var(--gold-soft); }
+.badge.warn { color: #ffcc66; }
+.badge-health-aktiv { background: rgba(45,143,90,.15); border-color: rgba(45,143,90,.35); color: #b8f1c9; }
+.badge-health-beobachten { background: rgba(240,180,0,.12); border-color: rgba(240,180,0,.28); color: #ffe08a; }
+.badge-health-rueckholung { background: rgba(217,83,79,.12); border-color: rgba(217,83,79,.28); color: #ffb3af; }
+.badge-health-neu { background: rgba(120,120,255,.12); border-color: rgba(120,120,255,.28); color: #c7ccff; }
+.mobile-only-flex { display:none; }
+
+@media (max-width: 768px) {
+  main.container { padding-bottom: 92px; }
+  .hero-row { flex-direction:column; }
+  .quick-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .mobile-only-flex {
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:8px;
+    position:fixed;
+    left:0; right:0; bottom:0;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    background:rgba(15,15,15,.96);
+    border-top:1px solid var(--border);
+    backdrop-filter: blur(14px);
+    z-index:100;
+  }
+  .bottom-nav a {
+    display:flex; align-items:center; justify-content:center;
+    min-height:46px;
+    padding:8px;
+    border-radius:12px;
+    background:#171717;
+    border:1px solid var(--border);
+    color:var(--text);
+    font-size:.92rem;
+    text-align:center;
+  }
+}
