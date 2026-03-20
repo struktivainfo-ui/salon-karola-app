@@ -5,7 +5,7 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Dashboard</h1>
-      <p class="hero-text">Version 2.3 mit Rückhol-System, Terminstatus und smarter WhatsApp-Nutzung.</p>
+      <p class="hero-text">Version 2.4 mit App-Navigation, Schnellaktionen, Kundenstatus und WhatsApp-Vorlagen.</p>
     </div>
     <div class="actions">
       <a class="btn" href="{{ url_for('customer_new') }}">Neuen Kontakt anlegen</a>
@@ -16,9 +16,22 @@
 
 <section class="grid grid-4">
   <div class="card stat-card"><div class="stat-label">Kunden</div><div class="stat-value">{{ stats.total_customers }}</div></div>
-  <div class="card stat-card"><div class="stat-label">E-Mail</div><div class="stat-value">{{ stats.total_emails }}</div></div>
-  <div class="card stat-card"><div class="stat-label">Mobil</div><div class="stat-value">{{ stats.total_mobile }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Heute Termine</div><div class="stat-value">{{ stats.appointments_today }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Diese Woche</div><div class="stat-value">{{ stats.appointments_week }}</div></div>
   <div class="card stat-card"><div class="stat-label">Rückholung 60 Tage</div><div class="stat-value">{{ stats.inactive_60 }}</div></div>
+</section>
+
+<section class="card space-top">
+  <div class="row-between wrap-mobile">
+    <h2>Schnellaktionen</h2>
+    <span class="badge">Version 2.4</span>
+  </div>
+  <div class="quick-actions">
+    <a class="quick-action" href="{{ url_for('customer_new') }}">➕ Kunde anlegen</a>
+    <a class="quick-action" href="{{ url_for('calendar_view') }}">📅 Termine öffnen</a>
+    <a class="quick-action" href="{{ url_for('templates_view') }}">💬 Vorlagen bearbeiten</a>
+    <a class="quick-action" href="{{ url_for('run_automation_now') }}">⚡ Automatik prüfen</a>
+  </div>
 </section>
 
 <section class="grid grid-2 space-top">
@@ -125,7 +138,10 @@
         <tbody>
           {% for customer in customers %}
           <tr>
-            <td><a href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">{{ customer['_firstname'] }} {{ customer['_name'] }}</a></td>
+            <td>
+              <a href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">{{ customer['_firstname'] }} {{ customer['_name'] }}</a>
+              <span class="badge badge-health-{{ customer_activity_status(customer['last_appointment_at']) }}">{{ customer_activity_status(customer['last_appointment_at']) }}</span>
+            </td>
             <td>{{ customer['_mail'] or '-' }}</td>
             <td>{{ customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] or '-' }}</td>
             <td>{{ customer['Customer_Stadt'] or '-' }}</td>
@@ -140,7 +156,10 @@
   <div class="mobile-only">
     {% for customer in customers %}
     <a class="mobile-card link-card" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">
-      <h3>{{ customer['_firstname'] }} {{ customer['_name'] }}</h3>
+      <div class="row-between wrap-mobile">
+        <h3>{{ customer['_firstname'] }} {{ customer['_name'] }}</h3>
+        <span class="badge badge-health-{{ customer_activity_status(customer['last_appointment_at']) }}">{{ customer_activity_status(customer['last_appointment_at']) }}</span>
+      </div>
       <div class="mobile-line"><span class="mobile-label">E-Mail:</span> {{ customer['_mail'] or '-' }}</div>
       <div class="mobile-line"><span class="mobile-label">Telefon:</span> {{ customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] or '-' }}</div>
       <div class="mobile-line"><span class="mobile-label">Stadt:</span> {{ customer['Customer_Stadt'] or '-' }}</div>

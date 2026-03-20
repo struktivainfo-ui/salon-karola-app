@@ -22,17 +22,17 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">Version 2.3</div>
+          <div class="brand-subtitle">Version 2.4</div>
         </div>
       </div>
       <nav class="nav-links">
-        <a href="{{ url_for('index') }}">Dashboard</a>
-        <a href="{{ url_for('customer_new') }}">Neuer Kontakt</a>
-        <a href="{{ url_for('calendar_view') }}">Kalender</a>
-        <a href="{{ url_for('templates_view') }}">Vorlagen</a>
-        <a href="{{ url_for('import_customers') }}">Import</a>
-        <a href="{{ url_for('email_logs') }}">Logs</a>
-        <a href="{{ url_for('database_tools') }}">Datenbank</a>
+        <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Dashboard</a>
+        <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}">Kunden</a>
+        <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}">Termine</a>
+        <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('templates_view') }}">Vorlagen</a>
+        <a class="{% if current_endpoint == 'import_customers' %}active{% endif %}" href="{{ url_for('import_customers') }}">Import</a>
+        <a class="{% if current_endpoint == 'email_logs' %}active{% endif %}" href="{{ url_for('email_logs') }}">Logs</a>
+        <a class="{% if current_endpoint == 'database_tools' %}active{% endif %}" href="{{ url_for('database_tools') }}">Datenbank</a>
         <a href="{{ url_for('logout') }}">Logout</a>
       </nav>
     </div>
@@ -48,6 +48,14 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  {% if session.get('admin_logged_in') %}
+  <nav class="bottom-nav mobile-only-flex">
+    <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Dashboard</a>
+    <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}">Kunden</a>
+    <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}">Termine</a>
+    <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('templates_view') }}">Vorlagen</a>
+  </nav>
+  {% endif %}
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

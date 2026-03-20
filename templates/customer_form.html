@@ -5,18 +5,12 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">{% if customer %}{{ customer['_firstname'] }} {{ customer['_name'] }}{% else %}Neuer Kontakt{% endif %}</h1>
-      <p class="hero-text">Kontaktverwaltung mit Version 2.3 Features: WhatsApp, Rückholung und Terminstatus.</p>
+      <p class="hero-text">Version 2.4 mit WhatsApp-Vorlagen, visuellem Kundenstatus und schneller Mobile-Nutzung.</p>
     </div>
     <div class="actions">
       <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurück</a>
-      {% if customer and wa_link %}
-      <a class="btn" href="{{ wa_link }}" target="_blank" rel="noopener">WhatsApp öffnen</a>
-      {% endif %}
-      {% if customer and wa_comeback_link %}
-      <a class="btn btn-secondary" href="{{ wa_comeback_link }}" target="_blank" rel="noopener">Rückhol-WhatsApp</a>
-      {% endif %}
-      {% if customer and wa_next_appt_link %}
-      <a class="btn btn-secondary" href="{{ wa_next_appt_link }}" target="_blank" rel="noopener">Termin-WhatsApp</a>
+      {% if customer %}
+      <span class="badge badge-health-{{ customer_status }}">Kundenstatus: {{ customer_status }}</span>
       {% endif %}
     </div>
   </div>
@@ -48,6 +42,18 @@
 </section>
 
 {% if customer %}
+<section class="card space-top">
+  <div class="row-between wrap-mobile">
+    <h2>WhatsApp Vorlagen</h2>
+    <span class="badge">1 Klick</span>
+  </div>
+  <div class="quick-actions">
+    {% if wa_link %}<a class="quick-action" href="{{ wa_link }}" target="_blank" rel="noopener">💬 Allgemeine Nachricht</a>{% endif %}
+    {% if wa_next_appt_link %}<a class="quick-action" href="{{ wa_next_appt_link }}" target="_blank" rel="noopener">📅 Terminbestätigung</a>{% endif %}
+    {% if wa_comeback_link %}<a class="quick-action" href="{{ wa_comeback_link }}" target="_blank" rel="noopener">🔁 Rückholung</a>{% endif %}
+  </div>
+</section>
+
 <section class="grid grid-2 space-top">
   <div class="card">
     <h2>Termin hinzufügen</h2>
