@@ -556,7 +556,37 @@ def upcoming_birthdays(limit=12):
     enriched.sort(key=lambda item: item[0])
     return [row for _, row in enriched[:limit]]
 
+def today_appointments(limit=20):
+    start_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    end_dt = start_dt + timedelta(days=1)
+    return get_db().execute(
+        """
+        SELECT a.*, c._firstname, c._name, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
+        FROM appointments a
+        JOIN _Customers c ON c._id = a.customer_id
+        WHERE a.appointment_at >= ? AND a.appointment_at < ?
+        ORDER BY a.appointment_at ASC
+        LIMIT ?
+        """,
+        (start_dt.isoformat(timespec="minutes"), end_dt.isoformat(timespec="minutes"), limit),
+    ).fetchall()
 
+
+def due_reminders(limit=20):
+    now = datetime.now()
+    upcoming_limit = now + timedelta(hours=24)
+    return get_db().execute(
+        """
+        SELECT a.*, c._firstname, c._name, c._mail, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
+        FROM appointments a
+        JOIN _Customers c ON c._id = a.customer_id
+        WHERE a.appointment_at >= ? AND a.appointment_at <= ?
+          AND a.reminder_sent_at IS NULL
+        ORDER BY a.appointment_at ASC
+        LIMIT ?
+        """,
+        (now.isoformat(timespec="minutes"), upcoming_limit.isoformat(timespec="minutes"), limit),
+    ).fetchall()
 def inactive_customers(limit=12):
     rows = get_db().execute(
         """
