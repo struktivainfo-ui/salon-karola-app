@@ -1183,7 +1183,8 @@ def format_birthday(value):
 def inject_globals():
     return {
         "admin_name": session.get("admin_name"),
-        "automation": get_automation_status() if session.get("admin_logged_in") else {},
+        "customer_activity_status": customer_activity_status,
+    }
     }
 
 
