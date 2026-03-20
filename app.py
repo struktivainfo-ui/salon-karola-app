@@ -920,7 +920,19 @@ def _fetch_calendar_appointments(start_dt, end_dt, staff_filter=None):
     rows = db.execute(sql, tuple(params)).fetchall()
     return rows
 
+GERMAN_WEEKDAYS = [
+    "Montag",
+    "Dienstag",
+    "Mittwoch",
+    "Donnerstag",
+    "Freitag",
+    "Samstag",
+    "Sonntag",
+]
 
+
+def weekday_name_de(date_obj):
+    return GERMAN_WEEKDAYS[date_obj.weekday()]
 def _build_day_view(selected_date, staff_filter=None):
     start_dt = datetime.combine(selected_date, datetime.min.time())
     end_dt = start_dt + timedelta(days=1)
