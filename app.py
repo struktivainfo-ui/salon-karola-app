@@ -7,6 +7,7 @@ import smtplib
 import sqlite3
 import tempfile
 import zipfile
+import json
 import calendar as pycalendar
 from datetime import datetime, timedelta
 from email.message import EmailMessage
@@ -30,6 +31,12 @@ from flask import (
     url_for,
 )
 
+try:
+    from pywebpush import WebPushException, webpush
+except Exception:
+    WebPushException = Exception
+    webpush = None
+
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 DB_PATH = Path(os.getenv("DATABASE_PATH", str(BASE_DIR / "salon_karola.db")))
@@ -42,7 +49,7 @@ app = Flask(
 app.secret_key = os.getenv("SECRET_KEY", "salon-karola-ultra-secret")
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
-APP_VERSION = "3.0 Pro"
+APP_VERSION = "3.2 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -167,6 +174,20 @@ def init_db():
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                endpoint TEXT NOT NULL UNIQUE,
+                subscription_json TEXT NOT NULL,
+                staff_name TEXT NOT NULL DEFAULT 'Ute',
+                user_agent TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_seen_at TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS staff_users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL UNIQUE,
@@ -229,6 +250,10 @@ def init_db():
             conn.execute("ALTER TABLE appointments ADD COLUMN status TEXT DEFAULT 'geplant'")
         if "staff_name" not in columns:
             conn.execute("ALTER TABLE appointments ADD COLUMN staff_name TEXT DEFAULT 'Ute'")
+        if "created_by" not in columns:
+            conn.execute("ALTER TABLE appointments ADD COLUMN created_by TEXT DEFAULT ''")
+        if "updated_at" not in columns:
+            conn.execute("ALTER TABLE appointments ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP")
 
         conn.commit()
 
@@ -365,6 +390,117 @@ def get_automation_status():
         "last_run_summary": get_setting("automation:last_run_summary"),
         "last_run_error": get_setting("automation:last_run_error"),
         "scheduler_interval_minutes": get_setting("automation:scheduler_interval_minutes", "15") or "15",
+    }
+
+
+def vapid_ready():
+    return bool(os.getenv("VAPID_PUBLIC_KEY") and os.getenv("VAPID_PRIVATE_KEY") and webpush)
+
+
+def vapid_public_key():
+    return os.getenv("VAPID_PUBLIC_KEY", "").strip()
+
+
+def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
+    if not vapid_ready():
+        return {"sent": 0, "skipped": 0, "errors": ["VAPID nicht konfiguriert"]}
+
+    db = get_db()
+    rows = db.execute(
+        """
+        SELECT * FROM push_subscriptions
+        WHERE staff_name = ?
+        ORDER BY updated_at DESC
+        """,
+        (target_staff,),
+    ).fetchall()
+
+    sent = 0
+    skipped = 0
+    errors = []
+    for row in rows:
+        try:
+            subscription = json.loads(row["subscription_json"])
+            webpush(
+                subscription_info=subscription,
+                data=json.dumps({"title": title, "body": body, "url": url}),
+                vapid_private_key=os.getenv("VAPID_PRIVATE_KEY"),
+                vapid_claims={"sub": os.getenv("VAPID_CLAIMS_SUBJECT", "mailto:push@salonkarola.local")},
+                ttl=60 * 60 * 6,
+            )
+            sent += 1
+        except WebPushException as exc:
+            status_code = getattr(getattr(exc, "response", None), "status_code", None)
+            if status_code in (404, 410):
+                db.execute("DELETE FROM push_subscriptions WHERE id = ?", (row["id"],))
+                db.commit()
+                skipped += 1
+            else:
+                errors.append(str(exc))
+        except Exception as exc:
+            errors.append(str(exc))
+    return {"sent": sent, "skipped": skipped, "errors": errors}
+
+
+def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name):
+    actor = (actor_name or staff_name or "Ute").strip() or "Ute"
+    target = "Jessi" if actor == "Ute" else "Ute"
+    customer = get_db().execute(
+        "SELECT _firstname, _name FROM _Customers WHERE _id = ?",
+        (customer_id,),
+    ).fetchone()
+    customer_name = f"{customer['_firstname'] or ''} {customer['_name'] or ''}".strip() if customer else "Kundin"
+    try:
+        when_label = datetime.fromisoformat(str(appointment_at)).strftime("%d.%m.%Y um %H:%M")
+    except Exception:
+        when_label = str(appointment_at)
+
+    push_title = f"Neuer Termin von {actor}"
+    push_body = f"{customer_name} • {title} • {when_label} • zuständig: {staff_name}"
+    return webpush_send_to_staff(target, push_title, push_body, "/calendar?view=day")
+
+
+def opening_hours_for_date(date_obj):
+    if date_obj.weekday() <= 4:
+        return ("09:00", "17:45")
+    if date_obj.weekday() == 5:
+        return ("08:30", "12:45")
+    return None
+
+
+def build_day_timeline(selected_date, staff="Alle"):
+    hours = opening_hours_for_date(selected_date)
+    if not hours:
+        return {"open": False, "slots": [], "open_label": "Sonntag geschlossen"}
+
+    start_str, end_str = hours
+    start_dt = datetime.fromisoformat(f"{selected_date.isoformat()}T{start_str}")
+    end_dt = datetime.fromisoformat(f"{selected_date.isoformat()}T{end_str}")
+    rows = _fetch_calendar_appointments(start_dt.replace(hour=0, minute=0), end_dt + timedelta(minutes=30), staff)
+
+    slots = []
+    pointer = start_dt
+    while pointer <= end_dt:
+        slot_end = pointer + timedelta(minutes=15)
+        slot_items = []
+        for row in rows:
+            try:
+                appt_dt = datetime.fromisoformat(str(row["appointment_at"]))
+            except Exception:
+                continue
+            if pointer <= appt_dt < slot_end:
+                slot_items.append(_calendar_event_dict(row))
+        slots.append({
+            "time": pointer.strftime("%H:%M"),
+            "items": slot_items,
+            "is_now": datetime.now().date() == selected_date and pointer.strftime("%H:%M") == datetime.now().strftime("%H:%M"),
+        })
+        pointer += timedelta(minutes=15)
+
+    return {
+        "open": True,
+        "slots": slots,
+        "open_label": f"Geöffnet: {start_str} – {end_str} Uhr",
     }
 
 
@@ -871,24 +1007,37 @@ def save_tags(customer_id, tags_text):
 @login_required
 def appointment_new(customer_id):
     db = get_db()
+    title = request.form.get("title", "Salon-Termin").strip() or "Salon-Termin"
+    appointment_at = request.form["appointment_at"]
+    status = request.form.get("status", "geplant").strip() or "geplant"
+    staff_name = request.form.get("staff_name", "Ute").strip() or "Ute"
+    actor_name = request.form.get("actor_name", "").strip() or staff_name
     db.execute(
         """
-        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             customer_id,
-            request.form.get("title", "Salon-Termin").strip() or "Salon-Termin",
-            request.form["appointment_at"],
+            title,
+            appointment_at,
             request.form.get("notes", "").strip(),
             int(request.form.get("reminder_hours", "24") or 24),
             datetime.now().isoformat(timespec="seconds"),
-            request.form.get("status", "geplant").strip() or "geplant",
-            request.form.get("staff_name", "Ute").strip() or "Ute",
+            status,
+            staff_name,
+            actor_name,
+            datetime.now().isoformat(timespec="seconds"),
         ),
     )
     db.commit()
-    flash("Termin wurde gespeichert.")
+    notify_result = notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name)
+    flash_msg = "Termin wurde gespeichert."
+    if vapid_ready() and notify_result.get("sent", 0) > 0:
+        flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
+    elif not vapid_ready():
+        flash_msg += " Push ist noch nicht komplett aktiv – bitte VAPID-Keys in Render setzen."
+    flash(flash_msg)
     return redirect(url_for("customer_detail", customer_id=customer_id))
 
 
@@ -909,7 +1058,7 @@ def appointment_edit(appointment_id):
     db.execute(
         """
         UPDATE appointments
-        SET title = ?, appointment_at = ?, notes = ?, reminder_hours = ?, status = ?, staff_name = ?
+        SET title = ?, appointment_at = ?, notes = ?, reminder_hours = ?, status = ?, staff_name = ?, updated_at = ?
         WHERE id = ?
         """,
         (
@@ -919,6 +1068,7 @@ def appointment_edit(appointment_id):
             int(request.form.get("reminder_hours", "24") or 24),
             request.form.get("status", "geplant").strip() or "geplant",
             request.form.get("staff_name", "Ute").strip() or "Ute",
+            datetime.now().isoformat(timespec="seconds"),
             appointment_id,
         ),
     )
@@ -969,9 +1119,36 @@ GERMAN_WEEKDAYS = [
     "Sonntag",
 ]
 
+GERMAN_MONTHS = [
+    "Januar",
+    "Februar",
+    "März",
+    "April",
+    "Mai",
+    "Juni",
+    "Juli",
+    "August",
+    "September",
+    "Oktober",
+    "November",
+    "Dezember",
+]
+
 
 def weekday_name_de(date_obj):
     return GERMAN_WEEKDAYS[date_obj.weekday()]
+
+
+def month_name_de(month_number):
+    return GERMAN_MONTHS[month_number - 1]
+
+
+def format_day_label_de(date_obj):
+    return f"{weekday_name_de(date_obj)}, {date_obj.strftime('%d.%m.%Y')}"
+
+
+def format_month_label_de(date_obj):
+    return f"{month_name_de(date_obj.month)} {date_obj.year}"
 
 
 def _parse_date(value):
@@ -1033,7 +1210,8 @@ def _build_day_view(selected_date, staff="Alle"):
     return {
         "selected_date": selected_date.isoformat(),
         "items": [_calendar_event_dict(r) for r in rows],
-        "label": selected_date.strftime("%A, %d.%m.%Y"),
+        "label": format_day_label_de(selected_date),
+        "timeline": build_day_timeline(selected_date, staff),
     }
 
 
@@ -1054,7 +1232,7 @@ def _build_week_view(selected_date, staff="Alle"):
         current = monday + timedelta(days=i)
         days.append({
             "date": current.isoformat(),
-            "name": current.strftime("%A"),
+            "name": weekday_name_de(current),
             "label": current.strftime("%d.%m."),
             "items": by_day.get(current.isoformat(), []),
             "is_today": current == datetime.now().date(),
@@ -1098,7 +1276,7 @@ def _build_month_view(selected_date, staff="Alle"):
     weeks = [cells[i:i+7] for i in range(0, 42, 7)]
     return {
         "selected_date": selected_date.isoformat(),
-        "month_label": first_day.strftime("%B %Y"),
+        "month_label": format_month_label_de(first_day),
         "weeks": weeks,
         "weekday_headers": ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"],
     }
@@ -1147,6 +1325,106 @@ def calendar_view():
         current_endpoint="calendar_view",
         app_version=APP_VERSION,
     )
+
+
+@app.route("/api/appointments/feed")
+@login_required
+def appointments_feed():
+    since = (request.args.get("since") or "").strip()
+    db = get_db()
+
+    query = """
+        SELECT a.id, a.title, a.appointment_at, a.created_at, a.updated_at, a.staff_name, a.status,
+               COALESCE(NULLIF(a.created_by, ''), COALESCE(a.staff_name, 'Ute')) AS created_by,
+               c._firstname, c._name
+        FROM appointments a
+        JOIN _Customers c ON c._id = a.customer_id
+    """
+    params = []
+    if since:
+        query += " WHERE COALESCE(a.updated_at, a.created_at) > ?"
+        params.append(since)
+    query += " ORDER BY COALESCE(a.updated_at, a.created_at) ASC LIMIT 25"
+
+    rows = db.execute(query, tuple(params)).fetchall()
+    items = []
+    for row in rows:
+        customer_name = f"{row['_firstname'] or ''} {row['_name'] or ''}".strip() or "Kundin"
+        try:
+            appointment_label = datetime.fromisoformat(str(row["appointment_at"])).strftime("%d.%m.%Y um %H:%M")
+        except Exception:
+            appointment_label = str(row["appointment_at"])
+        items.append({
+            "id": row["id"],
+            "title": row["title"],
+            "appointment_at": row["appointment_at"],
+            "appointment_label": appointment_label,
+            "customer_name": customer_name,
+            "staff_name": row["staff_name"] or "Ute",
+            "status": row["status"] or "geplant",
+            "created_at": row["created_at"] or "",
+            "updated_at": row["updated_at"] or row["created_at"] or "",
+            "created_by": row["created_by"] or (row["staff_name"] or "Ute"),
+        })
+
+    return {"items": items, "server_time": datetime.now().isoformat(timespec="seconds")}
+
+
+@app.route("/api/push/public-key")
+@login_required
+def push_public_key():
+    return {"public_key": vapid_public_key(), "enabled": vapid_ready()}
+
+
+@app.route("/api/push/subscribe", methods=["POST"])
+@login_required
+def push_subscribe():
+    payload = request.get_json(silent=True) or {}
+    subscription = payload.get("subscription") or {}
+    endpoint = (subscription.get("endpoint") or "").strip()
+    staff_name = (payload.get("staff_name") or "Ute").strip() or "Ute"
+    if staff_name not in ("Ute", "Jessi"):
+        staff_name = "Ute"
+    if not endpoint:
+        return {"ok": False, "error": "Keine Subscription empfangen."}, 400
+
+    now = datetime.now().isoformat(timespec="seconds")
+    db = get_db()
+    db.execute(
+        """
+        INSERT INTO push_subscriptions(endpoint, subscription_json, staff_name, user_agent, created_at, updated_at, last_seen_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(endpoint) DO UPDATE SET
+            subscription_json = excluded.subscription_json,
+            staff_name = excluded.staff_name,
+            user_agent = excluded.user_agent,
+            updated_at = excluded.updated_at,
+            last_seen_at = excluded.last_seen_at
+        """,
+        (endpoint, json.dumps(subscription), staff_name, request.headers.get("User-Agent", "")[:500], now, now, now),
+    )
+    db.commit()
+    return {"ok": True, "staff_name": staff_name}
+
+
+@app.route("/api/push/unsubscribe", methods=["POST"])
+@login_required
+def push_unsubscribe():
+    payload = request.get_json(silent=True) or {}
+    endpoint = ((payload.get("subscription") or {}).get("endpoint") or "").strip()
+    if endpoint:
+        db = get_db()
+        db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+        db.commit()
+    return {"ok": True}
+
+
+@app.route("/api/push/ping")
+@login_required
+def push_ping():
+    staff_name = (request.args.get("staff_name") or "Ute").strip() or "Ute"
+    result = webpush_send_to_staff(staff_name, "Salon Karola Push aktiv", f"Dieses Handy ist jetzt für {staff_name} registriert.", "/calendar")
+    return {"ok": True, "result": result, "enabled": vapid_ready()}
 
 
 @app.route("/templates", methods=["GET", "POST"])
