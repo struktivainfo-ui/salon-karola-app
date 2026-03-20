@@ -1,0 +1,15 @@
+Salon Karola Version 2.5
+
+Neu:
+- Kalender mit Tagesansicht
+- Kalender mit Wochenansicht Montag bis Sonntag
+- Kalender mit Monatsansicht
+- Keine Umsatzlogik pro Termin
+- Punkt 4 bewusst weggelassen
+
+Deploy:
+1. ZIP komplett entpacken
+2. alles in GitHub ersetzen
+3. Render deployen
+4. Start Command unverändert lassen:
+   gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application
