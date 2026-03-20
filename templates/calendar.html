@@ -39,20 +39,20 @@
 {% if view == 'day' and day_view %}
 <section class="card space-top">
   <div class="row-between wrap-mobile">
-    <h2>{{ day_view.label }}</h2>
-    <span class="badge">{{ staff }} • {{ day_view.items|length }} Termine</span>
+    <h2>{{ day_view['label'] }}</h2>
+    <span class="badge">{{ staff }} • {{ day_view['items']|length }} Termine</span>
   </div>
   <div class="list-stack space-top">
-    {% for appt in day_view.items %}
+    {% for appt in day_view['items'] %}
     <div class="list-item">
       <div class="row-between wrap-mobile">
-        <strong>{{ appt.firstname }} {{ appt.lastname }}</strong>
-        <span class="badge badge-status-{{ appt.status|lower|replace(' ', '-') }}">{{ appt.status }}</span>
+        <strong>{{ appt['firstname'] }} {{ appt['lastname'] }}</strong>
+        <span class="badge badge-status-{{ appt['status']|lower|replace(' ', '-') }}">{{ appt['status'] }}</span>
       </div>
-      <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt.appointment_at|dt }}</div>
-      <div class="mobile-line"><span class="mobile-label">Leistung:</span> {{ appt.title }}</div>
-      <div class="mobile-line"><span class="mobile-label">Mitarbeiterin:</span> {{ appt.staff_name }}</div>
-      <div class="mobile-line"><span class="mobile-label">Telefon:</span> {{ appt.phone }}</div>
+      <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt['appointment_at']|dt }}</div>
+      <div class="mobile-line"><span class="mobile-label">Leistung:</span> {{ appt['title'] }}</div>
+      <div class="mobile-line"><span class="mobile-label">Mitarbeiterin:</span> {{ appt['staff_name'] }}</div>
+      <div class="mobile-line"><span class="mobile-label">Telefon:</span> {{ appt['phone'] }}</div>
     </div>
     {% else %}
     <div class="list-item">Keine Termine an diesem Tag.</div>
@@ -65,21 +65,21 @@
 <section class="card space-top">
   <div class="row-between wrap-mobile">
     <h2>Wochenansicht</h2>
-    <span class="badge">{{ week_view.label }}</span>
+    <span class="badge">{{ staff }} • {{ week_view['label'] }}</span>
   </div>
   <div class="week-grid space-top">
-    {% for day in week_view.days %}
-    <div class="week-day {% if day.is_today %}today{% endif %}">
+    {% for day in week_view['days'] %}
+    <div class="week-day {% if day['is_today'] %}today{% endif %}">
       <div class="week-day-head">
-        <div class="week-day-name">{{ day.name }}</div>
-        <div class="week-day-label">{{ day.label }}</div>
+        <div class="week-day-name">{{ day['name'] }}</div>
+        <div class="week-day-label">{{ day['label'] }}</div>
       </div>
       <div class="week-events">
-        {% for appt in day.items %}
-        <a class="week-event" href="{{ url_for('customer_detail', customer_id=appt.customer_id) }}">
-          <div class="week-event-time">{{ appt.appointment_at|dt }}</div>
-          <div class="week-event-title">{{ appt.firstname }} {{ appt.lastname }}</div>
-          <div class="week-event-meta">{{ appt.title }} • {{ appt.staff_name }}</div>
+        {% for appt in day['items'] %}
+        <a class="week-event" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+          <div class="week-event-time">{{ appt['appointment_at']|dt }}</div>
+          <div class="week-event-title">{{ appt['firstname'] }} {{ appt['lastname'] }}</div>
+          <div class="week-event-meta">{{ appt['title'] }} • {{ appt['staff_name'] }}</div>
         </a>
         {% else %}
         <div class="week-empty">Keine Termine</div>
@@ -95,23 +95,26 @@
 <section class="card space-top">
   <div class="row-between wrap-mobile">
     <h2>Monatsansicht</h2>
-    <span class="badge">{{ month_view.month_label }}</span>
+    <span class="badge">{{ staff }} • {{ month_view['month_label'] }}</span>
   </div>
 
   <div class="month-grid space-top desktop-only">
-    {% for header in month_view.weekday_headers %}
+    {% for header in month_view['weekday_headers'] %}
     <div class="month-header">{{ header }}</div>
     {% endfor %}
-    {% for week in month_view.weeks %}
+
+    {% for week in month_view['weeks'] %}
       {% for cell in week %}
-      <div class="month-cell {% if not cell.in_month %}muted{% endif %} {% if cell.is_today %}today{% endif %}">
-        <div class="month-cell-day">{{ cell.day }}</div>
+      <div class="month-cell {% if not cell['in_month'] %}muted{% endif %} {% if cell['is_today'] %}today{% endif %}">
+        <div class="month-cell-day">{{ cell['day'] }}</div>
         <div class="month-cell-items">
-          {% for appt in cell.items[:3] %}
-          <a class="month-item" href="{{ url_for('customer_detail', customer_id=appt.customer_id) }}">{{ appt.appointment_at[11:16] }} {{ appt.firstname }} {{ appt.lastname }} • {{ appt.staff_name }}</a>
+          {% for appt in cell['items'][:3] %}
+          <a class="month-item" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+            {{ appt['appointment_at'][11:16] }} {{ appt['firstname'] }} {{ appt['lastname'] }} • {{ appt['staff_name'] }}
+          </a>
           {% endfor %}
-          {% if cell.items|length > 3 %}
-          <div class="month-more">+{{ cell.items|length - 3 }} weitere</div>
+          {% if cell['items']|length > 3 %}
+          <div class="month-more">+{{ cell['items']|length - 3 }} weitere</div>
           {% endif %}
         </div>
       </div>
@@ -120,13 +123,15 @@
   </div>
 
   <div class="mobile-only space-top">
-    {% for week in month_view.weeks %}
+    {% for week in month_view['weeks'] %}
       {% for cell in week %}
-        {% if cell.in_month and cell.items %}
-        <div class="mobile-card {% if cell.is_today %}today-outline{% endif %}">
-          <h3>{{ cell.date }}</h3>
-          {% for appt in cell.items %}
-          <div class="mobile-line">{{ appt.appointment_at|dt }} — {{ appt.firstname }} {{ appt.lastname }} — {{ appt.title }}</div>
+        {% if cell['in_month'] and cell['items'] %}
+        <div class="mobile-card {% if cell['is_today'] %}today-outline{% endif %}">
+          <h3>{{ cell['date'] }}</h3>
+          {% for appt in cell['items'] %}
+          <div class="mobile-line">
+            {{ appt['appointment_at']|dt }} — {{ appt['firstname'] }} {{ appt['lastname'] }} — {{ appt['title'] }} — {{ appt['staff_name'] }}
+          </div>
           {% endfor %}
         </div>
         {% endif %}
