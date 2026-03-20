@@ -220,6 +220,10 @@ def init_db():
                 ),
             )
 
+        columns = [row[1] for row in conn.execute("PRAGMA table_info(appointments)").fetchall()]
+        if "status" not in columns:
+            conn.execute("ALTER TABLE appointments ADD COLUMN status TEXT DEFAULT 'geplant'")
+
         conn.commit()
 
 
@@ -325,14 +329,28 @@ def smtp_ready():
     return all(os.getenv(k) for k in needed)
 
 
-def whatsapp_link(customer):
+def whatsapp_link(customer, text=None):
     number = "".join(ch for ch in customer_phone(customer) if ch.isdigit())
     if number.startswith("0"):
         number = "49" + number[1:]
     if not number:
         return ""
-    text = quote(f"Hallo {customer_full_name(customer)}, hier ist Salon Karola.")
-    return f"https://wa.me/{number}?text={text}"
+    text = text or f"Hallo {customer_full_name(customer)}, hier ist Salon Karola."
+    return f"https://wa.me/{number}?text={quote(text)}"
+
+
+def appointment_whatsapp_text(customer, appointment):
+    when = "deinem Termin"
+    if appointment and appointment["appointment_at"]:
+        try:
+            when = datetime.fromisoformat(str(appointment["appointment_at"])).strftime("%d.%m.%Y um %H:%M")
+        except Exception:
+            when = str(appointment["appointment_at"])
+    return f"Hallo {customer_full_name(customer)}, hier ist Salon Karola. Dein Termin ist am {when}. Bitte gib uns kurz Bescheid, falls sich etwas ändert."
+
+
+def comeback_whatsapp_text(customer):
+    return f"Hallo {customer_full_name(customer)}, hier ist Salon Karola. Wir haben dich schon länger nicht gesehen und würden uns freuen, dich bald wieder bei uns begrüßen zu dürfen. Melde dich gern für deinen nächsten Termin."
 
 
 def get_automation_status():
@@ -460,16 +478,45 @@ def dashboard_stats():
     sent_today = db.execute(
         "SELECT COUNT(*) FROM email_log WHERE date(sent_at) = date('now', 'localtime') AND status = 'sent'"
     ).fetchone()[0]
-    birthdays_30 = db.execute(
+
+    birthdays_30 = 0
+    for row in db.execute("SELECT _birthdate FROM _Customers WHERE _birthdate IS NOT NULL AND TRIM(_birthdate) <> ''").fetchall():
+        try:
+            birthdate = datetime.fromisoformat(str(row["_birthdate"])).date()
+            today = datetime.now().date()
+            next_birthday = birthdate.replace(year=today.year)
+            if next_birthday < today:
+                next_birthday = birthdate.replace(year=today.year + 1)
+            if (next_birthday - today).days <= 30:
+                birthdays_30 += 1
+        except Exception:
+            continue
+
+    inactive_60 = db.execute(
         """
-        SELECT COUNT(*) FROM _Customers
-        WHERE _birthdate IS NOT NULL AND _birthdate <> ''
-          AND strftime('%m-%d', _birthdate) BETWEEN ? AND ?
+        SELECT COUNT(*)
+        FROM _Customers c
+        LEFT JOIN (
+            SELECT customer_id, MAX(appointment_at) AS last_appointment_at
+            FROM appointments
+            GROUP BY customer_id
+        ) a ON a.customer_id = c._id
+        WHERE a.last_appointment_at IS NULL OR a.last_appointment_at < ?
         """,
-        (
-            datetime.now().strftime("%m-%d"),
-            (datetime.now() + timedelta(days=30)).strftime("%m-%d"),
-        ),
+        ((datetime.now() - timedelta(days=60)).isoformat(timespec="minutes"),),
+    ).fetchone()[0]
+
+    today_start = datetime.now().strftime("%Y-%m-%dT00:00")
+    tomorrow_start = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%dT00:00")
+    week_end = (datetime.now() + timedelta(days=7)).isoformat(timespec="minutes")
+
+    appointments_today = db.execute(
+        "SELECT COUNT(*) FROM appointments WHERE appointment_at >= ? AND appointment_at < ?",
+        (today_start, tomorrow_start),
+    ).fetchone()[0]
+    appointments_week = db.execute(
+        "SELECT COUNT(*) FROM appointments WHERE appointment_at >= ? AND appointment_at < ?",
+        (datetime.now().isoformat(timespec="minutes"), week_end),
     ).fetchone()[0]
 
     return {
@@ -479,6 +526,9 @@ def dashboard_stats():
         "upcoming_appointments": upcoming_appointments,
         "sent_today": sent_today,
         "birthdays_30": birthdays_30,
+        "inactive_60": inactive_60,
+        "appointments_today": appointments_today,
+        "appointments_week": appointments_week,
     }
 
 
@@ -492,21 +542,49 @@ def upcoming_birthdays(limit=12):
 
     today = datetime.now().date()
     enriched = []
-
     for row in rows:
         try:
             birthdate = datetime.fromisoformat(str(row["_birthdate"])).date()
-
             next_birthday = birthdate.replace(year=today.year)
             if next_birthday < today:
                 next_birthday = birthdate.replace(year=today.year + 1)
-
             enriched.append((next_birthday, row))
         except Exception:
             continue
 
     enriched.sort(key=lambda item: item[0])
     return [row for _, row in enriched[:limit]]
+
+
+def inactive_customers(limit=12):
+    rows = get_db().execute(
+        """
+        SELECT c.*, MAX(a.appointment_at) AS last_appointment_at
+        FROM _Customers c
+        LEFT JOIN appointments a ON a.customer_id = c._id
+        GROUP BY c._id
+        HAVING last_appointment_at IS NULL OR last_appointment_at < ?
+        ORDER BY COALESCE(last_appointment_at, '') ASC, c._name ASC, c._firstname ASC
+        LIMIT ?
+        """,
+        ((datetime.now() - timedelta(days=60)).isoformat(timespec="minutes"), limit),
+    ).fetchall()
+    return rows
+
+
+def customer_activity_status(last_appointment_at):
+    if not last_appointment_at:
+        return "neu"
+    try:
+        last_dt = datetime.fromisoformat(str(last_appointment_at))
+        days = (datetime.now() - last_dt).days
+        if days <= 60:
+            return "aktiv"
+        if days <= 120:
+            return "beobachten"
+        return "rueckholung"
+    except Exception:
+        return "neu"
 
 
 def next_appointments(limit=12):
@@ -568,7 +646,11 @@ def index():
     q = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
 
-    base_query = "SELECT c.* FROM _Customers c"
+    base_query = """
+        SELECT c.*, MAX(a.appointment_at) AS last_appointment_at
+        FROM _Customers c
+        LEFT JOIN appointments a ON a.customer_id = c._id
+    """
     params = []
     conditions = []
 
@@ -587,7 +669,7 @@ def index():
     if conditions:
         base_query += " WHERE " + " AND ".join(conditions)
 
-    base_query += " ORDER BY c._name, c._firstname LIMIT 200"
+    base_query += " GROUP BY c._id ORDER BY c._name, c._firstname LIMIT 200"
     customers = db.execute(base_query, params).fetchall()
     tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
 
@@ -602,7 +684,9 @@ def index():
         tags=tags,
         smtp_ready=smtp_ready(),
         automation=get_automation_status(),
+        inactive=inactive_customers(),
         now=datetime.now(),
+        current_endpoint="index",
     )
 
 
@@ -633,7 +717,7 @@ def customer_new():
         save_tags(cur.lastrowid, request.form.get("tags", ""))
         flash("Kontakt wurde hinzugefügt.")
         return redirect(url_for("customer_detail", customer_id=cur.lastrowid))
-    return render_template("customer_form.html", customer=None, appointments=[], logs=[], tags_text="", wa_link="")
+    return render_template("customer_form.html", customer=None, appointments=[], logs=[], tags_text="", wa_link="", current_endpoint="customer_new", customer_status="neu")
 
 
 @app.route("/customer/<int:customer_id>", methods=["GET", "POST"])
@@ -683,6 +767,15 @@ def customer_detail(customer_id):
     tags_text = ", ".join(
         r["tag"] for r in db.execute("SELECT tag FROM customer_tags WHERE customer_id = ? ORDER BY tag", (customer_id,)).fetchall()
     )
+    next_appt = None
+    for appt in appointments:
+        try:
+            if appt["appointment_at"] and datetime.fromisoformat(str(appt["appointment_at"])) >= datetime.now():
+                next_appt = appt
+                break
+        except Exception:
+            continue
+
     return render_template(
         "customer_form.html",
         customer=customer,
@@ -690,6 +783,10 @@ def customer_detail(customer_id):
         logs=logs,
         tags_text=tags_text,
         wa_link=whatsapp_link(customer),
+        wa_comeback_link=whatsapp_link(customer, comeback_whatsapp_text(customer)),
+        wa_next_appt_link=whatsapp_link(customer, appointment_whatsapp_text(customer, next_appt)) if next_appt else "",
+        customer_status=customer_activity_status(appointments[0]["appointment_at"]) if appointments else "neu",
+        current_endpoint="customer_detail",
     )
 
 
@@ -711,8 +808,8 @@ def appointment_new(customer_id):
     db = get_db()
     db.execute(
         """
-        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             customer_id,
@@ -721,6 +818,7 @@ def appointment_new(customer_id):
             request.form.get("notes", "").strip(),
             int(request.form.get("reminder_hours", "24") or 24),
             datetime.now().isoformat(timespec="seconds"),
+            request.form.get("status", "geplant").strip() or "geplant",
         ),
     )
     db.commit()
@@ -740,6 +838,21 @@ def appointment_delete(appointment_id):
         return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
     flash("Termin nicht gefunden.")
     return redirect(url_for("index"))
+
+
+@app.route("/appointment/status/<int:appointment_id>", methods=["POST"])
+@login_required
+def appointment_update_status(appointment_id):
+    db = get_db()
+    status = (request.form.get("status") or "geplant").strip()
+    row = db.execute("SELECT customer_id FROM appointments WHERE id = ?", (appointment_id,)).fetchone()
+    if not row:
+        flash("Termin nicht gefunden.")
+        return redirect(url_for("index"))
+    db.execute("UPDATE appointments SET status = ? WHERE id = ?", (status, appointment_id))
+    db.commit()
+    flash("Terminstatus wurde aktualisiert.")
+    return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
 
 
 @app.route("/calendar")
@@ -762,7 +875,7 @@ def calendar_view():
     for appt in appointments:
         day = appt["appointment_at"][:10]
         grouped.setdefault(day, []).append(appt)
-    return render_template("calendar.html", grouped=grouped, start=start)
+    return render_template("calendar.html", grouped=grouped, start=start, current_endpoint="calendar_view")
 
 
 @app.route("/templates", methods=["GET", "POST"])
@@ -786,7 +899,7 @@ def templates_view():
         r["id"]: r
         for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
     }
-    return render_template("templates.html", templates=templates)
+    return render_template("templates.html", templates=templates, current_endpoint="templates_view")
 
 
 @app.route("/send-test/<int:customer_id>/<template_id>")
@@ -876,14 +989,14 @@ def import_customers():
         db.commit()
         flash(f"{inserted} Kontakte importiert.")
         return redirect(url_for("index"))
-    return render_template("import.html")
+    return render_template("import.html", current_endpoint="import_customers")
 
 
 @app.route("/logs")
 @login_required
 def email_logs():
     logs = get_db().execute("SELECT * FROM email_log ORDER BY sent_at DESC LIMIT 200").fetchall()
-    return render_template("logs.html", logs=logs)
+    return render_template("logs.html", logs=logs, current_endpoint="email_logs")
 
 
 # ---------- Template filters ----------
@@ -1146,7 +1259,7 @@ def database_tools():
         except Exception as exc:
             flash(f"Datenbank-Import fehlgeschlagen: {exc}")
         return redirect(url_for("database_tools"))
-    return render_template("database_tools.html", db_info=db_info, backup_files=backup_files)
+    return render_template("database_tools.html", db_info=db_info, backup_files=backup_files, current_endpoint="database_tools")
 
 
 @app.route("/database/export")
