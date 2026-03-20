@@ -1144,8 +1144,8 @@ def inject_globals():
         'customer_activity_status': customer_activity_status,
     }
 
-,
-    }
+
+    
 
 
 def boot_app():
