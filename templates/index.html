@@ -5,7 +5,7 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Dashboard</h1>
-      <p class="hero-text">Version 3.3.2 Pro mit robuster Dashboard-Zählung auch nach Datenbank-Importen und verbesserter E-Mail-Automatik.</p>
+      <p class="hero-text">Version 3.3.4 Pro mit direkter Kundenzählung aus der aktiven SQLite-Datei.</p>
     </div>
     <div class="actions">
       <a class="btn" href="{{ url_for('customer_new') }}">Neuen Kontakt anlegen</a>
@@ -15,7 +15,7 @@
 </section>
 
 <section class="grid grid-4">
-  <div class="card stat-card"><div class="stat-label">Kunden</div><div class="stat-value">{{ stats.total_customers }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Kunden</div><div class="stat-value">{{ stats.total_customers }}</div><div class="tiny-note">Direkt aus DB: {{ stats.direct_customer_count|default(0) }}</div></div>
   <div class="card stat-card"><div class="stat-label">Heute Termine</div><div class="stat-value">{{ stats.appointments_today }}</div></div>
   <div class="card stat-card"><div class="stat-label">Diese Woche</div><div class="stat-value">{{ stats.appointments_week }}</div></div>
   <div class="card stat-card"><div class="stat-label">Rückholung 60 Tage</div><div class="stat-value">{{ stats.inactive_60 }}</div></div>
