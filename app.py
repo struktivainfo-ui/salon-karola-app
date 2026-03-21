@@ -49,7 +49,7 @@ app = Flask(
 app.secret_key = os.getenv("SECRET_KEY", "salon-karola-ultra-secret")
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
-APP_VERSION = "3.3 Pro"
+APP_VERSION = "3.3.2 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -97,6 +97,32 @@ def set_setting(key, value):
             (key, value),
         )
         conn.commit()
+
+def table_columns(table_name):
+    try:
+        rows = get_db().execute(f'PRAGMA table_info("{table_name}")').fetchall()
+        return [row[1] for row in rows]
+    except Exception:
+        return []
+
+
+def customer_columns():
+    return set(table_columns("_Customers"))
+
+
+def customer_has_column(column_name):
+    return column_name in customer_columns()
+
+
+def customer_contact_select_sql():
+    cols = customer_columns()
+    email_sql = "COALESCE(_mail, '')" if "_mail" in cols else "''"
+    mobile_sql = "COALESCE(Customer_Mobiltelefon, '')" if "Customer_Mobiltelefon" in cols else "''"
+    phone_sql = "COALESCE(Customer_PersönlichesTelefon, '')" if "Customer_PersönlichesTelefon" in cols else "''"
+    city_sql = "COALESCE(Customer_Stadt, '')" if "Customer_Stadt" in cols else "''"
+    return email_sql, mobile_sql, phone_sql, city_sql
+
+
 
 
 # ---------- Setup ----------
@@ -244,6 +270,22 @@ def init_db():
                     "Liebe/r {name},\n\ndas Team vom Salon Karola wünscht dir einen wunderschönen Geburtstag und freut sich auf deinen nächsten Besuch.\n\nHerzliche Grüße\nSalon Karola",
                 ),
             )
+
+        customer_cols = [row[1] for row in conn.execute("PRAGMA table_info(_Customers)").fetchall()]
+        customer_column_defs = {
+            "_mail": "TEXT",
+            "_birthdate": "TEXT",
+            "_notes": "TEXT",
+            "Customer_Adresse": "TEXT",
+            "Customer_PersönlichesTelefon": "TEXT",
+            "Customer_Mobiltelefon": "TEXT",
+            "Customer_Postleitzahl": "TEXT",
+            "Customer_Stadt": "TEXT",
+            "created_at": "TEXT DEFAULT CURRENT_TIMESTAMP",
+        }
+        for col, col_type in customer_column_defs.items():
+            if col not in customer_cols:
+                conn.execute(f"ALTER TABLE _Customers ADD COLUMN {col} {col_type}")
 
         columns = [row[1] for row in conn.execute("PRAGMA table_info(appointments)").fetchall()]
         if "status" not in columns:
@@ -645,11 +687,12 @@ def dashboard_stats():
     total_emails = 0
     total_mobile = 0
     try:
+        email_sql, mobile_sql, phone_sql, _ = customer_contact_select_sql()
         customer_rows = db.execute(
-            """
-            SELECT _id, COALESCE(_mail, '') AS _mail,
-                   COALESCE(Customer_Mobiltelefon, '') AS Customer_Mobiltelefon,
-                   COALESCE(Customer_PersönlichesTelefon, '') AS Customer_PersönlichesTelefon
+            f"""
+            SELECT _id, {email_sql} AS _mail,
+                   {mobile_sql} AS Customer_Mobiltelefon,
+                   {phone_sql} AS Customer_PersönlichesTelefon
             FROM _Customers
             """
         ).fetchall()
@@ -662,8 +705,16 @@ def dashboard_stats():
         )
     except Exception:
         total_customers = safe_count("SELECT COUNT(*) FROM _Customers")
-        total_emails = safe_count("SELECT COUNT(*) FROM _Customers WHERE _mail IS NOT NULL AND TRIM(_mail) <> ''")
-        total_mobile = safe_count("SELECT COUNT(*) FROM _Customers WHERE Customer_Mobiltelefon IS NOT NULL AND TRIM(Customer_Mobiltelefon) <> ''")
+        if customer_has_column("_mail"):
+            total_emails = safe_count("SELECT COUNT(*) FROM _Customers WHERE _mail IS NOT NULL AND TRIM(_mail) <> ''")
+        else:
+            total_emails = 0
+        mobile_parts = []
+        if customer_has_column("Customer_Mobiltelefon"):
+            mobile_parts.append("(Customer_Mobiltelefon IS NOT NULL AND TRIM(Customer_Mobiltelefon) <> '')")
+        if customer_has_column("Customer_PersönlichesTelefon"):
+            mobile_parts.append("(Customer_PersönlichesTelefon IS NOT NULL AND TRIM(Customer_PersönlichesTelefon) <> '')")
+        total_mobile = safe_count(f"SELECT COUNT(*) FROM _Customers WHERE {' OR '.join(mobile_parts)}") if mobile_parts else 0
     upcoming_appointments = safe_count(
         "SELECT COUNT(*) FROM appointments WHERE appointment_at >= ?",
         (datetime.now().isoformat(timespec="minutes"),),
@@ -673,7 +724,12 @@ def dashboard_stats():
     )
 
     birthdays_30 = 0
-    for row in db.execute("SELECT _birthdate FROM _Customers WHERE _birthdate IS NOT NULL AND TRIM(_birthdate) <> ''").fetchall():
+    if customer_has_column("_birthdate"):
+        birthday_rows = db.execute("SELECT _birthdate FROM _Customers WHERE _birthdate IS NOT NULL AND TRIM(_birthdate) <> ''").fetchall()
+    else:
+        birthday_rows = []
+
+    for row in birthday_rows:
         try:
             birthdate = datetime.fromisoformat(str(row["_birthdate"])).date()
             today = datetime.now().date()
@@ -911,10 +967,14 @@ def index():
 
     if q:
         like = f"%{q}%"
-        conditions.append(
-            "(c._name LIKE ? OR c._firstname LIKE ? OR c._mail LIKE ? OR c.Customer_Mobiltelefon LIKE ? OR c.Customer_PersönlichesTelefon LIKE ? OR c.Customer_Stadt LIKE ?)"
-        )
-        params.extend([like, like, like, like, like, like])
+        customer_cols = customer_columns()
+        search_parts = []
+        for column_name in ["_name", "_firstname", "_mail", "Customer_Mobiltelefon", "Customer_PersönlichesTelefon", "Customer_Stadt"]:
+            if column_name in customer_cols:
+                search_parts.append(f"c.{column_name} LIKE ?")
+                params.append(like)
+        if search_parts:
+            conditions.append("(" + " OR ".join(search_parts) + ")")
 
     if conditions:
         base_query += " WHERE " + " AND ".join(conditions)
@@ -927,9 +987,9 @@ def index():
     if customers and not stats.get("total_customers"):
         stats["total_customers"] = len(customers)
     if customers and not stats.get("total_emails"):
-        stats["total_emails"] = sum(1 for row in customers if (row["_mail"] or "").strip())
+        stats["total_emails"] = sum(1 for row in customers if ((row["_mail"] if "_mail" in row.keys() else "") or "").strip())
     if customers and not stats.get("total_mobile"):
-        stats["total_mobile"] = sum(1 for row in customers if (row["Customer_Mobiltelefon"] or row["Customer_PersönlichesTelefon"] or "").strip())
+        stats["total_mobile"] = sum(1 for row in customers if (((row["Customer_Mobiltelefon"] if "Customer_Mobiltelefon" in row.keys() else "") or (row["Customer_PersönlichesTelefon"] if "Customer_PersönlichesTelefon" in row.keys() else "") or "").strip()))
 
     return render_template(
         "index.html",
