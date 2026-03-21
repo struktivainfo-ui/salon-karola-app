@@ -49,7 +49,7 @@ app = Flask(
 app.secret_key = os.getenv("SECRET_KEY", "salon-karola-ultra-secret")
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
-APP_VERSION = "3.3.2 Pro"
+APP_VERSION = "3.3.3 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
