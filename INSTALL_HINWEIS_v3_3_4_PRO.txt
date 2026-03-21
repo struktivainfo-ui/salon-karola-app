@@ -1,0 +1,1 @@
+Deploye diese Version und lade danach das Dashboard hart neu. Wenn dort "Direkt aus DB" 375 anzeigt, aber oben weiter 0 stehen sollte, ist es definitiv kein Datenbankproblem mehr.

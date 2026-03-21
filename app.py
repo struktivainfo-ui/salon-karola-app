@@ -49,7 +49,7 @@ app = Flask(
 app.secret_key = os.getenv("SECRET_KEY", "salon-karola-ultra-secret")
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
-APP_VERSION = "3.3.3 Pro"
+APP_VERSION = "3.3.4 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -683,7 +683,7 @@ def scheduler_tick():
 def dashboard_stats():
     db = get_db()
 
-    total_customers = 0
+    total_customers = direct_customer_count_from_file()
     total_emails = 0
     total_mobile = 0
     try:
@@ -696,7 +696,7 @@ def dashboard_stats():
             FROM _Customers
             """
         ).fetchall()
-        total_customers = len(customer_rows)
+        total_customers = max(total_customers, len(customer_rows))
         total_emails = sum(1 for row in customer_rows if str(row["_mail"]).strip())
         total_mobile = sum(
             1
@@ -704,7 +704,7 @@ def dashboard_stats():
             if str(row["Customer_Mobiltelefon"]).strip() or str(row["Customer_PersönlichesTelefon"]).strip()
         )
     except Exception:
-        total_customers = safe_count("SELECT COUNT(*) FROM _Customers")
+        total_customers = max(total_customers, safe_count("SELECT COUNT(*) FROM _Customers"))
         if customer_has_column("_mail"):
             total_emails = safe_count("SELECT COUNT(*) FROM _Customers WHERE _mail IS NOT NULL AND TRIM(_mail) <> ''")
         else:
@@ -984,6 +984,9 @@ def index():
     tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
 
     stats = dashboard_stats()
+    stats["direct_customer_count"] = direct_customer_count_from_file()
+    if not stats.get("total_customers") and stats.get("direct_customer_count"):
+        stats["total_customers"] = stats["direct_customer_count"]
     if customers and not stats.get("total_customers"):
         stats["total_customers"] = len(customers)
     if customers and not stats.get("total_emails"):
@@ -1747,6 +1750,19 @@ def inspect_sqlite_database(path):
                 except Exception:
                     info["counts"][table] = "—"
     return info
+
+
+def direct_customer_count_from_file():
+    try:
+        info = inspect_sqlite_database(DB_PATH) if DB_PATH.exists() else None
+        if info:
+            return int(info.get("counts", {}).get("_Customers", 0) or 0)
+    except Exception as exc:
+        try:
+            set_setting("dashboard:last_direct_count_error", str(exc))
+        except Exception:
+            pass
+    return 0
 
 
 def backup_current_database(label="manual"):
