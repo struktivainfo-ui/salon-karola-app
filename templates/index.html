@@ -5,7 +5,7 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Dashboard</h1>
-      <p class="hero-text">Version 3.3.4 Pro mit direkter Kundenzählung aus der aktiven SQLite-Datei.</p>
+      <p class="hero-text">Version 3.3.5 Pro mit finalem Dashboard-Fix, ohne HTML-Cache und mit direkter Kundenzählung aus der aktiven SQLite-Datei.</p>
     </div>
     <div class="actions">
       <a class="btn" href="{{ url_for('customer_new') }}">Neuen Kontakt anlegen</a>
@@ -15,7 +15,7 @@
 </section>
 
 <section class="grid grid-4">
-  <div class="card stat-card"><div class="stat-label">Kunden</div><div class="stat-value">{{ stats.total_customers }}</div><div class="tiny-note">Direkt aus DB: {{ stats.direct_customer_count|default(0) }}</div></div>
+  <div class="card stat-card"><div class="stat-label">Kunden</div><div class="stat-value">{{ stats.direct_customer_count|default(stats.total_customers, true) }}</div><div class="tiny-note">Direkt aus DB: {{ stats.direct_customer_count|default(0) }}</div><div class="tiny-note">Version: {{ app_version }}</div><div class="tiny-note">Aktualisiert: {{ deploy_marker }}</div></div>
   <div class="card stat-card"><div class="stat-label">Heute Termine</div><div class="stat-value">{{ stats.appointments_today }}</div></div>
   <div class="card stat-card"><div class="stat-label">Diese Woche</div><div class="stat-value">{{ stats.appointments_week }}</div></div>
   <div class="card stat-card"><div class="stat-label">Rückholung 60 Tage</div><div class="stat-value">{{ stats.inactive_60 }}</div></div>
@@ -56,7 +56,7 @@
         <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurücksetzen</a>
       </div>
     </form>
-    <div class="tiny-note">SMTP: {% if smtp_ready %}<span class="badge ok">bereit</span>{% else %}<span class="badge warn">nicht vollständig</span>{% endif %}</div>
+    <div class="tiny-note">SMTP: {% if smtp_ready %}<span class="badge ok">bereit</span>{% else %}<span class="badge warn">nicht vollständig</span>{% endif %}</div><div class="tiny-note">DB-Pfad: {{ db_path }}</div>
     {% if automation %}
     <div class="tiny-note">Letzter Lauf: {{ automation.last_run_at|default('', true) or '-' }}</div>
     <div class="tiny-note">Status: {{ automation.last_run_summary|default('', true) or '-' }}</div>
