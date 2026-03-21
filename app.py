@@ -378,8 +378,15 @@ def smtp_ready():
 
 def safe_count(query, params=()):
     try:
-        return get_db().execute(query, params).fetchone()[0]
-    except Exception:
+        row = get_db().execute(query, params).fetchone()
+        if row is None:
+            return 0
+        return int(row[0] or 0)
+    except Exception as exc:
+        try:
+            set_setting("dashboard:last_safe_count_error", f"{query} | {exc}")
+        except Exception:
+            pass
         return 0
 
 
@@ -633,9 +640,30 @@ def scheduler_tick():
 # ---------- Dashboard ----------
 def dashboard_stats():
     db = get_db()
-    total_customers = safe_count("SELECT COUNT(*) FROM _Customers")
-    total_emails = safe_count("SELECT COUNT(*) FROM _Customers WHERE _mail IS NOT NULL AND TRIM(_mail) <> ''")
-    total_mobile = safe_count("SELECT COUNT(*) FROM _Customers WHERE Customer_Mobiltelefon IS NOT NULL AND TRIM(Customer_Mobiltelefon) <> ''")
+
+    total_customers = 0
+    total_emails = 0
+    total_mobile = 0
+    try:
+        customer_rows = db.execute(
+            """
+            SELECT _id, COALESCE(_mail, '') AS _mail,
+                   COALESCE(Customer_Mobiltelefon, '') AS Customer_Mobiltelefon,
+                   COALESCE(Customer_PersönlichesTelefon, '') AS Customer_PersönlichesTelefon
+            FROM _Customers
+            """
+        ).fetchall()
+        total_customers = len(customer_rows)
+        total_emails = sum(1 for row in customer_rows if str(row["_mail"]).strip())
+        total_mobile = sum(
+            1
+            for row in customer_rows
+            if str(row["Customer_Mobiltelefon"]).strip() or str(row["Customer_PersönlichesTelefon"]).strip()
+        )
+    except Exception:
+        total_customers = safe_count("SELECT COUNT(*) FROM _Customers")
+        total_emails = safe_count("SELECT COUNT(*) FROM _Customers WHERE _mail IS NOT NULL AND TRIM(_mail) <> ''")
+        total_mobile = safe_count("SELECT COUNT(*) FROM _Customers WHERE Customer_Mobiltelefon IS NOT NULL AND TRIM(Customer_Mobiltelefon) <> ''")
     upcoming_appointments = safe_count(
         "SELECT COUNT(*) FROM appointments WHERE appointment_at >= ?",
         (datetime.now().isoformat(timespec="minutes"),),
@@ -898,6 +926,10 @@ def index():
     stats = dashboard_stats()
     if customers and not stats.get("total_customers"):
         stats["total_customers"] = len(customers)
+    if customers and not stats.get("total_emails"):
+        stats["total_emails"] = sum(1 for row in customers if (row["_mail"] or "").strip())
+    if customers and not stats.get("total_mobile"):
+        stats["total_mobile"] = sum(1 for row in customers if (row["Customer_Mobiltelefon"] or row["Customer_PersönlichesTelefon"] or "").strip())
 
     return render_template(
         "index.html",
@@ -909,7 +941,7 @@ def index():
         birthdays=upcoming_birthdays(),
         tags=tags,
         smtp_ready=smtp_ready(),
-        automation=get_automation_status(),
+        automation={**get_automation_status(), "dashboard_error": get_setting("dashboard:last_safe_count_error")},
         inactive=inactive_customers(),
         today_items=today_appointments(),
         due_items=due_reminders(),
