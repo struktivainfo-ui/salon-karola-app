@@ -61,6 +61,7 @@
     <div class="tiny-note">Letzter Lauf: {{ automation.last_run_at|default('', true) or '-' }}</div>
     <div class="tiny-note">Status: {{ automation.last_run_summary|default('', true) or '-' }}</div>
     {% if automation.last_run_error %}<div class="tiny-note" style="color:#b42318;">Letzter Fehler: {{ automation.last_run_error }}</div>{% endif %}
+    {% if automation.dashboard_error %}<div class="tiny-note" style="color:#b42318;">Dashboard-Hinweis: {{ automation.dashboard_error }}</div>{% endif %}
     {% endif %}
   </div>
 
