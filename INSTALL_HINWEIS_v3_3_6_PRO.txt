@@ -1,0 +1,10 @@
+Salon Karola 3.3.6 Pro
+
+Neu in dieser Version:
+- Standard-Admin wird beim Start immer angelegt bzw. zurückgesetzt
+- Nach Datenbank-Import bleibt ein Login mit admin / 1234 immer möglich
+- Versionsstand auf 3.3.6 Pro
+
+Standard-Login:
+Benutzername: admin
+Passwort: 1234

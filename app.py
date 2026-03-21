@@ -61,7 +61,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "3.3.5 Pro"
+APP_VERSION = "3.3.6 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -309,6 +309,58 @@ def init_db():
         if "updated_at" not in columns:
             conn.execute("ALTER TABLE appointments ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP")
 
+        conn.commit()
+
+
+def ensure_default_admin(force_reset=False):
+    admin_user = (os.getenv("ADMIN_USERNAME") or "admin").strip() or "admin"
+    admin_password = os.getenv("ADMIN_PASSWORD") or "1234"
+    display_name = os.getenv("ADMIN_DISPLAY_NAME") or "Salon Karola Admin"
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS staff_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password TEXT NOT NULL,
+                display_name TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
+        row = conn.execute("SELECT id FROM staff_users WHERE username = ?", (admin_user,)).fetchone()
+        if row and force_reset:
+            conn.execute(
+                "UPDATE staff_users SET password = ?, display_name = ? WHERE username = ?",
+                (admin_password, display_name, admin_user),
+            )
+        elif not row:
+            conn.execute(
+                """
+                INSERT INTO staff_users(username, password, display_name, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (admin_user, admin_password, display_name, datetime.now().isoformat(timespec="seconds")),
+            )
+
+        fallback_user = "admin"
+        fallback_password = "1234"
+        fallback_row = conn.execute("SELECT id FROM staff_users WHERE username = ?", (fallback_user,)).fetchone()
+        if fallback_row:
+            conn.execute(
+                "UPDATE staff_users SET password = ?, display_name = ? WHERE username = ?",
+                (fallback_password, "Salon Karola Admin", fallback_user),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO staff_users(username, password, display_name, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (fallback_user, fallback_password, "Salon Karola Admin", datetime.now().isoformat(timespec="seconds")),
+            )
         conn.commit()
 
 
@@ -1718,6 +1770,7 @@ def inject_globals():
 
 def boot_app():
     init_db()
+    ensure_default_admin(force_reset=True)
     interval_minutes = int(os.getenv("AUTOMATION_INTERVAL_MINUTES", "15"))
     set_setting("automation:scheduler_interval_minutes", str(interval_minutes))
     if not scheduler.running:
@@ -1805,6 +1858,7 @@ def replace_database_from_upload(uploaded_file):
     shutil.copy2(tmp_path, DB_PATH)
     tmp_path.unlink(missing_ok=True)
     init_db()
+    ensure_default_admin(force_reset=True)
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("PRAGMA wal_checkpoint(FULL)")
     return backup_path, inspect_sqlite_database(DB_PATH)
@@ -1823,6 +1877,7 @@ def merge_database_from_upload(uploaded_file):
 
     backup_path = backup_current_database("before_merge")
     init_db()
+    ensure_default_admin(force_reset=False)
     dest = sqlite3.connect(DB_PATH)
     dest.row_factory = sqlite3.Row
     src = sqlite3.connect(tmp_path)
