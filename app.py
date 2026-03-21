@@ -49,7 +49,19 @@ app = Flask(
 app.secret_key = os.getenv("SECRET_KEY", "salon-karola-ultra-secret")
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
-APP_VERSION = "3.3.4 Pro"
+
+@app.after_request
+def add_no_cache_headers(response):
+    try:
+        if request.path in ["/", "/login", "/calendar", "/database-tools"] or response.mimetype in {"text/html", "application/javascript", "application/manifest+json"}:
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+    except Exception:
+        pass
+    return response
+
+APP_VERSION = "3.3.5 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -985,8 +997,8 @@ def index():
 
     stats = dashboard_stats()
     stats["direct_customer_count"] = direct_customer_count_from_file()
-    if not stats.get("total_customers") and stats.get("direct_customer_count"):
-        stats["total_customers"] = stats["direct_customer_count"]
+    if stats.get("direct_customer_count") is not None:
+        stats["total_customers"] = int(stats.get("direct_customer_count") or 0)
     if customers and not stats.get("total_customers"):
         stats["total_customers"] = len(customers)
     if customers and not stats.get("total_emails"):
@@ -1012,6 +1024,8 @@ def index():
         now=datetime.now(),
         current_endpoint="index",
         app_version=APP_VERSION,
+        deploy_marker=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        db_path=str(DB_PATH),
     )
 
 

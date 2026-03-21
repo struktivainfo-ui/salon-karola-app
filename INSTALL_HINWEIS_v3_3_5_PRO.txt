@@ -1,0 +1,9 @@
+Salon Karola 3.3.5 Pro
+
+Wichtig nach dem Deploy:
+1. Deploy auf Render fertig laufen lassen
+2. Browser komplett schließen
+3. Die installierte PWA einmal entfernen oder neu öffnen
+4. Dann die Webseite neu laden
+
+Diese Version setzt Dashboard und Datenbank auf direkte DB-Zaehlung und deaktiviert HTML-Cache fuer Dashboard, Kalender und Datenbank-Tools.
