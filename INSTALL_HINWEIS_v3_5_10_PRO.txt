@@ -1,0 +1,13 @@
+Version 3.5.10 Pro App-Menü
+
+Neu:
+- echtes App-Menü von links auf dem Handy
+- Menü öffnet erst nach Klick auf "Menü"
+- dunkles Overlay im Hintergrund
+- Menü schließt bei Klick auf Overlay oder Menüpunkt
+- untere Navigation auf dem Handy ausgeblendet
+
+Nach dem Deploy:
+1. Seite/App komplett neu laden
+2. Wenn installiert: App ganz schließen und neu öffnen
+3. Falls noch alt aussieht: Browser-/PWA-Cache leeren
