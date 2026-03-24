@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.4.3 Pro") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.4.4 Pro") }}</div>
         </div>
       </div>
       <nav class="nav-links">
@@ -114,9 +114,18 @@
         return res.json();
       }
 
-      function urlBase64ToUint8Array(base64String) {
-        const padding = "=".repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+      function vapidKeyToUint8Array(value) {
+        const cleaned = (value || "").trim();
+        if (!cleaned) throw new Error("VAPID Public Key fehlt.");
+        if (/^[0-9a-fA-F]+$/.test(cleaned) && cleaned.length % 2 === 0) {
+          const out = new Uint8Array(cleaned.length / 2);
+          for (let i = 0; i < cleaned.length; i += 2) {
+            out[i / 2] = parseInt(cleaned.slice(i, i + 2), 16);
+          }
+          return out;
+        }
+        const padding = "=".repeat((4 - cleaned.length % 4) % 4);
+        const base64 = (cleaned + padding).replace(/-/g, "+").replace(/_/g, "/");
         const rawData = atob(base64);
         const outputArray = new Uint8Array(rawData.length);
         for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
@@ -150,7 +159,7 @@
         if (!subscription) {
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(config.public_key),
+            applicationServerKey: vapidKeyToUint8Array(config.public_key),
           });
         }
 
@@ -221,7 +230,7 @@
             await registerPushSubscription(true);
           } catch (error) {
             setPushUi(error.message || "Push konnte nicht aktiviert werden.");
-            alert(error.message || "Push konnte nicht aktiviert werden.");
+            alert((error && error.message) ? error.message : "Push konnte nicht aktiviert werden. Bitte Handy-Seite neu laden und erneut versuchen.");
           }
         });
       }
