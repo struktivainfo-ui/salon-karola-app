@@ -61,7 +61,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "3.3.6 Pro"
+APP_VERSION = "3.3.7 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -283,31 +283,38 @@ def init_db():
                 ),
             )
 
-        customer_cols = [row[1] for row in conn.execute("PRAGMA table_info(_Customers)").fetchall()]
-        customer_column_defs = {
-            "_mail": "TEXT",
-            "_birthdate": "TEXT",
-            "_notes": "TEXT",
-            "Customer_Adresse": "TEXT",
-            "Customer_PersönlichesTelefon": "TEXT",
-            "Customer_Mobiltelefon": "TEXT",
-            "Customer_Postleitzahl": "TEXT",
-            "Customer_Stadt": "TEXT",
-            "created_at": "TEXT DEFAULT CURRENT_TIMESTAMP",
-        }
-        for col, col_type in customer_column_defs.items():
-            if col not in customer_cols:
-                conn.execute(f"ALTER TABLE _Customers ADD COLUMN {col} {col_type}")
+        def add_column_if_missing(table_name, column_name, column_sql, *, fill_sql=None):
+            existing = [row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()]
+            if column_name in existing:
+                return
+            conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_sql}")
+            if fill_sql:
+                conn.execute(fill_sql)
 
-        columns = [row[1] for row in conn.execute("PRAGMA table_info(appointments)").fetchall()]
-        if "status" not in columns:
-            conn.execute("ALTER TABLE appointments ADD COLUMN status TEXT DEFAULT 'geplant'")
-        if "staff_name" not in columns:
-            conn.execute("ALTER TABLE appointments ADD COLUMN staff_name TEXT DEFAULT 'Ute'")
-        if "created_by" not in columns:
-            conn.execute("ALTER TABLE appointments ADD COLUMN created_by TEXT DEFAULT ''")
-        if "updated_at" not in columns:
-            conn.execute("ALTER TABLE appointments ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP")
+        add_column_if_missing("_Customers", "_mail", "TEXT")
+        add_column_if_missing("_Customers", "_birthdate", "TEXT")
+        add_column_if_missing("_Customers", "_notes", "TEXT")
+        add_column_if_missing("_Customers", "Customer_Adresse", "TEXT")
+        add_column_if_missing("_Customers", "Customer_PersönlichesTelefon", "TEXT")
+        add_column_if_missing("_Customers", "Customer_Mobiltelefon", "TEXT")
+        add_column_if_missing("_Customers", "Customer_Postleitzahl", "TEXT")
+        add_column_if_missing("_Customers", "Customer_Stadt", "TEXT")
+        add_column_if_missing(
+            "_Customers",
+            "created_at",
+            "TEXT",
+            fill_sql="UPDATE _Customers SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL OR created_at = ''",
+        )
+
+        add_column_if_missing("appointments", "status", "TEXT DEFAULT 'geplant'")
+        add_column_if_missing("appointments", "staff_name", "TEXT DEFAULT 'Ute'")
+        add_column_if_missing("appointments", "created_by", "TEXT DEFAULT ''")
+        add_column_if_missing(
+            "appointments",
+            "updated_at",
+            "TEXT",
+            fill_sql="UPDATE appointments SET updated_at = COALESCE(created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL OR updated_at = ''",
+        )
 
         conn.commit()
 
