@@ -1,0 +1,15 @@
+Salon Karola – Version 2.9 Pro
+
+Neu in 2.9 Pro:
+- Kalender komplett repariert
+- Tages-, Wochen- und Monatsansicht aktiv
+- Mitarbeiter-Filter: Alle / Ute / Jessi
+- Mitarbeiter-Zuordnung bei Terminen bleibt erhalten
+- Keine Umsatz-pro-Mitarbeiter-Funktion enthalten
+- Versionsanzeigen in der App auf 2.9 Pro gesetzt
+
+Wichtige Hinweise:
+1. Bestehende Datenbank kann weiter verwendet werden.
+2. Die Spalte staff_name wird beim Start automatisch ergänzt, falls sie fehlt.
+3. Nach Upload auf Render am besten einmal neu deployen.
+4. Bei bestehendem Browser-Cache die App einmal hart neu laden.

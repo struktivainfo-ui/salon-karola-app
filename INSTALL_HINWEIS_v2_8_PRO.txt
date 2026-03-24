@@ -1,0 +1,15 @@
+Salon Karola Version 2.8 Pro
+
+Neu:
+- Termin kann Ute oder Jessi zugeordnet werden
+- Team-Kalender Menü oben im Dashboard
+- Kalenderfilter für Alle / Ute / Jessi
+- Deutsche Wochentage in Tag- und Wochenansicht
+- Kein Umsatzmodul
+
+Deploy:
+1. ZIP komplett entpacken
+2. alles in GitHub ersetzen
+3. Render deployen
+4. Start Command unverändert lassen:
+   gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application

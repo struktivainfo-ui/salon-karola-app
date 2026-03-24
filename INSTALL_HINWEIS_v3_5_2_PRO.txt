@@ -1,0 +1,21 @@
+SALON KAROLA – INSTALL-HINWEIS VERSION 3.5.2 PRO
+
+Neu in dieser Version:
+- App-Version auf 3.5.2 Pro mit App-Menü Close Fix gesetzt
+- Push bleibt technisch wie in 3.5.1 Pro stabil
+- Nach erfolgreicher Push-Aktivierung wird das offene App-Menü / Overlay automatisch geschlossen
+- Zusätzlicher UI-Fix für offene Details/Dialoge nach Push-Aktivierung
+- Push-Statusleiste bleibt sichtbar und aktualisiert sich weiter sauber
+
+Nach dem Deploy:
+1. Render neu deployen
+2. Handy-App / PWA einmal komplett schließen
+3. Seite neu öffnen
+4. Push aktivieren
+5. Prüfen, ob das Menü danach sauber verschwindet
+
+Hinweis:
+Falls auf einem älteren Gerät noch der alte Zustand im Cache steckt, einmal:
+- Seite neu laden
+- Browserdaten / App-Cache leeren
+- Push erneut testen

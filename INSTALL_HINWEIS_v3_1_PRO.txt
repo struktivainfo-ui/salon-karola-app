@@ -1,0 +1,12 @@
+Salon Karola Version 3.1 Pro
+
+Neu in 3.1 Pro:
+- Tag / Woche / Monat sauber auf Deutsch
+- Live-Benachrichtigung zwischen Ute und Jessi
+- Auswahl "Dieses Handy" für Ute oder Jessi
+
+Wichtig zur Benachrichtigung:
+- Auf jedem Handy in der App unten/oben "Dieses Handy" richtig auf Ute oder Jessi setzen.
+- Dann auf "Push aktivieren" tippen und Benachrichtigungen erlauben.
+- Die andere Kollegin sieht neue Termine als Live-Benachrichtigung, solange die App geöffnet oder als PWA installiert ist.
+- Für echte Hintergrund-Pushs auch bei komplett geschlossener App wäre später noch Web-Push mit Server-Keys nötig.

@@ -1,4 +1,4 @@
-Salon Karola 3.3.5 Pro
+Salon Karola 3.3.6 Pro
 
 Wichtig nach dem Deploy:
 1. Deploy auf Render fertig laufen lassen

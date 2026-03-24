@@ -1,0 +1,1 @@
+Nach dem Deploy die App 1x komplett schliessen und neu laden. Falls noetig im Browser die PWA/Service-Worker aktualisieren. Dieser Fix verhindert, dass das Dashboard aus einem alten Cache angezeigt wird.

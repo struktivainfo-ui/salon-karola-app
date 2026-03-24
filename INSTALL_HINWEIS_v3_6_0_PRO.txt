@@ -1,0 +1,12 @@
+Salon Karola – Version 3.6.0 Pro Clean Left Menu
+
+Neu:
+- Oberes Handy-Menü fährt jetzt von links ein
+- Widersprüchliche alte Mobile-Menü-CSS entfernt
+- Service-Worker-Cache-Version erhöht
+- Style.css wird mit Versionsparameter geladen
+
+Nach dem Deploy:
+1. Browser/PWA komplett schließen
+2. Seite neu öffnen
+3. Falls noch alte Ansicht sichtbar ist: Browserdaten der Seite löschen

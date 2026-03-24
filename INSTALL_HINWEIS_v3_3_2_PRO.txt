@@ -1,0 +1,8 @@
+Version 3.3.2 Pro
+
+Fixes:
+- Dashboard liest Kundenzahl auch dann korrekt, wenn importierte SQLite-Dateien einzelne Kunden-Spalten nicht enthalten.
+- Fehlende _Customers-Spalten werden beim Start automatisch ergänzt.
+- Suche im Dashboard passt sich an die vorhandenen Kunden-Spalten an.
+
+Nach dem Upload auf Render bitte neu deployen und danach einmal die Startseite hart neu laden (Strg+F5).
