@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.5.2 Pro") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.5.4 Pro Menü System") }}</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
@@ -38,6 +38,7 @@
       </nav>
     </div>
   </header>
+  <div class="menu-overlay" id="menuOverlay" aria-hidden="true"></div>
   {% endif %}
   <main class="container">
     {% with messages = get_flashed_messages() %}
@@ -85,6 +86,7 @@
       const testPushBtn = document.getElementById("testPushBtn");
       const menuToggle = document.getElementById("menuToggle");
       const mainNavLinks = document.getElementById("mainNavLinks");
+      const menuOverlay = document.getElementById("menuOverlay");
 
       function currentStaff() {
         return (localStorage.getItem(STORAGE_KEY_STAFF) || "Ute").trim() || "Ute";
@@ -134,11 +136,15 @@
 
       function closeMobileMenu() {
         if (mainNavLinks) mainNavLinks.classList.remove("mobile-open");
+        if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
+        document.body.classList.remove("mobile-menu-open");
         if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
       }
 
       function openMobileMenu() {
         if (mainNavLinks) mainNavLinks.classList.add("mobile-open");
+        if (menuOverlay) { menuOverlay.classList.add("active"); menuOverlay.setAttribute("aria-hidden", "false"); }
+        document.body.classList.add("mobile-menu-open");
         if (menuToggle) menuToggle.setAttribute("aria-expanded", "true");
       }
 
@@ -341,6 +347,10 @@
         });
       }
 
+      if (menuOverlay) {
+        menuOverlay.addEventListener("click", () => closeMobileMenu());
+      }
+
       if (mainNavLinks) {
         mainNavLinks.querySelectorAll("a").forEach((link) => {
           link.addEventListener("click", () => closeMobileMenu());
@@ -368,6 +378,14 @@
           }
         });
       }
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeMobileMenu();
+      });
+
+      window.addEventListener("resize", () => {
+        if (window.innerWidth > 768) closeMobileMenu();
+      });
 
       window.addEventListener("load", async () => {
         try {
