@@ -66,7 +66,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "3.5.5 Pro"
+APP_VERSION = "3.5.6 Pro Push Panel"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))

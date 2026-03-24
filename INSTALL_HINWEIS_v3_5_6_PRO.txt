@@ -1,0 +1,13 @@
+Version 3.5.6 Pro Push Panel
+
+Neu:
+- echtes Push-Panel mit funktionierendem Auf/Zu
+- Panel startet geschlossen
+- Klick auf die gelbe Push-Leiste oeffnet/schliesst das Panel
+- Klick ausserhalb schliesst das Panel
+- nach erfolgreicher Push-Aktivierung schliesst das Panel automatisch
+
+Nach Deploy:
+1. Seite/App komplett neu laden
+2. Push-Leiste antippen
+3. Push aktivieren testen
