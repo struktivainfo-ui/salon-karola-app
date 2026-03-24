@@ -378,11 +378,40 @@ td {
 .badge-health-rueckholung { background: rgba(217,83,79,.12); border-color: rgba(217,83,79,.28); color: #ffb3af; }
 .badge-health-neu { background: rgba(120,120,255,.12); border-color: rgba(120,120,255,.28); color: #c7ccff; }
 .mobile-only-flex { display:none; }
+.mobile-only-inline { display:none; }
 
 @media (max-width: 768px) {
   main.container { padding-bottom: 92px; }
   .hero-row { flex-direction:column; }
   .quick-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .topbar-inner { align-items:stretch; }
+  .mobile-only-inline { display:inline-flex; }
+  .menu-toggle {
+    min-height:46px;
+    align-items:center;
+    justify-content:center;
+    padding:10px 14px;
+    border-radius:12px;
+    background:#171717;
+    border:1px solid var(--border);
+    color:var(--text);
+    font-size:.95rem;
+    font-weight:700;
+  }
+  .nav-links {
+    display:none;
+    width:100%;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+    margin-top:10px;
+  }
+  .nav-links.mobile-open { display:grid; }
+  .nav-links a {
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    min-height:46px;
+  }
   .mobile-only-flex {
     display:grid;
     grid-template-columns:repeat(4,minmax(0,1fr));
