@@ -696,3 +696,7 @@ td {
 .day-slot-item { display:block; padding:10px 12px; border-radius:12px; background:rgba(212,175,55,0.08); border:1px solid rgba(212,175,55,0.16); color:var(--text); }
 .day-slot-empty { color: var(--muted); padding:8px 10px; }
 @media (max-width: 900px) { .day-slot { grid-template-columns: 72px 1fr; } }
+
+
+.device-staff-body[hidden] { display:none !important; }
+.device-staff-bar.open .device-staff-body { display:grid !important; }
