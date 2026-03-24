@@ -14,3 +14,5 @@ services:
         value: /opt/render/project/src/data/salon_karola.db
       - key: SMTP_USE_TLS
         value: true
+      - key: EMAIL_PROVIDER
+        value: auto

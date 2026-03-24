@@ -1,0 +1,24 @@
+Salon Karola 3.4 Pro – Mail-Fix
+
+Neu:
+- Resend Mail-API integriert (empfohlen für Render)
+- SMTP bleibt als Fallback erhalten
+- Dashboard zeigt Mail-Modus an
+
+Empfohlene Render-Variablen fuer Resend:
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=dein_resend_api_key
+RESEND_FROM=Salon Karola <onboarding@resend.dev> oder deine verifizierte Absenderadresse
+RESEND_REPLY_TO=matzkesven7@gmail.com
+
+Optionaler SMTP-Fallback:
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=deine_mail@gmail.com
+SMTP_PASSWORD=dein_app_passwort
+SMTP_SENDER=Salon Karola <deine_mail@gmail.com>
+SMTP_USE_TLS=true
+
+Wichtig:
+- Auf Render ist SMTP haeufig unzuverlaessig. Deshalb ist Resend die bessere Loesung.
+- Nach dem Setzen der Variablen immer neu deployen.

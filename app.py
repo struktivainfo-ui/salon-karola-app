@@ -14,6 +14,8 @@ from email.message import EmailMessage
 from functools import wraps
 from pathlib import Path
 from urllib.parse import quote
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
@@ -61,7 +63,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "3.3.7 Pro"
+APP_VERSION = "3.4 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -372,7 +374,79 @@ def ensure_default_admin(force_reset=False):
 
 
 # ---------- Mail ----------
-def send_email(to_email, subject, body):
+def email_delivery_mode():
+    requested = (os.getenv("EMAIL_PROVIDER") or os.getenv("MAIL_PROVIDER") or "auto").strip().lower()
+    if requested in {"resend", "smtp"}:
+        return requested
+    if (os.getenv("RESEND_API_KEY") or "").strip():
+        return "resend"
+    return "smtp"
+
+
+def resend_ready():
+    api_key = (os.getenv("RESEND_API_KEY") or "").strip()
+    sender = (os.getenv("RESEND_FROM") or os.getenv("SMTP_SENDER") or "").strip()
+    return bool(api_key and sender)
+
+
+def smtp_ready():
+    needed = ["SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_SENDER"]
+    return all((os.getenv(k) or "").strip() for k in needed)
+
+
+def mail_ready():
+    mode = email_delivery_mode()
+    if mode == "resend":
+        return resend_ready()
+    return smtp_ready()
+
+
+def send_email_via_resend(to_email, subject, body):
+    api_key = (os.getenv("RESEND_API_KEY") or "").strip()
+    sender = (os.getenv("RESEND_FROM") or os.getenv("SMTP_SENDER") or "").strip()
+    reply_to = (os.getenv("RESEND_REPLY_TO") or os.getenv("SMTP_USERNAME") or "").strip()
+
+    if not api_key or not sender:
+        raise RuntimeError("Resend ist nicht vollständig konfiguriert. Bitte RESEND_API_KEY und RESEND_FROM prüfen.")
+
+    payload = {
+        "from": sender,
+        "to": [to_email],
+        "subject": subject,
+        "text": body,
+    }
+    if reply_to:
+        payload["reply_to"] = [reply_to]
+
+    data = json.dumps(payload).encode("utf-8")
+    req = Request(
+        "https://api.resend.com/emails",
+        data=data,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=25) as resp:
+            status = getattr(resp, "status", 200)
+            if int(status) >= 300:
+                raise RuntimeError(f"Resend Fehler: HTTP {status}")
+    except HTTPError as exc:
+        details = ""
+        try:
+            details = exc.read().decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+        raise RuntimeError(f"Resend Fehler: HTTP {exc.code} {details}".strip()) from exc
+    except URLError as exc:
+        raise RuntimeError(f"Resend Netzwerkfehler: {exc.reason}") from exc
+    except OSError as exc:
+        raise RuntimeError(f"Resend Netzwerkfehler: {exc}") from exc
+
+
+def send_email_via_smtp(to_email, subject, body):
     host = (os.getenv("SMTP_HOST") or "").strip()
     port = int((os.getenv("SMTP_PORT") or "587").strip())
     username = (os.getenv("SMTP_USERNAME") or "").strip()
@@ -410,6 +484,13 @@ def send_email(to_email, subject, body):
         raise RuntimeError("SMTP Verbindung fehlgeschlagen. Host oder Port bitte prüfen.") from exc
     except OSError as exc:
         raise RuntimeError(f"SMTP Netzwerkfehler: {exc}") from exc
+
+
+def send_email(to_email, subject, body):
+    mode = email_delivery_mode()
+    if mode == "resend":
+        return send_email_via_resend(to_email, subject, body)
+    return send_email_via_smtp(to_email, subject, body)
 
 
 # ---------- Utilities ----------
@@ -482,11 +563,6 @@ def log_email(customer_id, email_type, subject, body, recipient, status, error_m
             ),
         )
         conn.commit()
-
-
-def smtp_ready():
-    needed = ["SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_SENDER"]
-    return all((os.getenv(k) or "").strip() for k in needed)
 
 
 def safe_count(query, params=()):
