@@ -1,0 +1,10 @@
+Version 3.4.3 Pro
+
+Neu: sichtbare Push-Leiste auf Desktop und Handy, Push aktivieren, Push testen.
+
+Wichtig:
+1. VAPID_PUBLIC_KEY und VAPID_PRIVATE_KEY in Render setzen
+2. neu deployen
+3. im Browser Benachrichtigungen erlauben
+4. in der Kalender-Seite auf Push aktivieren klicken
+5. danach Push testen
