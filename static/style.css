@@ -771,3 +771,113 @@ td {
   .nav-links.mobile-open:not([hidden]) a { width: 100%; justify-content: center; }
   .bottom-nav { display: none !important; }
 }
+
+
+/* 3.5.10 Pro App-Menü */
+@media (max-width: 768px) {
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 240;
+    backdrop-filter: blur(10px);
+  }
+
+  .topbar-inner {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .menu-toggle.mobile-only-inline {
+    display: inline-flex !important;
+    width: 100%;
+    min-height: 58px;
+    border-radius: 20px;
+    font-size: 1.12rem;
+    font-weight: 800;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 12px 24px rgba(0,0,0,.22);
+  }
+
+  .nav-links {
+    display: grid !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: auto !important;
+    width: min(86vw, 360px);
+    height: 100dvh;
+    grid-template-columns: 1fr !important;
+    align-content: start;
+    gap: 12px;
+    padding: calc(env(safe-area-inset-top, 0px) + 20px) 18px calc(env(safe-area-inset-bottom, 0px) + 20px);
+    background: linear-gradient(180deg, rgba(14,14,14,.995) 0%, rgba(20,20,20,.99) 100%) !important;
+    border-right: 1px solid rgba(212,175,55,.24) !important;
+    border-radius: 0 24px 24px 0 !important;
+    box-shadow: 0 28px 60px rgba(0,0,0,.50) !important;
+    transform: translateX(-112%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .28s ease, opacity .22s ease;
+    z-index: 260;
+    margin: 0 !important;
+  }
+
+  .nav-links::before {
+    content: "Menü";
+    display: block;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--gold-soft);
+    margin-bottom: 6px;
+    padding: 4px 4px 12px;
+    border-bottom: 1px solid rgba(212,175,55,.18);
+  }
+
+  .nav-links.mobile-open:not([hidden]) {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .nav-links a,
+  .nav-links.mobile-open:not([hidden]) a {
+    width: 100%;
+    min-height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 15px 16px;
+    border-radius: 18px;
+    font-size: 1rem;
+    font-weight: 700;
+    background: rgba(255,255,255,.02);
+    border: 1px solid rgba(212,175,55,.18);
+  }
+
+  .menu-overlay {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.56);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .24s ease;
+    z-index: 250;
+  }
+
+  .menu-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  body.mobile-menu-open {
+    overflow: hidden !important;
+  }
+
+  .bottom-nav,
+  .mobile-only-flex {
+    display: none !important;
+  }
+}
