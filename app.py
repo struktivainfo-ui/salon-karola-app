@@ -64,10 +64,11 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "3.4.1 Pro"
+APP_VERSION = "3.4.2 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
+AUTOMATION_MIN_INTERVAL_SECONDS = int(os.getenv("AUTOMATION_MIN_INTERVAL_SECONDS", "300"))
 
 
 # ---------- Auth ----------
@@ -486,7 +487,9 @@ def send_email(to_email, subject, body):
     mode = email_delivery_mode()
     if mode == "resend":
         return send_email_via_resend(to_email, subject, body)
-    return send_email_via_smtp(to_email, subject, body)
+    if mode == "smtp":
+        return send_email_via_smtp(to_email, subject, body)
+    raise RuntimeError("Kein gültiger Mail-Provider konfiguriert.")
 
 
 # ---------- Utilities ----------
@@ -820,6 +823,40 @@ def scheduler_tick():
         set_setting("automation:last_run_at", started_at)
         set_setting("automation:last_run_error", str(exc))
         raise
+
+
+def _parse_dt_safe(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value))
+    except Exception:
+        return None
+
+
+def run_automation_if_due(force=False):
+    now = datetime.now()
+    last_run = _parse_dt_safe(get_setting("automation:last_run_at"))
+    if not force and last_run and (now - last_run).total_seconds() < AUTOMATION_MIN_INTERVAL_SECONDS:
+        return {"ok": True, "skipped": True}
+    try:
+        return scheduler_tick()
+    except Exception as exc:
+        try:
+            set_setting("automation:last_run_error", str(exc))
+        except Exception:
+            pass
+        return {"ok": False, "error": str(exc)}
+
+
+@app.before_request
+def opportunistic_automation_runner():
+    if request.endpoint in {"static", "manifest", "service_worker"}:
+        return None
+    if request.method != "GET":
+        return None
+    run_automation_if_due(force=False)
+    return None
 
 
 # ---------- Dashboard ----------
@@ -1646,6 +1683,26 @@ def push_public_key():
     return {"public_key": vapid_public_key(), "enabled": vapid_ready()}
 
 
+@app.route("/api/push/status")
+@login_required
+def push_status():
+    staff_name = (request.args.get("staff_name") or "Ute").strip() or "Ute"
+    if staff_name not in ("Ute", "Jessi"):
+        staff_name = "Ute"
+    enabled = vapid_ready()
+    permission = None
+    count = 0
+    try:
+        row = get_db().execute(
+            "SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?",
+            (staff_name,),
+        ).fetchone()
+        count = int(row["cnt"] or 0) if row else 0
+    except Exception:
+        count = 0
+    return {"enabled": enabled, "staff_name": staff_name, "subscriptions": count}
+
+
 @app.route("/api/push/subscribe", methods=["POST"])
 @login_required
 def push_subscribe():
@@ -1749,7 +1806,7 @@ def send_test(customer_id, template_id):
 @app.route("/automation/run")
 @login_required
 def run_automation_now():
-    result = scheduler_tick()
+    result = run_automation_if_due(force=True)
     flash(f"Automatiklauf wurde manuell ausgeführt. {result['summary']}")
     return redirect(url_for("index"))
 
@@ -1850,7 +1907,7 @@ def inject_globals():
 def boot_app():
     init_db()
     ensure_default_admin(force_reset=True)
-    interval_minutes = int(os.getenv("AUTOMATION_INTERVAL_MINUTES", "15"))
+    interval_minutes = int(os.getenv("AUTOMATION_INTERVAL_MINUTES", "5"))
     set_setting("automation:scheduler_interval_minutes", str(interval_minutes))
     if not scheduler.running:
         existing_jobs = {job.id for job in scheduler.get_jobs()}
@@ -1863,6 +1920,10 @@ def boot_app():
                 replace_existing=True,
             )
         scheduler.start()
+    try:
+        run_automation_if_due(force=True)
+    except Exception:
+        pass
 
 
 # ---------- Database import / export ----------

@@ -1,0 +1,24 @@
+Salon Karola Version 3.4.2 Pro
+
+Neu in dieser Version:
+- Optik unverändert
+- Mail-Automatik robuster: Scheduler + zusätzlicher Automatiklauf bei Nutzung der App
+- Geburtstagsmails laufen automatisch über Resend
+- Terminerinnerungen laufen automatisch über Resend
+- Push-Aktivierung fertiggestellt: Statusanzeige, Auto-Reaktivierung bei erlaubten Benachrichtigungen, Ping-Test
+
+Wichtige Render-Variablen für Mail:
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=DEIN_KEY
+RESEND_FROM=onboarding@resend.dev
+RESEND_REPLY_TO=matzkesven7@gmail.com
+
+Wichtige Render-Variablen für Push:
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_CLAIMS_SUBJECT=mailto:push@salonkarola.local
+
+Hinweis zur Automatik:
+- APScheduler läuft weiterhin im Hintergrund.
+- Zusätzlich prüft die App nun bei normalen Seitenaufrufen, ob ein Automatiklauf fällig ist.
+- So bleiben Geburtstagsmails und Terminerinnerungen deutlich robuster, auch wenn der Dienst neu startet.
