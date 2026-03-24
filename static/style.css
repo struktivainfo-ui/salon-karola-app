@@ -700,3 +700,74 @@ td {
 
 .device-staff-body[hidden] { display:none !important; }
 .device-staff-bar.open .device-staff-body { display:grid !important; }
+
+
+/* 3.5.7 Pro Menü Untermenüs */
+@media (max-width: 768px) {
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 140;
+  }
+
+  .topbar-inner {
+    gap: 14px;
+  }
+
+  .menu-toggle {
+    display: inline-flex !important;
+    width: 100%;
+    min-height: 58px;
+    border-radius: 20px;
+    font-size: 1.15rem;
+    font-weight: 800;
+  }
+
+  .nav-links {
+    display: none !important;
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+    padding: 12px 0 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    margin-top: 0;
+  }
+
+  .nav-links.mobile-open {
+    display: grid !important;
+  }
+
+  .nav-links a {
+    justify-content: center;
+    min-height: 56px;
+    border-radius: 18px;
+    font-size: 1rem;
+  }
+
+  .bottom-nav,
+  .mobile-only-flex {
+    display: none !important;
+  }
+
+  body.mobile-menu-open {
+    overflow: visible;
+  }
+
+  .menu-overlay.active {
+    display: none !important;
+  }
+}
+
+
+@media (max-width: 768px) {
+  .nav-links[hidden] { display: none !important; }
+  .nav-links.mobile-open:not([hidden]) { display: grid !important; grid-template-columns: 1fr !important; }
+  .nav-links.mobile-open:not([hidden]) a { width: 100%; justify-content: center; }
+  .bottom-nav { display: none !important; }
+}
