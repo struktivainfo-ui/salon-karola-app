@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.5.7 Pro Menü Untermenüs") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.5.8 Pro echtes Untermenü") }}</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
@@ -50,14 +50,6 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
-  {% if session.get('admin_logged_in') %}
-  <nav class="bottom-nav mobile-only-flex">
-    <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Dashboard</a>
-    <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}">Kunden</a>
-    <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}">Termine</a>
-    <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('templates_view') }}">Vorlagen</a>
-  </nav>
-  {% endif %}
   {% if session.get('admin_logged_in') %}
   <div class="device-staff-bar collapsed" id="deviceStaffBar" aria-expanded="false">
     <div class="device-staff-bar-header">
@@ -98,6 +90,7 @@
       const deviceStaffBar = document.getElementById("deviceStaffBar");
       const deviceStaffToggleBtn = document.getElementById("deviceStaffToggleBtn");
       const deviceStaffBody = document.getElementById("deviceStaffBody");
+      const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
 
       function openDeviceStaffBar() {
         if (!deviceStaffBar) return;
@@ -179,14 +172,20 @@
       }
 
       function closeMobileMenu() {
-        if (mainNavLinks) mainNavLinks.classList.remove("mobile-open");
+        if (mainNavLinks) {
+          mainNavLinks.classList.remove("mobile-open");
+          if (isMobileView()) mainNavLinks.hidden = true;
+        }
         if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
         document.body.classList.remove("mobile-menu-open");
         if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
       }
 
       function openMobileMenu() {
-        if (mainNavLinks) mainNavLinks.classList.add("mobile-open");
+        if (mainNavLinks) {
+          mainNavLinks.hidden = false;
+          mainNavLinks.classList.add("mobile-open");
+        }
         if (menuOverlay) { menuOverlay.classList.add("active"); menuOverlay.setAttribute("aria-hidden", "false"); }
         document.body.classList.add("mobile-menu-open");
         if (menuToggle) menuToggle.setAttribute("aria-expanded", "true");
@@ -364,6 +363,23 @@
           setPushUi(error.message || "Push-Status konnte nicht geladen werden.");
         }
       }
+
+
+      function applyResponsiveMenuState() {
+        if (!mainNavLinks) return;
+        if (isMobileView()) {
+          mainNavLinks.hidden = !mainNavLinks.classList.contains("mobile-open");
+        } else {
+          mainNavLinks.hidden = false;
+          mainNavLinks.classList.remove("mobile-open");
+          if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
+          document.body.classList.remove("mobile-menu-open");
+          if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
+        }
+      }
+
+      applyResponsiveMenuState();
+      window.addEventListener("resize", applyResponsiveMenuState);
 
       if (staffSelect) {
         staffSelect.value = currentStaff();
