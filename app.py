@@ -66,7 +66,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "3.4.2 Pro"
+APP_VERSION = "3.5.1 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -223,10 +223,15 @@ def init_db():
                 endpoint TEXT NOT NULL UNIQUE,
                 subscription_json TEXT NOT NULL,
                 staff_name TEXT NOT NULL DEFAULT 'Ute',
+                device_name TEXT,
                 user_agent TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                last_seen_at TEXT
+                last_seen_at TEXT,
+                last_success_at TEXT,
+                last_error TEXT,
+                last_test_at TEXT,
+                fail_count INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -680,6 +685,111 @@ def vapid_private_key():
     return _normalize_vapid_private_key(os.getenv("VAPID_PRIVATE_KEY", ""))
 
 
+def _push_device_label(row):
+    label = (row["device_name"] if "device_name" in row.keys() else "") or ""
+    if label.strip():
+        return label.strip()
+    user_agent = (row["user_agent"] if "user_agent" in row.keys() else "") or ""
+    user_agent_l = user_agent.lower()
+    if "iphone" in user_agent_l:
+        return "iPhone"
+    if "ipad" in user_agent_l:
+        return "iPad"
+    if "android" in user_agent_l:
+        return "Android-Gerät"
+    if "windows" in user_agent_l:
+        return "Windows-Gerät"
+    return "Gerät"
+
+
+def _touch_push_subscription(subscription_id, **values):
+    if not values:
+        return
+    db = get_db()
+    columns = []
+    params = []
+    for key, value in values.items():
+        columns.append(f"{key} = ?")
+        params.append(value)
+    params.append(subscription_id)
+    db.execute(f"UPDATE push_subscriptions SET {', '.join(columns)} WHERE id = ?", params)
+    db.commit()
+
+
+def push_devices_for_staff(staff_name=None):
+    db = get_db()
+    params = []
+    query = "SELECT * FROM push_subscriptions"
+    if staff_name in ("Ute", "Jessi"):
+        query += " WHERE staff_name = ?"
+        params.append(staff_name)
+    query += " ORDER BY staff_name ASC, COALESCE(last_success_at, last_seen_at, updated_at, created_at) DESC"
+    rows = db.execute(query, params).fetchall()
+    items = []
+    for row in rows:
+        items.append({
+            "id": row["id"],
+            "staff_name": row["staff_name"] or "Ute",
+            "device_name": _push_device_label(row),
+            "user_agent": (row["user_agent"] or "")[:180],
+            "created_at": row["created_at"] or "",
+            "updated_at": row["updated_at"] or "",
+            "last_seen_at": row["last_seen_at"] or "",
+            "last_success_at": row["last_success_at"] or "",
+            "last_test_at": row["last_test_at"] or "",
+            "last_error": row["last_error"] or "",
+            "fail_count": int(row["fail_count"] or 0),
+            "endpoint_tail": (row["endpoint"] or "")[-32:],
+        })
+    return items
+
+
+def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
+    db = get_db()
+    now = datetime.now().isoformat(timespec="seconds")
+    try:
+        subscription = json.loads(row["subscription_json"])
+        webpush(
+            subscription_info=subscription,
+            data=json.dumps({"title": title, "body": body, "url": url}),
+            vapid_private_key=vapid_private_key(),
+            vapid_claims={"sub": os.getenv("VAPID_CLAIMS_SUBJECT", "mailto:push@salonkarola.local")},
+            ttl=60 * 60 * 6,
+        )
+        _touch_push_subscription(
+            row["id"],
+            last_success_at=now,
+            last_error="",
+            fail_count=0,
+            updated_at=now,
+            last_seen_at=now,
+        )
+        return {"ok": True, "sent": 1, "skipped": 0, "errors": []}
+    except WebPushException as exc:
+        status_code = getattr(getattr(exc, "response", None), "status_code", None)
+        if status_code in (404, 410):
+            db.execute("DELETE FROM push_subscriptions WHERE id = ?", (row["id"],))
+            db.commit()
+            return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Gerät war nicht mehr gültig und wurde entfernt."]}
+        fail_count = int(row["fail_count"] or 0) + 1
+        _touch_push_subscription(
+            row["id"],
+            last_error=str(exc)[:500],
+            fail_count=fail_count,
+            updated_at=now,
+        )
+        return {"ok": False, "sent": 0, "skipped": 0, "errors": [str(exc)]}
+    except Exception as exc:
+        fail_count = int(row["fail_count"] or 0) + 1
+        _touch_push_subscription(
+            row["id"],
+            last_error=str(exc)[:500],
+            fail_count=fail_count,
+            updated_at=now,
+        )
+        return {"ok": False, "sent": 0, "skipped": 0, "errors": [str(exc)]}
+
+
 def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
     if not vapid_ready():
         return {"sent": 0, "skipped": 0, "errors": ["VAPID nicht konfiguriert"]}
@@ -698,26 +808,10 @@ def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
     skipped = 0
     errors = []
     for row in rows:
-        try:
-            subscription = json.loads(row["subscription_json"])
-            webpush(
-                subscription_info=subscription,
-                data=json.dumps({"title": title, "body": body, "url": url}),
-                vapid_private_key=vapid_private_key(),
-                vapid_claims={"sub": os.getenv("VAPID_CLAIMS_SUBJECT", "mailto:push@salonkarola.local")},
-                ttl=60 * 60 * 6,
-            )
-            sent += 1
-        except WebPushException as exc:
-            status_code = getattr(getattr(exc, "response", None), "status_code", None)
-            if status_code in (404, 410):
-                db.execute("DELETE FROM push_subscriptions WHERE id = ?", (row["id"],))
-                db.commit()
-                skipped += 1
-            else:
-                errors.append(str(exc))
-        except Exception as exc:
-            errors.append(str(exc))
+        result = webpush_send_to_subscription_row(row, title, body, url)
+        sent += int(result.get("sent") or 0)
+        skipped += int(result.get("skipped") or 0)
+        errors.extend(result.get("errors") or [])
     return {"sent": sent, "skipped": skipped, "errors": errors}
 
 
@@ -1764,6 +1858,41 @@ def push_status():
     return {"enabled": enabled, "staff_name": staff_name, "subscriptions": count}
 
 
+@app.route("/api/push/devices")
+@login_required
+def push_devices():
+    staff_name = (request.args.get("staff_name") or "").strip()
+    if staff_name not in ("Ute", "Jessi"):
+        staff_name = None
+    return {"ok": True, "items": push_devices_for_staff(staff_name)}
+
+
+@app.route("/api/push/device/<int:subscription_id>/test")
+@login_required
+def push_test_device(subscription_id):
+    row = get_db().execute("SELECT * FROM push_subscriptions WHERE id = ?", (subscription_id,)).fetchone()
+    if not row:
+        return {"ok": False, "error": "Gerät nicht gefunden."}, 404
+    label = _push_device_label(row)
+    result = webpush_send_to_subscription_row(
+        row,
+        f"Test-Push für {label}",
+        f"Dieses Gerät ist für {row['staff_name'] or 'Ute'} aktiv.",
+        "/calendar",
+    )
+    _touch_push_subscription(subscription_id, last_test_at=datetime.now().isoformat(timespec="seconds"))
+    return {"ok": True, "result": result, "device_name": label}
+
+
+@app.route("/api/push/device/<int:subscription_id>", methods=["DELETE"])
+@login_required
+def push_delete_device(subscription_id):
+    db = get_db()
+    db.execute("DELETE FROM push_subscriptions WHERE id = ?", (subscription_id,))
+    db.commit()
+    return {"ok": True}
+
+
 @app.route("/api/push/subscribe", methods=["POST"])
 @login_required
 def push_subscribe():
@@ -1771,6 +1900,7 @@ def push_subscribe():
     subscription = payload.get("subscription") or {}
     endpoint = (subscription.get("endpoint") or "").strip()
     staff_name = (payload.get("staff_name") or "Ute").strip() or "Ute"
+    device_name = (payload.get("device_name") or "").strip()[:80]
     if staff_name not in ("Ute", "Jessi"):
         staff_name = "Ute"
     if not endpoint:
@@ -1780,19 +1910,20 @@ def push_subscribe():
     db = get_db()
     db.execute(
         """
-        INSERT INTO push_subscriptions(endpoint, subscription_json, staff_name, user_agent, created_at, updated_at, last_seen_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO push_subscriptions(endpoint, subscription_json, staff_name, device_name, user_agent, created_at, updated_at, last_seen_at, last_error, fail_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(endpoint) DO UPDATE SET
             subscription_json = excluded.subscription_json,
             staff_name = excluded.staff_name,
+            device_name = excluded.device_name,
             user_agent = excluded.user_agent,
             updated_at = excluded.updated_at,
             last_seen_at = excluded.last_seen_at
         """,
-        (endpoint, json.dumps(subscription), staff_name, request.headers.get("User-Agent", "")[:500], now, now, now),
+        (endpoint, json.dumps(subscription), staff_name, device_name, request.headers.get("User-Agent", "")[:500], now, now, now, "", 0),
     )
     db.commit()
-    return {"ok": True, "staff_name": staff_name}
+    return {"ok": True, "staff_name": staff_name, "device_name": device_name}
 
 
 @app.route("/api/push/unsubscribe", methods=["POST"])
@@ -1811,8 +1942,10 @@ def push_unsubscribe():
 @login_required
 def push_ping():
     staff_name = (request.args.get("staff_name") or "Ute").strip() or "Ute"
+    if staff_name not in ("Ute", "Jessi"):
+        staff_name = "Ute"
     result = webpush_send_to_staff(staff_name, "Salon Karola Push aktiv", f"Dieses Handy ist jetzt für {staff_name} registriert.", "/calendar")
-    return {"ok": True, "result": result, "enabled": vapid_ready()}
+    return {"ok": True, "result": result, "enabled": vapid_ready(), "devices": push_devices_for_staff(staff_name)}
 
 
 @app.route("/templates", methods=["GET", "POST"])
