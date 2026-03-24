@@ -1,0 +1,10 @@
+Version 3.5.4 Pro Menü System
+
+Neu:
+- echtes mobiles Menü mit Toggle-Button
+- dunkles Hintergrund-Overlay
+- Menü schließt bei Klick auf Link, Overlay oder Escape
+- keine untere Doppelnavigation mehr auf dem Handy
+- Push-Aktivierung schließt das Menü zuverlässig
+
+Nach dem Deploy die Handy-Seite einmal komplett neu laden.
