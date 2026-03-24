@@ -1,5 +1,41 @@
 {% extends 'base.html' %}
-{% block title %}Kalender - Salon Karola{% endblock %}
+{% block title %}Kalender - Salon Karola
+<script>
+(function(){
+  function syncCalendarPushUi(){
+    const mini = document.getElementById('pushStatusMini');
+    const badge = document.getElementById('calendarPushBadge');
+    const help = document.getElementById('calendarPushHelp');
+    if (mini && badge) badge.textContent = mini.textContent || 'Push-Status unbekannt';
+    if (mini && help) help.textContent = mini.textContent || help.textContent;
+  }
+  window.addEventListener('load', function(){
+    syncCalendarPushUi();
+    setTimeout(syncCalendarPushUi, 1200);
+    const enableMain = document.getElementById('enablePushBtn');
+    const enableCalendar = document.getElementById('calendarEnablePushBtn');
+    const testBtn = document.getElementById('calendarTestPushBtn');
+    const staffSelect = document.getElementById('deviceStaffSelect');
+    if (enableCalendar && enableMain) {
+      enableCalendar.addEventListener('click', function(){ enableMain.click(); setTimeout(syncCalendarPushUi, 1500); });
+    }
+    if (testBtn) {
+      testBtn.addEventListener('click', async function(){
+        try {
+          const staff = staffSelect ? staffSelect.value : 'Ute';
+          const res = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staff)}`, {cache:'no-store'});
+          const data = await res.json();
+          syncCalendarPushUi();
+          alert(`Test-Push für ${staff} wurde ausgelöst. Gesendet: ${(data.result && data.result.sent) || 0}`);
+        } catch (e) {
+          alert('Test-Push konnte nicht ausgelöst werden.');
+        }
+      });
+    }
+  });
+})();
+</script>
+{% endblock %}
 {% block content %}
 <section class="hero-card">
   <div class="hero-row">
@@ -7,7 +43,7 @@
       <h1 class="hero-title">Kalender</h1>
       <p class="hero-text">Tag, Woche und Monat jetzt sauber auf Deutsch – mit echter Hintergrund-Push-Funktion und klarer Tagesansicht mit Uhrzeiten.</p>
     </div>
-    <span class="badge">{{ app_version|default("3.2 Pro") }}</span>
+    <span class="badge">{{ app_version|default("3.4.2 Pro") }}</span>
   </div>
 </section>
 
@@ -41,6 +77,20 @@
       <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=next_date, staff=staff) }}">Weiter →</a>
     </div>
   </form>
+</section>
+<section class="card space-top">
+  <div class="row-between wrap-mobile">
+    <div>
+      <h2>Push-Benachrichtigungen</h2>
+      <div class="helper-text">Wähle dieses Gerät als Ute oder Jessi und klicke dann auf <strong>Push aktivieren</strong>. Danach kannst du mit <strong>Push testen</strong> sofort prüfen, ob Benachrichtigungen ankommen.</div>
+    </div>
+    <span class="badge" id="calendarPushBadge">Noch nicht aktiv</span>
+  </div>
+  <div class="quick-actions" style="margin-top:14px; grid-template-columns:repeat(2,minmax(0,1fr));">
+    <button type="button" class="btn btn-secondary" id="calendarEnablePushBtn">Push aktivieren</button>
+    <button type="button" class="btn btn-secondary" id="calendarTestPushBtn">Push testen</button>
+  </div>
+  <div class="helper-text space-top" id="calendarPushHelp">Die Geräte-Zuordnung findest du unten bzw. in der Push-Leiste. Browser-Benachrichtigungen müssen erlaubt sein.</div>
 </section>
 
 {% if view == 'day' and day_view %}
@@ -204,4 +254,40 @@
     </div>
   {% endif %}
 </section>
+
+<script>
+(function(){
+  function syncCalendarPushUi(){
+    const mini = document.getElementById('pushStatusMini');
+    const badge = document.getElementById('calendarPushBadge');
+    const help = document.getElementById('calendarPushHelp');
+    if (mini && badge) badge.textContent = mini.textContent || 'Push-Status unbekannt';
+    if (mini && help) help.textContent = mini.textContent || help.textContent;
+  }
+  window.addEventListener('load', function(){
+    syncCalendarPushUi();
+    setTimeout(syncCalendarPushUi, 1200);
+    const enableMain = document.getElementById('enablePushBtn');
+    const enableCalendar = document.getElementById('calendarEnablePushBtn');
+    const testBtn = document.getElementById('calendarTestPushBtn');
+    const staffSelect = document.getElementById('deviceStaffSelect');
+    if (enableCalendar && enableMain) {
+      enableCalendar.addEventListener('click', function(){ enableMain.click(); setTimeout(syncCalendarPushUi, 1500); });
+    }
+    if (testBtn) {
+      testBtn.addEventListener('click', async function(){
+        try {
+          const staff = staffSelect ? staffSelect.value : 'Ute';
+          const res = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staff)}`, {cache:'no-store'});
+          const data = await res.json();
+          syncCalendarPushUi();
+          alert(`Test-Push für ${staff} wurde ausgelöst. Gesendet: ${(data.result && data.result.sent) || 0}`);
+        } catch (e) {
+          alert('Test-Push konnte nicht ausgelöst werden.');
+        }
+      });
+    }
+  });
+})();
+</script>
 {% endblock %}

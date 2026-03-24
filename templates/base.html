@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.4 Pro") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.4.3 Pro") }}</div>
         </div>
       </div>
       <nav class="nav-links">
@@ -57,13 +57,14 @@
   </nav>
   {% endif %}
   {% if session.get('admin_logged_in') %}
-  <div class="device-staff-bar mobile-only-flex" id="deviceStaffBar">
-    <span>Dieses Handy:</span>
+  <div class="device-staff-bar" id="deviceStaffBar">
+    <span id="pushStatusLabel">Dieses Handy:</span>
     <select id="deviceStaffSelect">
       <option value="Ute">Ute</option>
       <option value="Jessi">Jessi</option>
     </select>
     <button type="button" class="btn btn-secondary btn-small" id="enablePushBtn">Push aktivieren</button>
+    <span class="helper-text" id="pushStatusMini">Push ist noch nicht aktiv.</span>
   </div>
   {% endif %}
   <script>
@@ -74,6 +75,31 @@
       const STORAGE_KEY_STAFF = "sk_device_staff";
       const staffSelect = document.getElementById("deviceStaffSelect");
       const enablePushBtn = document.getElementById("enablePushBtn");
+      const pushStatusLabel = document.getElementById("pushStatusLabel");
+      const pushStatusMini = document.getElementById("pushStatusMini");
+
+      function currentStaff() {
+        return (localStorage.getItem(STORAGE_KEY_STAFF) || "Ute").trim() || "Ute";
+      }
+
+      function setPushUi(text, mode = "idle") {
+        if (pushStatusMini) pushStatusMini.textContent = text;
+        if (enablePushBtn) {
+          if (mode === "working") {
+            enablePushBtn.disabled = true;
+            enablePushBtn.textContent = "Aktiviere…";
+          } else if (mode === "active") {
+            enablePushBtn.disabled = false;
+            enablePushBtn.textContent = "Push aktiv";
+          } else {
+            enablePushBtn.disabled = false;
+            enablePushBtn.textContent = "Push aktivieren";
+          }
+        }
+        if (pushStatusLabel) {
+          pushStatusLabel.textContent = `Dieses Handy: ${currentStaff()}`;
+        }
+      }
 
       async function registerServiceWorker() {
         if (!("serviceWorker" in navigator)) return null;
@@ -82,15 +108,10 @@
         return registration;
       }
 
-      const currentStaff = localStorage.getItem(STORAGE_KEY_STAFF) || "Ute";
-      if (staffSelect) {
-        staffSelect.value = currentStaff;
-        staffSelect.addEventListener("change", async () => {
-          localStorage.setItem(STORAGE_KEY_STAFF, staffSelect.value);
-          try {
-            await registerPushSubscription(false);
-          } catch (e) {}
-        });
+      async function fetchPushConfig() {
+        const res = await fetch("/api/push/public-key", { cache: "no-store" });
+        if (!res.ok) throw new Error("Push-Konfiguration konnte nicht geladen werden.");
+        return res.json();
       }
 
       function urlBase64ToUint8Array(base64String) {
@@ -98,35 +119,29 @@
         const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
         const rawData = atob(base64);
         const outputArray = new Uint8Array(rawData.length);
-        for (let i = 0; i < rawData.length; ++i) {
-          outputArray[i] = rawData.charCodeAt(i);
-        }
+        for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
         return outputArray;
-      }
-
-      async function fetchPushConfig() {
-        const res = await fetch("/api/push/public-key", { cache: "no-store" });
-        if (!res.ok) throw new Error("Push-Konfiguration konnte nicht geladen werden.");
-        return res.json();
       }
 
       async function registerPushSubscription(showMessage = true) {
         if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-          alert("Dieser Browser unterstützt keine Hintergrund-Pushs.");
+          setPushUi("Dieser Browser unterstützt keine Hintergrund-Pushs.");
+          if (showMessage) alert("Dieser Browser unterstützt keine Hintergrund-Pushs.");
           return;
         }
 
         const config = await fetchPushConfig();
         if (!config.enabled || !config.public_key) {
-          if (showMessage) {
-            alert("Push ist serverseitig noch nicht vollständig eingerichtet. Bitte VAPID-Keys in Render setzen.");
-          }
+          setPushUi("Push ist serverseitig noch nicht fertig eingerichtet.");
+          if (showMessage) alert("Push ist serverseitig noch nicht vollständig eingerichtet. Bitte VAPID-Keys in Render setzen.");
           return;
         }
 
+        setPushUi("Push wird aktiviert…", "working");
         const permission = await Notification.requestPermission();
         if (permission !== "granted") {
-          alert("Benachrichtigungen wurden nicht erlaubt.");
+          setPushUi("Benachrichtigungen wurden nicht erlaubt.");
+          if (showMessage) alert("Benachrichtigungen wurden nicht erlaubt.");
           return;
         }
 
@@ -139,21 +154,65 @@
           });
         }
 
-        const staffName = (localStorage.getItem(STORAGE_KEY_STAFF) || "Ute").trim() || "Ute";
         const saveRes = await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ staff_name: staffName, subscription }),
+          body: JSON.stringify({ staff_name: currentStaff(), subscription }),
         });
 
         if (!saveRes.ok) {
+          setPushUi("Push-Abo konnte nicht gespeichert werden.");
           throw new Error("Push-Abo konnte nicht gespeichert werden.");
         }
 
-        await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staffName)}`, { cache: "no-store" });
-        if (showMessage) {
-          alert(`Hintergrund-Push ist jetzt für ${staffName} aktiv.`);
+        await fetch(`/api/push/ping?staff_name=${encodeURIComponent(currentStaff())}`, { cache: "no-store" });
+        setPushUi(`Push ist für ${currentStaff()} aktiv.`, "active");
+        if (showMessage) alert(`Hintergrund-Push ist jetzt für ${currentStaff()} aktiv.`);
+      }
+
+      async function refreshPushStatus() {
+        if (staffSelect) staffSelect.value = currentStaff();
+        if (!("Notification" in window)) {
+          setPushUi("Dieser Browser unterstützt keine Push-Benachrichtigungen.");
+          return;
         }
+        try {
+          const config = await fetchPushConfig();
+          if (!config.enabled || !config.public_key) {
+            setPushUi("Push ist serverseitig noch nicht vollständig eingerichtet.");
+            return;
+          }
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.getSubscription();
+          if (Notification.permission === "granted" && subscription) {
+            setPushUi(`Push ist für ${currentStaff()} aktiv.`, "active");
+            return;
+          }
+          if (Notification.permission === "granted") {
+            await registerPushSubscription(false);
+            return;
+          }
+          if (Notification.permission === "denied") {
+            setPushUi("Push wurde im Browser blockiert.");
+            return;
+          }
+          setPushUi("Push ist noch nicht aktiviert.");
+        } catch (error) {
+          setPushUi(error.message || "Push-Status konnte nicht geladen werden.");
+        }
+      }
+
+      if (staffSelect) {
+        staffSelect.value = currentStaff();
+        staffSelect.addEventListener("change", async () => {
+          localStorage.setItem(STORAGE_KEY_STAFF, staffSelect.value);
+          await refreshPushStatus();
+          try {
+            if (Notification.permission === "granted") {
+              await registerPushSubscription(false);
+            }
+          } catch (e) {}
+        });
       }
 
       if (enablePushBtn) {
@@ -161,6 +220,7 @@
           try {
             await registerPushSubscription(true);
           } catch (error) {
+            setPushUi(error.message || "Push konnte nicht aktiviert werden.");
             alert(error.message || "Push konnte nicht aktiviert werden.");
           }
         });
@@ -169,9 +229,7 @@
       window.addEventListener("load", async () => {
         try {
           const registration = await registerServiceWorker();
-          if (registration && registration.waiting) {
-            registration.waiting.postMessage({ type: "SKIP_WAITING" });
-          }
+          if (registration && registration.waiting) registration.waiting.postMessage({ type: "SKIP_WAITING" });
           navigator.serviceWorker.addEventListener("controllerchange", () => {
             if (!window.__skReloaded) {
               window.__skReloaded = true;
@@ -179,6 +237,7 @@
             }
           });
         } catch (e) {}
+        await refreshPushStatus();
       });
     })();
   </script>
