@@ -381,59 +381,61 @@ td {
 .mobile-only-inline { display:none; }
 
 @media (max-width: 768px) {
-  main.container { padding-bottom: 92px; }
+  main.container { padding-bottom: 16px; }
   .hero-row { flex-direction:column; }
   .quick-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .topbar-inner { align-items:stretch; }
   .mobile-only-inline { display:inline-flex; }
+  .menu-overlay {
+    display:none;
+  }
   .menu-toggle {
-    min-height:46px;
+    min-height:48px;
     align-items:center;
     justify-content:center;
-    padding:10px 14px;
-    border-radius:12px;
-    background:#171717;
-    border:1px solid var(--border);
-    color:var(--text);
-    font-size:.95rem;
-    font-weight:700;
+    padding:10px 16px;
+    border-radius:14px;
+    background:linear-gradient(180deg, #e1c15a 0%, #c89d1d 100%);
+    color:#111;
+    font-size:1rem;
+    font-weight:800;
   }
   .nav-links {
+    position:fixed;
+    top:88px;
+    left:12px;
+    right:12px;
     display:none;
-    width:100%;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:10px;
-    margin-top:10px;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    padding:16px;
+    background:rgba(15,15,15,.98);
+    border:1px solid var(--border);
+    border-radius:22px;
+    box-shadow:0 20px 50px rgba(0,0,0,.45);
+    z-index:120;
   }
   .nav-links.mobile-open { display:grid; }
   .nav-links a {
     display:flex;
     align-items:center;
     justify-content:flex-start;
-    min-height:46px;
+    min-height:54px;
+    padding:14px 16px;
+    border-radius:16px;
+  }
+  .menu-overlay.active {
+    display:block;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.5);
+    z-index:110;
+  }
+  body.mobile-menu-open {
+    overflow:hidden;
   }
   .mobile-only-flex {
-    display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
-    gap:8px;
-    position:fixed;
-    left:0; right:0; bottom:0;
-    padding:10px 12px calc(10px + env(safe-area-inset-bottom));
-    background:rgba(15,15,15,.96);
-    border-top:1px solid var(--border);
-    backdrop-filter: blur(14px);
-    z-index:100;
-  }
-  .bottom-nav a {
-    display:flex; align-items:center; justify-content:center;
-    min-height:46px;
-    padding:8px;
-    border-radius:12px;
-    background:#171717;
-    border:1px solid var(--border);
-    color:var(--text);
-    font-size:.92rem;
-    text-align:center;
+    display:none;
   }
 }
 
