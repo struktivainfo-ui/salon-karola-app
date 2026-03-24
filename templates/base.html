@@ -25,7 +25,8 @@
           <div class="brand-subtitle">{{ app_version|default("3.5.2 Pro") }}</div>
         </div>
       </div>
-      <nav class="nav-links">
+      <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
+      <nav class="nav-links" id="mainNavLinks">
         <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Dashboard</a>
         <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}">Kunden</a>
         <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}">Termine</a>
@@ -82,6 +83,8 @@
       const pushStatusMini = document.getElementById("pushStatusMini");
       const deviceNameInput = document.getElementById("deviceNameInput");
       const testPushBtn = document.getElementById("testPushBtn");
+      const menuToggle = document.getElementById("menuToggle");
+      const mainNavLinks = document.getElementById("mainNavLinks");
 
       function currentStaff() {
         return (localStorage.getItem(STORAGE_KEY_STAFF) || "Ute").trim() || "Ute";
@@ -129,12 +132,32 @@
         }
       }
 
+      function closeMobileMenu() {
+        if (mainNavLinks) mainNavLinks.classList.remove("mobile-open");
+        if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
+      }
+
+      function openMobileMenu() {
+        if (mainNavLinks) mainNavLinks.classList.add("mobile-open");
+        if (menuToggle) menuToggle.setAttribute("aria-expanded", "true");
+      }
+
+      function toggleMobileMenu() {
+        if (!mainNavLinks) return;
+        if (mainNavLinks.classList.contains("mobile-open")) {
+          closeMobileMenu();
+        } else {
+          openMobileMenu();
+        }
+      }
+
       function closeAppMenuAfterPush() {
         try {
           document.body.classList.remove("menu-open", "nav-open", "drawer-open", "modal-open", "overflow-hidden");
           document.documentElement.classList.remove("menu-open", "nav-open", "drawer-open", "modal-open", "overflow-hidden");
           document.body.style.overflow = "";
           document.documentElement.style.overflow = "";
+          closeMobileMenu();
 
           document.querySelectorAll("details[open]").forEach((el) => el.removeAttribute("open"));
           document.querySelectorAll("dialog[open]").forEach((el) => { try { el.close(); } catch (e) {} });
@@ -312,6 +335,18 @@
         });
       }
 
+      if (menuToggle) {
+        menuToggle.addEventListener("click", () => {
+          toggleMobileMenu();
+        });
+      }
+
+      if (mainNavLinks) {
+        mainNavLinks.querySelectorAll("a").forEach((link) => {
+          link.addEventListener("click", () => closeMobileMenu());
+        });
+      }
+
       if (testPushBtn) {
         testPushBtn.addEventListener("click", async () => {
           try {
@@ -345,6 +380,7 @@
             }
           });
         } catch (e) {}
+        closeMobileMenu();
         await refreshPushStatus();
       });
     })();
