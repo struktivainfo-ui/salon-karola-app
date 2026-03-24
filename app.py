@@ -9,6 +9,7 @@ import tempfile
 import zipfile
 import json
 import calendar as pycalendar
+import requests
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from functools import wraps
@@ -63,7 +64,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "3.4 Pro"
+APP_VERSION = "3.4.1 Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -403,11 +404,13 @@ def mail_ready():
 
 def send_email_via_resend(to_email, subject, body):
     api_key = (os.getenv("RESEND_API_KEY") or "").strip()
-    sender = (os.getenv("RESEND_FROM") or os.getenv("SMTP_SENDER") or "").strip()
-    reply_to = (os.getenv("RESEND_REPLY_TO") or os.getenv("SMTP_USERNAME") or "").strip()
+    sender = (os.getenv("RESEND_FROM") or "").strip()
+    reply_to = (os.getenv("RESEND_REPLY_TO") or "").strip()
 
-    if not api_key or not sender:
-        raise RuntimeError("Resend ist nicht vollständig konfiguriert. Bitte RESEND_API_KEY und RESEND_FROM prüfen.")
+    if not api_key:
+        raise RuntimeError("Resend ist nicht vollständig konfiguriert. RESEND_API_KEY fehlt.")
+    if not sender:
+        raise RuntimeError("Resend ist nicht vollständig konfiguriert. RESEND_FROM fehlt.")
 
     payload = {
         "from": sender,
@@ -416,33 +419,26 @@ def send_email_via_resend(to_email, subject, body):
         "text": body,
     }
     if reply_to:
-        payload["reply_to"] = [reply_to]
+        payload["reply_to"] = reply_to
 
-    data = json.dumps(payload).encode("utf-8")
-    req = Request(
-        "https://api.resend.com/emails",
-        data=data,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": "SalonKarolaApp/3.4.1",
+    }
+
     try:
-        with urlopen(req, timeout=25) as resp:
-            status = getattr(resp, "status", 200)
-            if int(status) >= 300:
-                raise RuntimeError(f"Resend Fehler: HTTP {status}")
-    except HTTPError as exc:
-        details = ""
-        try:
-            details = exc.read().decode("utf-8", errors="ignore")
-        except Exception:
-            pass
-        raise RuntimeError(f"Resend Fehler: HTTP {exc.code} {details}".strip()) from exc
-    except URLError as exc:
-        raise RuntimeError(f"Resend Netzwerkfehler: {exc.reason}") from exc
-    except OSError as exc:
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers=headers,
+            json=payload,
+            timeout=30,
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(f"Resend Fehler: HTTP {response.status_code} {response.text}")
+        return response.json()
+    except requests.exceptions.RequestException as exc:
         raise RuntimeError(f"Resend Netzwerkfehler: {exc}") from exc
 
 

@@ -3,3 +3,4 @@ APScheduler==3.10.4
 python-dotenv==1.0.1
 gunicorn==23.0.0
 pywebpush==2.0.3
+requests==2.32.3
