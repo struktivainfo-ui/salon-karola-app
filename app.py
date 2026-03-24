@@ -1,7 +1,9 @@
 
+import base64
 import csv
 import io
 import os
+import re
 import shutil
 import smtplib
 import sqlite3
@@ -611,12 +613,71 @@ def get_automation_status():
     }
 
 
+def _b64url_encode(data):
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _b64url_decode(value):
+    value = (value or "").strip()
+    padding = "=" * ((4 - len(value) % 4) % 4)
+    return base64.urlsafe_b64decode((value + padding).encode("ascii"))
+
+
+def _normalize_vapid_public_key(value):
+    raw_value = (value or "").strip()
+    if not raw_value:
+        return ""
+    if re.fullmatch(r"[0-9a-fA-F]+", raw_value) and len(raw_value) % 2 == 0:
+        try:
+            raw = bytes.fromhex(raw_value)
+            if len(raw) == 65 and raw[0] == 4:
+                return _b64url_encode(raw)
+        except Exception:
+            pass
+    try:
+        raw = _b64url_decode(raw_value)
+        if len(raw) == 65 and raw[0] == 4:
+            return _b64url_encode(raw)
+    except Exception:
+        pass
+    return raw_value
+
+
+def _normalize_vapid_private_key(value):
+    raw_value = (value or "").strip()
+    if not raw_value:
+        return ""
+    if re.fullmatch(r"\d+", raw_value):
+        try:
+            number = int(raw_value)
+            raw = number.to_bytes(max(32, (number.bit_length() + 7) // 8), "big")
+            if len(raw) > 32:
+                raw = raw[-32:]
+            return _b64url_encode(raw.rjust(32, b"\x00"))
+        except Exception:
+            pass
+    if re.fullmatch(r"[0-9a-fA-F]+", raw_value) and len(raw_value) % 2 == 0:
+        try:
+            raw = bytes.fromhex(raw_value)
+            if len(raw) == 32:
+                return _b64url_encode(raw)
+            if len(raw) > 32:
+                return _b64url_encode(raw)
+        except Exception:
+            pass
+    return raw_value
+
+
 def vapid_ready():
-    return bool(os.getenv("VAPID_PUBLIC_KEY") and os.getenv("VAPID_PRIVATE_KEY") and webpush)
+    return bool(_normalize_vapid_public_key(os.getenv("VAPID_PUBLIC_KEY")) and _normalize_vapid_private_key(os.getenv("VAPID_PRIVATE_KEY")) and webpush)
 
 
 def vapid_public_key():
-    return os.getenv("VAPID_PUBLIC_KEY", "").strip()
+    return _normalize_vapid_public_key(os.getenv("VAPID_PUBLIC_KEY", ""))
+
+
+def vapid_private_key():
+    return _normalize_vapid_private_key(os.getenv("VAPID_PRIVATE_KEY", ""))
 
 
 def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
@@ -642,7 +703,7 @@ def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
             webpush(
                 subscription_info=subscription,
                 data=json.dumps({"title": title, "body": body, "url": url}),
-                vapid_private_key=os.getenv("VAPID_PRIVATE_KEY"),
+                vapid_private_key=vapid_private_key(),
                 vapid_claims={"sub": os.getenv("VAPID_CLAIMS_SUBJECT", "mailto:push@salonkarola.local")},
                 ttl=60 * 60 * 6,
             )
@@ -1680,7 +1741,7 @@ def appointments_feed():
 @app.route("/api/push/public-key")
 @login_required
 def push_public_key():
-    return {"public_key": vapid_public_key(), "enabled": vapid_ready()}
+    return {"public_key": vapid_public_key(), "enabled": vapid_ready(), "format": "base64url"}
 
 
 @app.route("/api/push/status")

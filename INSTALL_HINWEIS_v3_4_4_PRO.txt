@@ -1,0 +1,6 @@
+Version 3.4.4 Pro Handy Push Fix
+
+Wichtig:
+- Diese Version akzeptiert VAPID-Keys robuster.
+- Auch Public Keys im Hex-Format werden für den Browser sauber umgewandelt.
+- Nach dem Deploy bitte auf dem Handy die Seite neu laden und auf "Push aktivieren" klicken.
