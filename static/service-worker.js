@@ -1,8 +1,5 @@
-const CACHE_NAME = "salon-karola-v3-2-pro";
-const URLS_TO_CACHE = [
-  "/",
-  "/login",
-  "/calendar",
+const CACHE_NAME = "salon-karola-v3-3-5-pro";
+const STATIC_URLS = [
   "/static/style.css",
   "/static/icon-192.png",
   "/static/icon-512.png",
@@ -10,18 +7,47 @@ const URLS_TO_CACHE = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(URLS_TO_CACHE)));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_URLS)));
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))));
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+    await self.clients.claim();
+  })());
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  event.respondWith(caches.match(event.request).then((response) => response || fetch(event.request)));
+  const url = new URL(event.request.url);
+
+  if (event.request.mode === "navigate" || url.pathname === "/" || url.pathname === "/calendar" || url.pathname === "/database-tools") {
+    event.respondWith(fetch(event.request, { cache: "no-store" }).catch(() => caches.match("/login")));
+    return;
+  }
+
+  if (!url.pathname.startsWith("/static/") && url.pathname !== "/manifest.webmanifest") {
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      if (response) return response;
+      return fetch(event.request).then((networkResponse) => {
+        const copy = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return networkResponse;
+      });
+    })
+  );
 });
 
 self.addEventListener("push", (event) => {
