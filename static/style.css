@@ -552,6 +552,8 @@ td {
 
 
 .device-staff-bar {
+  display:flex;
+  flex-wrap:wrap;
   position: sticky;
   bottom: 72px;
   z-index: 50;
@@ -569,6 +571,14 @@ td {
 .device-staff-bar select {
   flex: 1;
   min-width: 90px;
+}
+
+@media (min-width: 769px) {
+  .device-staff-bar {
+    margin: 18px auto 0;
+    max-width: 1320px;
+    bottom: 18px;
+  }
 }
 
 .btn-small {
