@@ -1,0 +1,12 @@
+Salon Karola – Install-Hinweis Version 3.5.5 Pro
+
+Neu in 3.5.5 Pro:
+- Push-Leiste unten ist jetzt einklappbar
+- standardmäßig kompakt statt dauerhaft offen
+- nach erfolgreicher Push-Aktivierung schließt sich die Leiste automatisch
+- auf Desktop bleibt die Bedienung breit und übersichtlich
+
+Nach dem Deploy:
+1. Seite/App komplett neu laden
+2. Browser- oder PWA-Cache kurz aktualisieren, falls noch alte Dateien sichtbar sind
+3. Unten die Push-Leiste antippen, Gerät prüfen und Push testen
