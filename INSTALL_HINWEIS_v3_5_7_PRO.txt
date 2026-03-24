@@ -1,0 +1,12 @@
+Salon Karola 3.5.7 Pro Menü Untermenüs
+
+Neu:
+- Oberes Hauptmenü auf dem Handy jetzt nur noch nach Klick auf „Menü“ sichtbar
+- Menüeinträge als klare Untermenüs in einer Spalte
+- untere Handynavigation ausgeblendet
+- bessere Lesbarkeit auf kleinen Displays
+
+Nach dem Deploy:
+1. Seite/App komplett neu laden
+2. Browser- oder PWA-Cache bei Bedarf einmal aktualisieren
+3. Auf dem Handy auf „Menü“ tippen, um die Navigation zu öffnen
