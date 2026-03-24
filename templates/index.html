@@ -5,7 +5,7 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Dashboard</h1>
-      <p class="hero-text">Version 3.3.6 Pro mit finalem Dashboard-Fix, ohne HTML-Cache und mit direkter Kundenzählung aus der aktiven SQLite-Datei.</p>
+      <p class="hero-text">Version 3.4 Pro mit Mail-API-Unterstützung über Resend, SMTP-Fallback und stabilerer Zustellung für Test- und Automatikmails.</p>
     </div>
     <div class="actions">
       <a class="btn" href="{{ url_for('customer_new') }}">Neuen Kontakt anlegen</a>
@@ -56,7 +56,7 @@
         <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurücksetzen</a>
       </div>
     </form>
-    <div class="tiny-note">SMTP: {% if smtp_ready %}<span class="badge ok">bereit</span>{% else %}<span class="badge warn">nicht vollständig</span>{% endif %}</div><div class="tiny-note">DB-Pfad: {{ db_path }}</div>
+    <div class="tiny-note">Mail: {% if smtp_ready %}<span class="badge ok">bereit</span>{% else %}<span class="badge warn">nicht vollständig</span>{% endif %}</div><div class="tiny-note">Mail-Modus: {{ mail_mode|upper }}</div><div class="tiny-note">DB-Pfad: {{ db_path }}</div>
     {% if automation %}
     <div class="tiny-note">Letzter Lauf: {{ automation.last_run_at|default('', true) or '-' }}</div>
     <div class="tiny-note">Status: {{ automation.last_run_summary|default('', true) or '-' }}</div>
