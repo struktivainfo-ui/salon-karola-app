@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.4.4 Pro") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.5 Push Professional") }}</div>
         </div>
       </div>
       <nav class="nav-links">
@@ -63,7 +63,9 @@
       <option value="Ute">Ute</option>
       <option value="Jessi">Jessi</option>
     </select>
+    <input type="text" id="deviceNameInput" placeholder="Gerätename" maxlength="80" />
     <button type="button" class="btn btn-secondary btn-small" id="enablePushBtn">Push aktivieren</button>
+    <button type="button" class="btn btn-secondary btn-small" id="testPushBtn">Push testen</button>
     <span class="helper-text" id="pushStatusMini">Push ist noch nicht aktiv.</span>
   </div>
   {% endif %}
@@ -73,18 +75,45 @@
       if (!isLoggedIn) return;
 
       const STORAGE_KEY_STAFF = "sk_device_staff";
+      const STORAGE_KEY_DEVICE_NAME = "sk_device_name";
       const staffSelect = document.getElementById("deviceStaffSelect");
       const enablePushBtn = document.getElementById("enablePushBtn");
       const pushStatusLabel = document.getElementById("pushStatusLabel");
       const pushStatusMini = document.getElementById("pushStatusMini");
+      const deviceNameInput = document.getElementById("deviceNameInput");
+      const testPushBtn = document.getElementById("testPushBtn");
 
       function currentStaff() {
         return (localStorage.getItem(STORAGE_KEY_STAFF) || "Ute").trim() || "Ute";
       }
 
+      function currentDeviceName() {
+        const fallback = navigator.userAgent.includes("iPhone") ? "iPhone" : (navigator.userAgent.includes("Android") ? "Android-Handy" : "Dieses Gerät");
+        return (localStorage.getItem(STORAGE_KEY_DEVICE_NAME) || fallback).trim().slice(0, 80);
+      }
+
       function setPushUi(text, mode = "idle") {
         if (pushStatusMini) pushStatusMini.textContent = text;
-        if (enablePushBtn) {
+        if (deviceNameInput) {
+        deviceNameInput.value = currentDeviceName();
+        deviceNameInput.addEventListener("change", () => {
+          localStorage.setItem(STORAGE_KEY_DEVICE_NAME, (deviceNameInput.value || "").trim().slice(0, 80) || currentDeviceName());
+          setPushUi(pushStatusMini ? pushStatusMini.textContent : "Push-Status aktualisiert.");
+        });
+      }
+
+      if (testPushBtn) {
+        testPushBtn.addEventListener("click", async () => {
+          try {
+            await triggerPushTest(true);
+          } catch (error) {
+            setPushUi(error.message || "Push-Test fehlgeschlagen.");
+            alert((error && error.message) ? error.message : "Push-Test fehlgeschlagen.");
+          }
+        });
+      }
+
+      if (enablePushBtn) {
           if (mode === "working") {
             enablePushBtn.disabled = true;
             enablePushBtn.textContent = "Aktiviere…";
@@ -97,7 +126,10 @@
           }
         }
         if (pushStatusLabel) {
-          pushStatusLabel.textContent = `Dieses Handy: ${currentStaff()}`;
+          pushStatusLabel.textContent = `Dieses Handy: ${currentStaff()} · ${currentDeviceName()}`;
+        }
+        if (deviceNameInput && document.activeElement !== deviceNameInput) {
+          deviceNameInput.value = currentDeviceName();
         }
       }
 
@@ -166,7 +198,7 @@
         const saveRes = await fetch("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ staff_name: currentStaff(), subscription }),
+          body: JSON.stringify({ staff_name: currentStaff(), device_name: currentDeviceName(), subscription }),
         });
 
         if (!saveRes.ok) {
@@ -177,6 +209,20 @@
         await fetch(`/api/push/ping?staff_name=${encodeURIComponent(currentStaff())}`, { cache: "no-store" });
         setPushUi(`Push ist für ${currentStaff()} aktiv.`, "active");
         if (showMessage) alert(`Hintergrund-Push ist jetzt für ${currentStaff()} aktiv.`);
+      }
+
+      async function triggerPushTest(showMessage = true) {
+        const staff = currentStaff();
+        const res = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staff)}`, { cache: "no-store" });
+        const data = await res.json();
+        const sent = (data.result && data.result.sent) || 0;
+        if (sent > 0) {
+          setPushUi(`Push-Test für ${staff} gesendet (${sent}).`, "active");
+          if (showMessage) alert(`Test-Push für ${staff} wurde gesendet.`);
+        } else {
+          setPushUi(`Kein registriertes Gerät für ${staff} gefunden.`);
+          if (showMessage) alert(`Für ${staff} wurde kein aktives Gerät gefunden.`);
+        }
       }
 
       async function refreshPushStatus() {
@@ -213,6 +259,7 @@
 
       if (staffSelect) {
         staffSelect.value = currentStaff();
+        if (deviceNameInput) deviceNameInput.value = currentDeviceName();
         staffSelect.addEventListener("change", async () => {
           localStorage.setItem(STORAGE_KEY_STAFF, staffSelect.value);
           await refreshPushStatus();
@@ -221,6 +268,25 @@
               await registerPushSubscription(false);
             }
           } catch (e) {}
+        });
+      }
+
+      if (deviceNameInput) {
+        deviceNameInput.value = currentDeviceName();
+        deviceNameInput.addEventListener("change", () => {
+          localStorage.setItem(STORAGE_KEY_DEVICE_NAME, (deviceNameInput.value || "").trim().slice(0, 80) || currentDeviceName());
+          setPushUi(pushStatusMini ? pushStatusMini.textContent : "Push-Status aktualisiert.");
+        });
+      }
+
+      if (testPushBtn) {
+        testPushBtn.addEventListener("click", async () => {
+          try {
+            await triggerPushTest(true);
+          } catch (error) {
+            setPushUi(error.message || "Push-Test fehlgeschlagen.");
+            alert((error && error.message) ? error.message : "Push-Test fehlgeschlagen.");
+          }
         });
       }
 
