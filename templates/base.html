@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.5.4 Pro Menü System") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.5.5 Pro") }}</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
@@ -59,16 +59,24 @@
   </nav>
   {% endif %}
   {% if session.get('admin_logged_in') %}
-  <div class="device-staff-bar" id="deviceStaffBar">
-    <span id="pushStatusLabel">Dieses Handy:</span>
-    <select id="deviceStaffSelect">
-      <option value="Ute">Ute</option>
-      <option value="Jessi">Jessi</option>
-    </select>
-    <input type="text" id="deviceNameInput" placeholder="Gerätename" maxlength="80" />
-    <button type="button" class="btn btn-secondary btn-small" id="enablePushBtn">Push aktivieren</button>
-    <button type="button" class="btn btn-secondary btn-small" id="testPushBtn">Push testen</button>
-    <span class="helper-text" id="pushStatusMini">Push ist noch nicht aktiv.</span>
+  <div class="device-staff-bar collapsed" id="deviceStaffBar" aria-expanded="false">
+    <div class="device-staff-bar-header">
+      <button type="button" class="device-staff-toggle" id="deviceStaffToggleBtn" aria-expanded="false" aria-controls="deviceStaffBody">
+        <span class="device-staff-toggle-title">Push für dieses Handy</span>
+        <span class="device-staff-toggle-summary" id="pushStatusLabel">Jessi · Android-Handy</span>
+        <span class="device-staff-toggle-icon" aria-hidden="true">▾</span>
+      </button>
+    </div>
+    <div class="device-staff-body" id="deviceStaffBody">
+      <select id="deviceStaffSelect">
+        <option value="Ute">Ute</option>
+        <option value="Jessi">Jessi</option>
+      </select>
+      <input type="text" id="deviceNameInput" placeholder="Gerätename" maxlength="80" />
+      <button type="button" class="btn btn-secondary btn-small" id="enablePushBtn">Push aktivieren</button>
+      <button type="button" class="btn btn-secondary btn-small" id="testPushBtn">Push testen</button>
+      <span class="helper-text" id="pushStatusMini">Push ist noch nicht aktiv.</span>
+    </div>
   </div>
   {% endif %}
   <script>
@@ -87,6 +95,31 @@
       const menuToggle = document.getElementById("menuToggle");
       const mainNavLinks = document.getElementById("mainNavLinks");
       const menuOverlay = document.getElementById("menuOverlay");
+      const deviceStaffBar = document.getElementById("deviceStaffBar");
+      const deviceStaffToggleBtn = document.getElementById("deviceStaffToggleBtn");
+
+      function openDeviceStaffBar() {
+        if (!deviceStaffBar) return;
+        deviceStaffBar.classList.remove("collapsed");
+        deviceStaffBar.setAttribute("aria-expanded", "true");
+        if (deviceStaffToggleBtn) deviceStaffToggleBtn.setAttribute("aria-expanded", "true");
+      }
+
+      function closeDeviceStaffBar() {
+        if (!deviceStaffBar) return;
+        deviceStaffBar.classList.add("collapsed");
+        deviceStaffBar.setAttribute("aria-expanded", "false");
+        if (deviceStaffToggleBtn) deviceStaffToggleBtn.setAttribute("aria-expanded", "false");
+      }
+
+      function toggleDeviceStaffBar() {
+        if (!deviceStaffBar) return;
+        if (deviceStaffBar.classList.contains("collapsed")) {
+          openDeviceStaffBar();
+        } else {
+          closeDeviceStaffBar();
+        }
+      }
 
       function currentStaff() {
         return (localStorage.getItem(STORAGE_KEY_STAFF) || "Ute").trim() || "Ute";
@@ -126,7 +159,7 @@
         }
 
         if (pushStatusLabel) {
-          pushStatusLabel.textContent = `Dieses Handy: ${currentStaff()} · ${currentDeviceName()}`;
+          pushStatusLabel.textContent = `${currentStaff()} · ${currentDeviceName()}`;
         }
 
         if (deviceNameInput && document.activeElement !== deviceNameInput) {
@@ -152,6 +185,7 @@
         if (!mainNavLinks) return;
         if (mainNavLinks.classList.contains("mobile-open")) {
           closeMobileMenu();
+          closeDeviceStaffBar();
         } else {
           openMobileMenu();
         }
