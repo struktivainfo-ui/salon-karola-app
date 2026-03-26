@@ -20,6 +20,9 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
 from flask import (
@@ -66,7 +69,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "3.7.3 Ultra Luxus Final"
+APP_VERSION = "3.8 Push System Komplett"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -618,6 +621,37 @@ def get_automation_status():
     }
 
 
+def _get_app_setting(key, default=""):
+    try:
+        return get_setting(key, default)
+    except Exception:
+        return default
+
+
+def _ensure_vapid_keys():
+    public_key = (os.getenv("VAPID_PUBLIC_KEY") or _get_app_setting("push:vapid_public_key", "")).strip()
+    private_key = (os.getenv("VAPID_PRIVATE_KEY") or _get_app_setting("push:vapid_private_key", "")).strip()
+    if public_key and private_key:
+        return public_key, private_key
+
+    try:
+        private_obj = ec.generate_private_key(ec.SECP256R1())
+        private_numbers = private_obj.private_numbers()
+        private_bytes = private_numbers.private_value.to_bytes(32, "big")
+        public_bytes = private_obj.public_key().public_bytes(
+            encoding=serialization.Encoding.X962,
+            format=serialization.PublicFormat.UncompressedPoint,
+        )
+        public_key = _b64url_encode(public_bytes)
+        private_key = _b64url_encode(private_bytes)
+        set_setting("push:vapid_public_key", public_key)
+        set_setting("push:vapid_private_key", private_key)
+        set_setting("push:vapid_generated_at", datetime.now().isoformat(timespec="seconds"))
+        return public_key, private_key
+    except Exception:
+        return public_key, private_key
+
+
 def _b64url_encode(data):
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
@@ -674,15 +708,18 @@ def _normalize_vapid_private_key(value):
 
 
 def vapid_ready():
-    return bool(_normalize_vapid_public_key(os.getenv("VAPID_PUBLIC_KEY")) and _normalize_vapid_private_key(os.getenv("VAPID_PRIVATE_KEY")) and webpush)
+    public_key, private_key = _ensure_vapid_keys()
+    return bool(_normalize_vapid_public_key(public_key) and _normalize_vapid_private_key(private_key) and webpush)
 
 
 def vapid_public_key():
-    return _normalize_vapid_public_key(os.getenv("VAPID_PUBLIC_KEY", ""))
+    public_key, _ = _ensure_vapid_keys()
+    return _normalize_vapid_public_key(public_key)
 
 
 def vapid_private_key():
-    return _normalize_vapid_private_key(os.getenv("VAPID_PRIVATE_KEY", ""))
+    _, private_key = _ensure_vapid_keys()
+    return _normalize_vapid_private_key(private_key)
 
 
 def _push_device_label(row):
@@ -815,6 +852,44 @@ def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
     return {"sent": sent, "skipped": skipped, "errors": errors}
 
 
+def webpush_send_to_all_staff(title, body, url="/calendar"):
+    totals = {"sent": 0, "skipped": 0, "errors": []}
+    for target_staff in ("Ute", "Jessi"):
+        result = webpush_send_to_staff(target_staff, title, body, url)
+        totals["sent"] += int(result.get("sent") or 0)
+        totals["skipped"] += int(result.get("skipped") or 0)
+        totals["errors"].extend(result.get("errors") or [])
+    return totals
+
+
+def _push_birthday_message(customer):
+    first_name = (customer["_firstname"] or "").strip()
+    last_name = (customer["_name"] or "").strip()
+    customer_name = f"{first_name} {last_name}".strip() or "Kundin"
+    return webpush_send_to_all_staff(
+        "Heute Geburtstag",
+        f"{customer_name} hat heute Geburtstag. Gratulation nicht vergessen.",
+        "/"
+    )
+
+
+def _push_appointment_reminder(appt):
+    first_name = (appt["_firstname"] or "").strip()
+    last_name = (appt["_name"] or "").strip()
+    customer_name = f"{first_name} {last_name}".strip() or "Kundin"
+    staff_name = (appt["staff_name"] or "Ute").strip() or "Ute"
+    try:
+        when_label = datetime.fromisoformat(str(appt["appointment_at"])).strftime("%d.%m.%Y um %H:%M")
+    except Exception:
+        when_label = str(appt["appointment_at"])
+    return webpush_send_to_staff(
+        staff_name,
+        "Termin-Erinnerung",
+        f"{customer_name} • {appt['title']} • {when_label}",
+        "/calendar?view=day"
+    )
+
+
 def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name):
     actor = (actor_name or staff_name or "Ute").strip() or "Ute"
     target = "Jessi" if actor == "Ute" else "Ute"
@@ -897,6 +972,7 @@ def run_birthday_job():
     checked = 0
     sent = 0
     errors = 0
+    push_sent = 0
 
     for customer in customers:
         checked += 1
@@ -909,12 +985,14 @@ def run_birthday_job():
             send_email(customer["_mail"], subject, body)
             set_setting(mail_key, datetime.now().isoformat(timespec="seconds"))
             log_email(customer["_id"], "birthday", subject, body, customer["_mail"], "sent")
+            push_result = _push_birthday_message(customer)
+            push_sent += int(push_result.get("sent") or 0)
             sent += 1
         except Exception as exc:
             log_email(customer["_id"], "birthday", subject, body, customer["_mail"], "error", str(exc))
             errors += 1
 
-    return {"checked": checked, "sent": sent, "errors": errors}
+    return {"checked": checked, "sent": sent, "errors": errors, "push_sent": push_sent}
 
 
 def run_appointment_job():
@@ -936,6 +1014,7 @@ def run_appointment_job():
         checked = 0
         sent = 0
         errors = 0
+        push_sent = 0
 
         for appt in appointments:
             checked += 1
@@ -953,12 +1032,14 @@ def run_appointment_job():
                 )
                 conn.commit()
                 log_email(appt["customer_id"], "appointment", subject, body, appt["_mail"], "sent")
+                push_result = _push_appointment_reminder(appt)
+                push_sent += int(push_result.get("sent") or 0)
                 sent += 1
             except Exception as exc:
                 log_email(appt["customer_id"], "appointment", subject, body, appt["_mail"], "error", str(exc))
                 errors += 1
 
-    return {"checked": checked, "sent": sent, "errors": errors}
+    return {"checked": checked, "sent": sent, "errors": errors, "push_sent": push_sent}
 
 
 def scheduler_tick():
@@ -967,8 +1048,8 @@ def scheduler_tick():
         birthday_result = run_birthday_job()
         appointment_result = run_appointment_job()
         summary = (
-            f"Geburtstage geprüft: {birthday_result['checked']}, gesendet: {birthday_result['sent']}, Fehler: {birthday_result['errors']} | "
-            f"Termine geprüft: {appointment_result['checked']}, gesendet: {appointment_result['sent']}, Fehler: {appointment_result['errors']}"
+            f"Geburtstage geprüft: {birthday_result['checked']}, Mails: {birthday_result['sent']}, Push: {birthday_result.get('push_sent', 0)}, Fehler: {birthday_result['errors']} | "
+            f"Termine geprüft: {appointment_result['checked']}, Mails: {appointment_result['sent']}, Push: {appointment_result.get('push_sent', 0)}, Fehler: {appointment_result['errors']}"
         )
         set_setting("automation:last_run_at", started_at)
         set_setting("automation:last_run_summary", summary)
@@ -1835,7 +1916,7 @@ def appointments_feed():
 @app.route("/api/push/public-key")
 @login_required
 def push_public_key():
-    return {"public_key": vapid_public_key(), "enabled": vapid_ready(), "format": "base64url"}
+    return {"public_key": vapid_public_key(), "enabled": vapid_ready(), "format": "base64url", "generated": bool(_get_app_setting("push:vapid_generated_at", ""))}
 
 
 @app.route("/api/push/status")
@@ -1856,6 +1937,33 @@ def push_status():
     except Exception:
         count = 0
     return {"enabled": enabled, "staff_name": staff_name, "subscriptions": count}
+
+
+@app.route("/api/push/overview")
+@login_required
+def push_overview():
+    db = get_db()
+    total_devices = 0
+    total_active = 0
+    try:
+        row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
+        total_devices = int(row["cnt"] or 0) if row else 0
+        row_ok = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE COALESCE(last_error, '') = ''").fetchone()
+        total_active = int(row_ok["cnt"] or 0) if row_ok else 0
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "enabled": vapid_ready(),
+        "generated_keys": bool(_get_app_setting("push:vapid_generated_at", "")),
+        "total_devices": total_devices,
+        "active_devices": total_active,
+        "ute_devices": len(push_devices_for_staff("Ute")),
+        "jessi_devices": len(push_devices_for_staff("Jessi")),
+        "last_run_at": get_setting("automation:last_run_at", ""),
+        "last_run_summary": get_setting("automation:last_run_summary", ""),
+        "last_run_error": get_setting("automation:last_run_error", ""),
+    }
 
 
 @app.route("/api/push/devices")
@@ -2095,12 +2203,14 @@ def inject_globals():
     return {
         "admin_name": session.get("admin_name"),
         "customer_activity_status": customer_activity_status,
+        "app_version": APP_VERSION,
     }
 
 
 def boot_app():
     init_db()
     ensure_default_admin(force_reset=True)
+    _ensure_vapid_keys()
     interval_minutes = int(os.getenv("AUTOMATION_INTERVAL_MINUTES", "5"))
     set_setting("automation:scheduler_interval_minutes", str(interval_minutes))
     if not scheduler.running:
