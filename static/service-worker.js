@@ -1,4 +1,4 @@
-const CACHE_NAME = "salon-karola-v3-6-0-pro-clean-left-menu";
+const CACHE_NAME = "salon-karola-v3-7-3-ultra-luxus-final";
 const STATIC_URLS = [
   "/static/style.css",
   "/static/icon-192.png",
