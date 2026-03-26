@@ -168,7 +168,7 @@
       function closeMobileMenu() {
         if (mainNavLinks) {
           mainNavLinks.classList.remove("mobile-open");
-          if (isMobileView()) mainNavLinks.hidden = true;
+          mainNavLinks.hidden = false;
         }
         if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
         document.body.classList.remove("mobile-menu-open");
@@ -364,16 +364,12 @@
 
       function applyResponsiveMenuState() {
         if (!mainNavLinks) return;
-        if (isMobileView()) {
-          mainNavLinks.hidden = !mainNavLinks.classList.contains("mobile-open");
-        } else {
-          mainNavLinks.hidden = false;
-          mainNavLinks.classList.remove("mobile-open");
-          if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
-          document.body.classList.remove("mobile-menu-open");
-          if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
-          if (menuClose) menuClose.classList.remove("visible");
-        }
+        mainNavLinks.hidden = false;
+        mainNavLinks.classList.remove("mobile-open");
+        if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
+        document.body.classList.remove("mobile-menu-open");
+        if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
+        if (menuClose) menuClose.classList.remove("visible");
       }
 
       applyResponsiveMenuState();
