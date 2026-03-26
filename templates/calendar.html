@@ -1,13 +1,12 @@
 {% extends 'base.html' %}
 {% block title %}Kalender - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card">
+<section class="hero-card clean-hero">
   <div class="hero-row">
     <div>
-      <h1 class="hero-title">Kalender</h1>
-      <p class="hero-text">Tag, Woche und Monat jetzt sauber auf Deutsch – mit robuster Handy-Push-Aktivierung und klarer Tagesansicht mit Uhrzeiten.</p>
+      <h1 class="hero-title">Termine</h1>
+      <p class="hero-text">Klare Tages-, Wochen- und Monatsansicht für einen schnellen Überblick im Salon.</p>
     </div>
-    <span class="badge">{{ app_version|default("3.5.5 Pro") }}</span>
   </div>
 </section>
 
@@ -15,7 +14,7 @@
   <div class="row-between wrap-mobile">
     <div>
       <h2>Kalendersteuerung</h2>
-      <div class="helper-text">Monate, Wochentage und Ansichten sind auf Deutsch. Die Tagesansicht zeigt jetzt die Öffnungszeiten mit Uhrzeiten, und Push kann auch im Hintergrund laufen.</div>
+      <div class="helper-text">Wähle Mitarbeiterin, Ansicht und Datum für deinen Tagesablauf.</div>
     </div>
     <span class="badge">{{ staff }} • {{ selected_date }}</span>
   </div>
@@ -42,30 +41,74 @@
     </div>
   </form>
 </section>
+{% if view == 'day' and staff == 'Alle' and split_day_views %}
+<section class="split-day-section space-top">
+  <div class="row-between wrap-mobile split-day-header">
+    <div>
+      <h2>Zwei Tagesansichten</h2>
+      <div class="helper-text">Ute und Jessi getrennt – so siehst du beide Tagespläne direkt nebeneinander.</div>
+    </div>
+    <span class="badge">{{ selected_date }}</span>
+  </div>
+  <div class="split-day-grid space-top">
+    {% for staff_name, staff_day in split_day_views.items() %}
+    <section class="card split-day-card">
+      <div class="row-between wrap-mobile">
+        <div>
+          <h3>{{ staff_name }}</h3>
+          <div class="helper-text">{{ staff_day['timeline']['open_label'] }}</div>
+        </div>
+        <span class="badge">{{ staff_day['items']|length }} Termine</span>
+      </div>
+      {% if staff_day['timeline']['open'] %}
+      <div class="day-timeline compact-timeline space-top">
+        {% for slot in staff_day['timeline']['slots'] %}
+        <div class="day-slot">
+          <div class="day-slot-time">{{ slot['time'] }}</div>
+          <div class="day-slot-content">
+            {% for appt in slot['items'] %}
+            <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+              <strong>{{ appt['customer_name'] }}</strong> — {{ appt['title'] }}
+            </a>
+            {% else %}
+            <div class="day-slot-empty">frei</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="list-item space-top">Sonntag ist geschlossen.</div>
+      {% endif %}
+      <div class="list-stack space-top split-day-list">
+        {% for appt in staff_day['items'] %}
+        <div class="list-item">
+          <div class="row-between wrap-mobile">
+            <strong>{{ appt['firstname'] }} {{ appt['lastname'] }}</strong>
+            <span class="badge badge-status-{{ appt['status']|lower|replace(' ', '-') }}">{{ appt['appointment_at']|dt }}</span>
+          </div>
+          <div class="mobile-line">{{ appt['title'] }}</div>
+          <div class="mobile-line">Telefon: {{ appt['phone'] }}</div>
+        </div>
+        {% else %}
+        <div class="list-item">Keine Termine für {{ staff_name }}.</div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+</section>
+
 <section class="card space-top">
   <div class="row-between wrap-mobile">
     <div>
-      <h2>Push-Benachrichtigungen</h2>
-      <div class="helper-text">Wähle dieses Gerät als Ute oder Jessi und klicke dann auf <strong>Push aktivieren</strong>. Danach kannst du mit <strong>Push testen</strong> sofort prüfen, ob Benachrichtigungen ankommen.</div>
+      <h2>Gesamtansicht des Tages</h2>
+      <div class="helper-text">Alle Termine zusammengefasst.</div>
     </div>
-    <span class="badge" id="calendarPushBadge">Noch nicht aktiv</span>
-  </div>
-  <div class="quick-actions" style="margin-top:14px; grid-template-columns:repeat(2,minmax(0,1fr));">
-    <button type="button" class="btn btn-secondary" id="calendarEnablePushBtn">Push aktivieren</button>
-    <button type="button" class="btn btn-secondary" id="calendarTestPushBtn">Push testen</button>
-  </div>
-  <div class="helper-text space-top" id="calendarPushHelp">Die Geräte-Zuordnung findest du jetzt direkt im Menü unter <strong>Push-System</strong>. Nach erfolgreicher Aktivierung bleibt das Gerät fest für Ute oder Jessi gespeichert. Browser-Benachrichtigungen müssen erlaubt sein.</div>
-  <div class="space-top">
-    <div class="row-between wrap-mobile">
-      <strong>Registrierte Geräte</strong>
-      <button type="button" class="btn btn-secondary btn-small" id="calendarRefreshDevicesBtn">Geräte neu laden</button>
-    </div>
-    <div class="helper-text" style="margin-top:8px;">Version 3.8 zeigt dir pro Gerät die Zuordnung, letzte erfolgreiche Zustellung und Fehlerstatus. Zusätzlich werden automatische Pushs für neue Termine, Erinnerungen und Geburtstage unterstützt.</div>
-    <div id="pushDevicesList" class="list-stack space-top">
-      <div class="list-item">Lade Geräte…</div>
-    </div>
+    <span class="badge">{{ day_view['items']|length }} Termine</span>
   </div>
 </section>
+{% endif %}
 
 {% if view == 'day' and day_view %}
 <section class="card space-top">
