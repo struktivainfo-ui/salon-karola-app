@@ -69,7 +69,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional 5.5 UX Final"
+APP_VERSION = "Salon Karola CRM Professional 5.5.1 Kalender Fix"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -2024,7 +2024,7 @@ def _calendar_nav_date(selected_date, view, step):
 @app.route("/calendar")
 @login_required
 def calendar_view():
-    view = (request.args.get("view") or "week").strip().lower()
+    view = (request.args.get("view") or "day").strip().lower()
     if view not in {"day", "week", "month"}:
         view = "week"
 
