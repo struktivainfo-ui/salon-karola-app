@@ -1,8 +1,10 @@
-const CACHE_NAME = "salon-karola-v4-2-ultra-splash";
+const CACHE_NAME = "salon-karola-v4-5-final-mobile-push-icon";
 const STATIC_URLS = [
   "/static/style.css",
   "/static/icon-192.png",
   "/static/icon-512.png",
+  "/static/push-icon.png",
+  "/static/push-badge.png",
   "/manifest.webmanifest",
   "/static/sounds/start-chime.wav"
 ];
@@ -60,8 +62,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "Salon Karola", {
       body: data.body || "Neue Benachrichtigung",
-      icon: "/static/icon-192.png",
-      badge: "/static/icon-192.png",
+      icon: "/static/push-icon.png",
+      badge: "/static/push-badge.png",
       data: { url: data.url || "/calendar" },
       tag: data.tag || `push-${Date.now()}`,
       renotify: true,
