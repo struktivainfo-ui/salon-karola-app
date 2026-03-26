@@ -22,10 +22,11 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.8.3 Mobile Menü Fix") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.9 Ultra Menü Perfekt") }}</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
+      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menü schließen">×</button>
       <nav class="nav-links" id="mainNavLinks" hidden>
         <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Dashboard</a>
         <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}">Kunden</a>
@@ -86,6 +87,7 @@
       const menuToggle = document.getElementById("menuToggle");
       const mainNavLinks = document.getElementById("mainNavLinks");
       const menuOverlay = document.getElementById("menuOverlay");
+      const menuClose = document.getElementById("menuClose");
       const navPushGroup = document.getElementById("navPushGroup");
       const navPushToggle = document.getElementById("navPushToggle");
       const navPushPanel = document.getElementById("navPushPanel");
@@ -167,16 +169,18 @@
         if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
         document.body.classList.remove("mobile-menu-open");
         if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
+        if (menuClose) menuClose.classList.remove("visible");
       }
 
       function openMobileMenu() {
         if (mainNavLinks) {
           mainNavLinks.hidden = false;
-          mainNavLinks.classList.add("mobile-open");
+          requestAnimationFrame(() => mainNavLinks.classList.add("mobile-open"));
         }
         if (menuOverlay) { menuOverlay.classList.add("active"); menuOverlay.setAttribute("aria-hidden", "false"); }
         document.body.classList.add("mobile-menu-open");
         if (menuToggle) menuToggle.setAttribute("aria-expanded", "true");
+        if (menuClose) menuClose.classList.add("visible");
       }
 
       function toggleMobileMenu() {
@@ -364,6 +368,7 @@
           if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
           document.body.classList.remove("mobile-menu-open");
           if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
+          if (menuClose) menuClose.classList.remove("visible");
         }
       }
 
@@ -392,8 +397,18 @@
       }
 
       if (menuToggle) {
-        menuToggle.addEventListener("click", () => {
+        const handleMenuToggle = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
           toggleMobileMenu();
+        };
+        menuToggle.addEventListener("click", handleMenuToggle, { passive: false });
+      }
+
+      if (menuClose) {
+        menuClose.addEventListener("click", (event) => {
+          event.preventDefault();
+          closeMobileMenu();
         });
       }
 
