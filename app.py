@@ -69,7 +69,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "3.9 Ultra Menü Perfekt"
+APP_VERSION = "Salon Karola CRM Professional"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -2056,6 +2056,44 @@ def push_ping():
     return {"ok": True, "result": result, "enabled": vapid_ready(), "devices": push_devices_for_staff(staff_name)}
 
 
+@app.route("/whatsapp")
+@login_required
+def whatsapp_hub():
+    db = get_db()
+    q = request.args.get("q", "").strip()
+    query = """
+        SELECT c.*, MAX(a.appointment_at) AS last_appointment_at
+        FROM _Customers c
+        LEFT JOIN appointments a ON a.customer_id = c._id
+    """
+    params = []
+    conditions = ["COALESCE(c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon, '') <> ''"]
+    if q:
+        like = f"%{q}%"
+        conditions.append("(c._name LIKE ? OR c._firstname LIKE ? OR c.Customer_Mobiltelefon LIKE ? OR c.Customer_PersönlichesTelefon LIKE ?)")
+        params.extend([like, like, like, like])
+    query += " WHERE " + " AND ".join(conditions)
+    query += " GROUP BY c._id ORDER BY c._name, c._firstname LIMIT 200"
+    customers = db.execute(query, params).fetchall()
+
+    next_appt_map = {}
+    for row in db.execute(
+        "SELECT * FROM appointments WHERE appointment_at IS NOT NULL ORDER BY appointment_at ASC"
+    ).fetchall():
+        cid = row["customer_id"]
+        if cid not in next_appt_map:
+            next_appt_map[cid] = row
+
+    return render_template(
+        "whatsapp.html",
+        customers=customers,
+        next_appt_map=next_appt_map,
+        q=q,
+        current_endpoint="whatsapp_hub",
+        app_version=APP_VERSION,
+    )
+
+
 @app.route("/templates", methods=["GET", "POST"])
 @login_required
 def templates_view():
@@ -2203,6 +2241,7 @@ def inject_globals():
     return {
         "admin_name": session.get("admin_name"),
         "customer_activity_status": customer_activity_status,
+        "whatsapp_link": whatsapp_link,
         "app_version": APP_VERSION,
     }
 
