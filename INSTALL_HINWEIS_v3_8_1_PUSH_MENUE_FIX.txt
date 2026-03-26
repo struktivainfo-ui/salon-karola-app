@@ -1,0 +1,12 @@
+Salon Karola 3.8.1 Push Menü Fix
+
+Behoben:
+- Untermenü im Handy-Menü reagiert wieder
+- alter JavaScript-Fehler entfernt
+- Push-Untermenü im mobilen Menü stabilisiert
+
+Nach dem Deploy:
+1. In Render neu deployen
+2. Handy-App komplett schließen
+3. Browser/PWA neu öffnen
+4. Wenn noch alte Version sichtbar ist: Cache / Service Worker leeren
