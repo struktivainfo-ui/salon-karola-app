@@ -1,0 +1,8 @@
+Version 4.5 Final Mobile & Push Icon
+
+Neu:
+- Mobile Menü-Links vereinfacht und stabilisiert
+- Push-Icon/Bedge für Android-Benachrichtigungen ergänzt
+- Service Worker Cache auf 4.5 gesetzt
+
+Nach Deploy: Browser/Handy einmal hart neu laden oder Service Worker neu registrieren.
