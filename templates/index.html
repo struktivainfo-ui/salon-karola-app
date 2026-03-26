@@ -48,7 +48,7 @@
   </div>
   <div class="quick-actions clean-actions">
     <a class="quick-action" href="{{ url_for('customer_new') }}">➕ Kunde</a>
-    <a class="quick-action" href="{{ url_for('calendar_view') }}">📅 Termine</a>
+    <a class="quick-action quick-action-calendar" href="{{ url_for('calendar_view', view='day') }}">📅 Kalenderansicht</a>
     <a class="quick-action" href="{{ url_for('push_center') }}">🔔 Push</a>
     <a class="quick-action" href="{{ url_for('templates_view') }}">✉️ Vorlagen</a>
     <a class="quick-action" href="{{ url_for('whatsapp_hub') }}">💬 WhatsApp</a>
