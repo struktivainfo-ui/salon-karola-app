@@ -126,6 +126,8 @@ img { max-width: 100%; display: block; }
   border: 0;
   background: transparent;
   text-align: left;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .nav-push-toggle::-webkit-details-marker { display: none; }
@@ -476,6 +478,7 @@ td {
 .badge-health-neu { background: rgba(120,120,255,.12); border-color: rgba(120,120,255,.28); color: #c7ccff; }
 .mobile-only-flex { display:none; }
 .mobile-only-inline { display:none; }
+.mobile-menu-only { display:none; }
 
 
 
@@ -746,20 +749,24 @@ td {
 
 
 
-/* 3.6.0 Pro Clean Left App Menu */
+/* 3.9 Ultra Menü Perfekt */
 @media (max-width: 768px) {
   .topbar {
     position: sticky;
     top: 0;
     z-index: 240;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(12px);
   }
 
   .topbar-inner {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr auto;
     gap: 14px;
-    align-items: stretch;
+    align-items: center;
+  }
+
+  .brand {
+    grid-column: 1 / -1;
   }
 
   .menu-toggle.mobile-only-inline {
@@ -772,29 +779,60 @@ td {
     justify-content: center;
     align-items: center;
     box-shadow: 0 12px 24px rgba(0,0,0,.22);
+    position: relative;
+    z-index: 271;
+  }
+
+  .menu-close.mobile-menu-only {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    min-height: 58px;
+    border-radius: 18px;
+    border: 1px solid rgba(212,175,55,.22);
+    background: rgba(255,255,255,.03);
+    color: var(--gold-soft);
+    font-size: 1.8rem;
+    line-height: 1;
+    box-shadow: 0 12px 24px rgba(0,0,0,.22);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-6px);
+    transition: opacity .2s ease, transform .2s ease;
+    position: relative;
+    z-index: 271;
+  }
+
+  .menu-close.mobile-menu-only.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
   }
 
   .nav-links {
     display: grid !important;
     position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: auto !important;
-    width: min(86vw, 360px);
-    height: 100dvh;
+    top: calc(env(safe-area-inset-top, 0px) + 122px) !important;
+    left: 16px !important;
+    right: 16px !important;
+    width: auto;
+    max-height: calc(100dvh - 140px - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
     grid-template-columns: 1fr !important;
     align-content: start;
     gap: 12px;
-    padding: calc(env(safe-area-inset-top, 0px) + 20px) 18px calc(env(safe-area-inset-bottom, 0px) + 20px);
+    padding: 18px;
     background: linear-gradient(180deg, rgba(14,14,14,.995) 0%, rgba(20,20,20,.99) 100%) !important;
-    border-right: 1px solid rgba(212,175,55,.24) !important;
-    border-radius: 0 24px 24px 0 !important;
+    border: 1px solid rgba(212,175,55,.24) !important;
+    border-radius: 24px !important;
     box-shadow: 0 28px 60px rgba(0,0,0,.50) !important;
-    transform: translateX(-112%);
+    transform: translateY(-14px) scale(.985);
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
-    transition: transform .28s ease, opacity .22s ease;
-    z-index: 260;
+    transition: transform .24s ease, opacity .2s ease, visibility .2s ease;
+    z-index: 270;
     margin: 0 !important;
   }
 
@@ -803,19 +841,20 @@ td {
   }
 
   .nav-links::before {
-    content: "Menü";
+    content: "Navigation";
     display: block;
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 800;
     color: var(--gold-soft);
-    margin-bottom: 6px;
-    padding: 4px 4px 12px;
+    margin-bottom: 4px;
+    padding: 0 2px 12px;
     border-bottom: 1px solid rgba(212,175,55,.18);
   }
 
   .nav-links.mobile-open:not([hidden]) {
-    transform: translateX(0);
+    transform: translateY(0) scale(1);
     opacity: 1;
+    visibility: visible;
     pointer-events: auto;
   }
 
@@ -835,19 +874,40 @@ td {
     border: 1px solid rgba(212,175,55,.18);
   }
 
+  .nav-push-group {
+    width: 100%;
+    min-width: 0;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .nav-push-summary {
+    max-width: 46%;
+  }
+
+  .nav-push-panel {
+    padding: 10px 12px 14px;
+  }
+
+  .nav-push-actions {
+    grid-template-columns: 1fr;
+  }
+
   .menu-overlay {
     display: block !important;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,.56);
+    background: rgba(0,0,0,.62);
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
-    transition: opacity .24s ease;
+    transition: opacity .2s ease, visibility .2s ease;
     z-index: 250;
   }
 
   .menu-overlay.active {
     opacity: 1;
+    visibility: visible;
     pointer-events: auto;
   }
 
