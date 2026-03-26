@@ -1,7 +1,7 @@
 {
   "name": "Salon Karola CRM",
   "short_name": "Salon Karola",
-  "start_url": "/?v=3.7.3",
+  "start_url": "/?v=3.6.0",
   "display": "standalone",
   "background_color": "#0f0f0f",
   "theme_color": "#0f0f0f",

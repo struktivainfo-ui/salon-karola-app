@@ -100,6 +100,75 @@ img { max-width: 100%; display: block; }
   font-size: 0.95rem;
 }
 
+.nav-push-group {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(212,175,55,.08) 0%, rgba(255,255,255,.02) 100%);
+  overflow: hidden;
+  min-width: 280px;
+}
+
+.nav-push-group summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  color: var(--gold-soft);
+  font-weight: 700;
+}
+
+.nav-push-group summary::-webkit-details-marker { display: none; }
+
+.nav-push-summary {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: .9rem;
+  margin-left: auto;
+  text-align: right;
+}
+
+.nav-push-panel {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.nav-push-panel label {
+  margin-bottom: 0;
+}
+
+.nav-push-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .nav-push-group {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .nav-push-group summary {
+    min-height: 56px;
+  }
+
+  .nav-push-summary {
+    font-size: .82rem;
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .nav-push-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 .hero-card, .card {
   background: linear-gradient(180deg, var(--card) 0%, var(--card-2) 100%);
   border: 1px solid var(--border);
@@ -760,469 +829,5 @@ td {
   .bottom-nav,
   .mobile-only-flex {
     display: none !important;
-  }
-}
-
-
-/* 3.7 Ultra Menü */
-.device-staff-bar { display:none !important; }
-
-.nav-submenu {
-  width: 100%;
-  border: 1px solid rgba(212,175,55,.18);
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(28,28,28,.95) 0%, rgba(18,18,18,.98) 100%);
-  box-shadow: 0 12px 28px rgba(0,0,0,.22);
-  overflow: hidden;
-}
-
-.nav-submenu-summary {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  cursor: pointer;
-  color: var(--text);
-  font-weight: 700;
-}
-
-.nav-submenu-summary::-webkit-details-marker { display: none; }
-
-.nav-submenu-status {
-  color: var(--gold-soft);
-  font-size: .9rem;
-  font-weight: 600;
-}
-
-.nav-submenu-panel {
-  display: grid;
-  gap: 10px;
-  padding: 0 16px 16px;
-  border-top: 1px solid rgba(212,175,55,.12);
-}
-
-.submenu-label {
-  margin-bottom: 0;
-  color: var(--muted);
-  font-size: .88rem;
-}
-
-.submenu-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.nav-links .nav-submenu summary,
-.nav-links .nav-submenu summary:hover {
-  background: transparent;
-  border: 0;
-}
-
-.nav-links .nav-submenu[open] {
-  border-color: rgba(212,175,55,.28);
-  box-shadow: 0 16px 34px rgba(0,0,0,.28);
-}
-
-@media (min-width: 769px) {
-  .nav-links { align-items: stretch; }
-  .nav-submenu { width: 280px; }
-  .nav-submenu-summary { min-height: 100%; justify-content: center; }
-}
-
-@media (max-width: 768px) {
-  .nav-submenu {
-    margin-top: 4px;
-    border-radius: 22px;
-    background: linear-gradient(180deg, rgba(24,24,24,.98) 0%, rgba(13,13,13,.99) 100%);
-  }
-
-  .nav-submenu-summary {
-    min-height: 56px;
-    justify-content: center;
-    padding: 16px;
-  }
-
-  .nav-submenu-panel {
-    padding: 0 16px 16px;
-  }
-
-  .submenu-actions {
-    grid-template-columns: 1fr;
-  }
-}
-
-
-/* 3.7.1 Ultra Luxus Menü */
-.topbar {
-  background:
-    radial-gradient(circle at top left, rgba(240, 215, 122, 0.08), transparent 26%),
-    linear-gradient(180deg, rgba(8,8,8,0.96) 0%, rgba(15,15,15,0.92) 100%);
-  box-shadow: 0 10px 36px rgba(0,0,0,0.28);
-}
-
-.nav-links a {
-  position: relative;
-  overflow: hidden;
-  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease;
-}
-
-.nav-links a::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(120deg, transparent 20%, rgba(240,215,122,0.14) 50%, transparent 80%);
-  transform: translateX(-120%);
-  transition: transform .5s ease;
-}
-
-.nav-links a:hover::after {
-  transform: translateX(120%);
-}
-
-.nav-links a:hover,
-.nav-links a.active {
-  border-color: rgba(240,215,122,0.34);
-  background: linear-gradient(180deg, rgba(42,34,12,0.95) 0%, rgba(24,20,10,0.96) 100%);
-  box-shadow: 0 12px 28px rgba(0,0,0,0.24), inset 0 0 0 1px rgba(240,215,122,0.06);
-  transform: translateY(-1px);
-}
-
-.nav-submenu-luxury {
-  position: relative;
-  background:
-    radial-gradient(circle at top right, rgba(240,215,122,0.16), transparent 30%),
-    linear-gradient(180deg, rgba(32,24,12,0.98) 0%, rgba(13,13,13,0.98) 100%);
-  border: 1px solid rgba(240,215,122,0.24);
-  box-shadow: 0 18px 42px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.03);
-}
-
-.nav-submenu-luxury::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(240,215,122,0.34), rgba(240,215,122,0.05) 32%, rgba(240,215,122,0.22) 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  pointer-events: none;
-}
-
-.nav-submenu-summary {
-  gap: 8px;
-  padding: 15px 16px 16px;
-}
-
-.nav-submenu-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(240,215,122,0.22);
-  background: rgba(240,215,122,0.08);
-  color: var(--gold-soft);
-  font-size: .72rem;
-  font-weight: 800;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-.nav-submenu-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.nav-submenu-title {
-  font-size: 1rem;
-  font-weight: 800;
-  color: #f8efcf;
-}
-
-.nav-submenu-chevron {
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: rgba(240,215,122,0.08);
-  border: 1px solid rgba(240,215,122,0.18);
-  color: var(--gold-soft);
-  font-size: 1rem;
-  transition: transform .22s ease, background .22s ease;
-}
-
-.nav-submenu[open] .nav-submenu-chevron {
-  transform: rotate(180deg);
-  background: rgba(240,215,122,0.14);
-}
-
-.nav-submenu-status {
-  font-size: .92rem;
-  color: #f1d986;
-}
-
-.nav-submenu-panel {
-  gap: 12px;
-  padding: 0 16px 16px;
-}
-
-.submenu-intro-card {
-  display: grid;
-  gap: 5px;
-  padding: 13px 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(240,215,122,0.16);
-  background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(240,215,122,0.05) 100%);
-}
-
-.submenu-intro-badge {
-  display: inline-flex;
-  width: fit-content;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(17,17,17,0.78);
-  border: 1px solid rgba(240,215,122,0.14);
-  color: var(--gold-soft);
-  font-size: .72rem;
-  font-weight: 700;
-}
-
-.helper-text-luxury {
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(240,215,122,0.12);
-  background: rgba(255,255,255,0.02);
-}
-
-.luxury-action-btn {
-  min-height: 46px;
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(28,28,28,0.95) 0%, rgba(16,16,16,0.98) 100%);
-}
-
-.luxury-action-btn:hover {
-  border-color: rgba(240,215,122,0.34);
-  box-shadow: inset 0 0 0 1px rgba(240,215,122,0.06), 0 10px 22px rgba(0,0,0,0.18);
-}
-
-#deviceStaffSelect,
-#deviceNameInput {
-  background: linear-gradient(180deg, rgba(20,20,20,0.98) 0%, rgba(11,11,11,1) 100%);
-  border-color: rgba(240,215,122,0.16);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
-}
-
-#deviceStaffSelect:focus,
-#deviceNameInput:focus {
-  outline: none;
-  border-color: rgba(240,215,122,0.34);
-  box-shadow: 0 0 0 3px rgba(240,215,122,0.08);
-}
-
-@media (max-width: 768px) {
-  .nav-links {
-    background:
-      radial-gradient(circle at top left, rgba(240,215,122,0.12), transparent 22%),
-      linear-gradient(180deg, rgba(9,9,9,0.995) 0%, rgba(16,16,16,0.99) 100%) !important;
-  }
-
-  .nav-links::before {
-    content: "Salon Menü";
-    letter-spacing: .02em;
-  }
-
-  .nav-submenu-luxury {
-    border-radius: 24px;
-  }
-
-  .nav-submenu-summary {
-    padding: 16px;
-  }
-}
-
-
-/* 3.7.2 Ultra Luxus */
-@keyframes ultraMenuGlow {
-  0% { box-shadow: 0 18px 42px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.03); }
-  50% { box-shadow: 0 22px 52px rgba(0,0,0,0.34), 0 0 0 1px rgba(240,215,122,0.06), inset 0 1px 0 rgba(255,255,255,0.04); }
-  100% { box-shadow: 0 18px 42px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.03); }
-}
-
-@keyframes ultraPanelReveal {
-  0% { opacity: 0; transform: translateY(-8px) scale(.985); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes ultraShineSweep {
-  0% { transform: translateX(-135%); opacity: 0; }
-  18% { opacity: 1; }
-  100% { transform: translateX(135%); opacity: 0; }
-}
-
-.nav-submenu-luxury {
-  transition: transform .24s ease, border-color .24s ease, box-shadow .24s ease, background .24s ease;
-}
-
-.nav-submenu-luxury:hover {
-  transform: translateY(-2px);
-  border-color: rgba(240,215,122,0.30);
-  animation: ultraMenuGlow 2.8s ease-in-out infinite;
-}
-
-.nav-submenu-luxury::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -20%;
-  width: 36%;
-  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.02) 20%, rgba(240,215,122,0.20) 50%, rgba(255,255,255,0.02) 80%, transparent 100%);
-  pointer-events: none;
-  opacity: .0;
-}
-
-.nav-submenu-luxury:hover::after {
-  opacity: 1;
-  animation: ultraShineSweep 1.3s ease forwards;
-}
-
-.nav-submenu-panel {
-  transform-origin: top center;
-}
-
-.nav-submenu[open] .nav-submenu-panel {
-  animation: ultraPanelReveal .24s ease both;
-}
-
-.submenu-intro-card,
-.helper-text-luxury,
-#deviceStaffSelect,
-#deviceNameInput,
-.luxury-action-btn {
-  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
-}
-
-.submenu-intro-card:hover,
-.helper-text-luxury:hover {
-  transform: translateY(-1px);
-  border-color: rgba(240,215,122,0.22);
-}
-
-#deviceStaffSelect:hover,
-#deviceNameInput:hover {
-  border-color: rgba(240,215,122,0.24);
-}
-
-.luxury-action-btn:hover {
-  transform: translateY(-1px);
-}
-
-@media (max-width: 768px) {
-  .nav-submenu-luxury:hover {
-    transform: none;
-    animation: none;
-  }
-
-  .nav-submenu[open] .nav-submenu-summary {
-    background: linear-gradient(180deg, rgba(44,33,12,0.32) 0%, rgba(22,18,10,0.10) 100%);
-  }
-
-  .nav-submenu[open] .nav-submenu-panel {
-    animation: ultraPanelReveal .28s ease both;
-  }
-}
-
-
-/* 3.7.3 Ultra Luxus Final */
-@media (max-width: 768px) {
-  .nav-links {
-    width: min(88vw, 338px);
-    gap: 10px;
-    padding: calc(env(safe-area-inset-top, 0px) + 16px) 14px calc(env(safe-area-inset-bottom, 0px) + 16px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .nav-links::before {
-    content: "Salon Menü · Ultra Luxus";
-    margin-bottom: 2px;
-    padding: 2px 4px 10px;
-    font-size: 1.05rem;
-  }
-
-  .nav-links a,
-  .nav-links.mobile-open:not([hidden]) a {
-    min-height: 50px;
-    padding: 13px 14px;
-    border-radius: 16px;
-    font-size: .98rem;
-  }
-
-  .nav-submenu-luxury {
-    border-radius: 20px;
-    box-shadow: 0 14px 32px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.03);
-  }
-
-  .nav-submenu-summary {
-    gap: 6px;
-    padding: 14px;
-  }
-
-  .nav-submenu-title {
-    font-size: .98rem;
-  }
-
-  .nav-submenu-status {
-    font-size: .84rem;
-  }
-
-  .nav-submenu-panel {
-    gap: 9px;
-    padding: 0 14px 14px;
-  }
-
-  .submenu-intro-card {
-    padding: 11px 12px;
-    border-radius: 14px;
-  }
-
-  .submenu-label {
-    font-size: .82rem;
-  }
-
-  #deviceStaffSelect,
-  #deviceNameInput,
-  .luxury-action-btn {
-    min-height: 46px;
-  }
-
-  .submenu-actions {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .helper-text-luxury {
-    padding: 9px 10px;
-    border-radius: 12px;
-    font-size: .86rem;
-  }
-
-  .menu-toggle.mobile-only-inline {
-    min-height: 54px;
-    border-radius: 18px;
-    font-size: 1.04rem;
-  }
-}
-
-@media (min-width: 769px) {
-  .nav-submenu-luxury {
-    width: 310px;
   }
 }
