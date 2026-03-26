@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.6.1 Pro Premium Push Menü") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.7.3 Ultra Luxus Final") }}</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
@@ -34,37 +34,35 @@
         <a class="{% if current_endpoint == 'import_customers' %}active{% endif %}" href="{{ url_for('import_customers') }}">Import</a>
         <a class="{% if current_endpoint == 'email_logs' %}active{% endif %}" href="{{ url_for('email_logs') }}">Logs</a>
         <a class="{% if current_endpoint == 'database_tools' %}active{% endif %}" href="{{ url_for('database_tools') }}">Datenbank</a>
-        <div class="nav-push-submenu collapsed" id="deviceStaffBar" aria-expanded="false">
-          <button type="button" class="nav-push-toggle" id="deviceStaffToggleBtn" aria-expanded="false" aria-controls="deviceStaffBody">
-            <span class="nav-push-toggle-copy">
-              <span class="nav-push-toggle-title">Push für Handys</span>
-              <span class="nav-push-toggle-subtitle">Ute, Jessi und weitere Geräte sauber im Untermenü</span>
+        <details class="nav-submenu nav-submenu-luxury" id="pushMenuGroup">
+          <summary class="nav-submenu-summary">
+            <span class="nav-submenu-eyebrow">Premium Bereich</span>
+            <span class="nav-submenu-title-row">
+              <span class="nav-submenu-title">Push für Handys</span>
+              <span class="nav-submenu-chevron" aria-hidden="true">⌄</span>
             </span>
-            <span class="nav-push-toggle-summary-wrap">
-              <span class="nav-push-toggle-badge">Untermenü</span>
-              <span class="nav-push-toggle-summary" id="pushStatusLabel">Jessi · Android-Handy</span>
-            </span>
-            <span class="nav-push-toggle-icon" aria-hidden="true">▾</span>
-          </button>
-          <div class="nav-push-body" id="deviceStaffBody" hidden>
-            <div class="nav-push-card-head">
-              <div class="nav-push-card-title">Gerät auswählen</div>
-              <div class="nav-push-card-text">Lege fest, welches Handy Push erhalten soll, und teste die Benachrichtigung direkt.</div>
+            <span class="nav-submenu-status" id="pushStatusLabel">Ute · Dieses Gerät</span>
+          </summary>
+          <div class="nav-submenu-panel" id="deviceStaffBody">
+            <div class="submenu-intro-card">
+              <span class="submenu-intro-badge">Salon Karola</span>
+              <strong>Luxus Push-Menü</strong>
+              <span class="helper-text">Gerät auswählen, Namen speichern und Push direkt für Ute oder Jessi aktivieren.</span>
             </div>
-            <div class="nav-push-fields">
-              <select id="deviceStaffSelect">
-                <option value="Ute">Ute</option>
-                <option value="Jessi">Jessi</option>
-              </select>
-              <input type="text" id="deviceNameInput" placeholder="Gerätename" maxlength="80" />
+            <label class="submenu-label" for="deviceStaffSelect">Mitarbeiterin</label>
+            <select id="deviceStaffSelect">
+              <option value="Ute">Ute</option>
+              <option value="Jessi">Jessi</option>
+            </select>
+            <label class="submenu-label" for="deviceNameInput">Gerätename</label>
+            <input type="text" id="deviceNameInput" placeholder="Gerätename" maxlength="80" />
+            <div class="submenu-actions">
+              <button type="button" class="btn btn-secondary btn-small luxury-action-btn" id="enablePushBtn">Push aktivieren</button>
+              <button type="button" class="btn btn-secondary btn-small luxury-action-btn" id="testPushBtn">Push testen</button>
             </div>
-            <div class="nav-push-actions">
-              <button type="button" class="btn btn-secondary btn-small" id="enablePushBtn">Push aktivieren</button>
-              <button type="button" class="btn btn-secondary btn-small" id="testPushBtn">Push testen</button>
-            </div>
-            <span class="helper-text" id="pushStatusMini">Push ist noch nicht aktiv.</span>
+            <span class="helper-text helper-text-luxury" id="pushStatusMini">Push ist noch nicht aktiv.</span>
           </div>
-        </div>
+        </details>
         <a href="{{ url_for('logout') }}">Logout</a>
       </nav>
     </div>
@@ -81,7 +79,6 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
-
   <script>
     (function () {
       const isLoggedIn = {{ 'true' if session.get('admin_logged_in') else 'false' }};
@@ -98,42 +95,21 @@
       const menuToggle = document.getElementById("menuToggle");
       const mainNavLinks = document.getElementById("mainNavLinks");
       const menuOverlay = document.getElementById("menuOverlay");
-      const deviceStaffBar = document.getElementById("deviceStaffBar");
-      const deviceStaffToggleBtn = document.getElementById("deviceStaffToggleBtn");
+      const pushMenuGroup = document.getElementById("pushMenuGroup");
       const deviceStaffBody = document.getElementById("deviceStaffBody");
       const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
 
       function openDeviceStaffBar() {
-        if (!deviceStaffBar) return;
-        deviceStaffBar.classList.remove("collapsed");
-        deviceStaffBar.classList.add("open");
-        deviceStaffBar.setAttribute("aria-expanded", "true");
-        if (deviceStaffToggleBtn) deviceStaffToggleBtn.setAttribute("aria-expanded", "true");
-        if (deviceStaffBody) {
-          deviceStaffBody.hidden = false;
-          deviceStaffBody.style.display = "grid";
-        }
+        if (pushMenuGroup) pushMenuGroup.open = true;
       }
 
       function closeDeviceStaffBar() {
-        if (!deviceStaffBar) return;
-        deviceStaffBar.classList.remove("open");
-        deviceStaffBar.classList.add("collapsed");
-        deviceStaffBar.setAttribute("aria-expanded", "false");
-        if (deviceStaffToggleBtn) deviceStaffToggleBtn.setAttribute("aria-expanded", "false");
-        if (deviceStaffBody) {
-          deviceStaffBody.hidden = true;
-          deviceStaffBody.style.display = "none";
-        }
+        if (pushMenuGroup) pushMenuGroup.open = false;
       }
 
       function toggleDeviceStaffBar() {
-        if (!deviceStaffBar) return;
-        if (deviceStaffBar.classList.contains("collapsed")) {
-          openDeviceStaffBar();
-        } else {
-          closeDeviceStaffBar();
-        }
+        if (!pushMenuGroup) return;
+        pushMenuGroup.open = !pushMenuGroup.open;
       }
 
       function currentStaff() {
@@ -422,20 +398,6 @@
       if (menuOverlay) {
         menuOverlay.addEventListener("click", () => closeMobileMenu());
       }
-
-      if (deviceStaffToggleBtn) {
-        deviceStaffToggleBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          toggleDeviceStaffBar();
-        });
-      }
-
-      document.addEventListener("click", (event) => {
-        if (!deviceStaffBar || deviceStaffBar.classList.contains("collapsed")) return;
-        if (deviceStaffBar.contains(event.target)) return;
-        closeDeviceStaffBar();
-      });
 
 
       if (mainNavLinks) {
