@@ -1,0 +1,8 @@
+Salon Karola v5.0 Stable Final
+
+Änderungen:
+- Handy-Menü oben entfernt
+- Mobile Navigation direkt sichtbar als kompakte Leiste
+- Push bei Schnellzugriff/Aktionen ergänzt
+- Mobile Karten und Abstände kompakter
+- Laptop-Ansicht unverändert
