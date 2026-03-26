@@ -1,9 +1,10 @@
-const CACHE_NAME = "salon-karola-v3-9-ultra-menue-perfekt";
+const CACHE_NAME = "salon-karola-v4-2-ultra-splash";
 const STATIC_URLS = [
   "/static/style.css",
   "/static/icon-192.png",
   "/static/icon-512.png",
-  "/manifest.webmanifest"
+  "/manifest.webmanifest",
+  "/static/sounds/start-chime.wav"
 ];
 
 self.addEventListener("install", (event) => {
