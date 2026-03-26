@@ -69,7 +69,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional 4.2 Ultra Splash"
+APP_VERSION = "Salon Karola CRM Professional 4.4 Clean Final"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -1853,6 +1853,12 @@ def calendar_view():
     day_view = _build_day_view(selected_date, staff) if view == "day" else None
     week_view = _build_week_view(selected_date, staff) if view == "week" else None
     month_view = _build_month_view(selected_date, staff) if view == "month" else None
+    split_day_views = None
+    if view == "day" and staff == "Alle":
+        split_day_views = {
+            "Ute": _build_day_view(selected_date, "Ute"),
+            "Jessi": _build_day_view(selected_date, "Jessi"),
+        }
 
     return render_template(
         "calendar.html",
@@ -1865,6 +1871,7 @@ def calendar_view():
         day_view=day_view,
         week_view=week_view,
         month_view=month_view,
+        split_day_views=split_day_views,
         current_endpoint="calendar_view",
         app_version=APP_VERSION,
     )
