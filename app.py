@@ -2050,10 +2050,15 @@ def push_unsubscribe():
 @login_required
 def push_ping():
     staff_name = (request.args.get("staff_name") or "Ute").strip() or "Ute"
-    if staff_name not in ("Ute", "Jessi"):
-        staff_name = "Ute"
-    result = webpush_send_to_staff(staff_name, "Salon Karola Push aktiv", f"Dieses Handy ist jetzt für {staff_name} registriert.", "/calendar")
-    return {"ok": True, "result": result, "enabled": vapid_ready(), "devices": push_devices_for_staff(staff_name)}
+    if staff_name == "Alle":
+        result = webpush_send_to_all_staff("Salon Karola Push aktiv", "Test-Push an alle registrierten Geräte.", "/calendar")
+        devices = push_devices_for_staff(None)
+    else:
+        if staff_name not in ("Ute", "Jessi"):
+            staff_name = "Ute"
+        result = webpush_send_to_staff(staff_name, "Salon Karola Push aktiv", f"Dieses Handy ist jetzt für {staff_name} registriert.", "/calendar")
+        devices = push_devices_for_staff(staff_name)
+    return {"ok": True, "result": result, "enabled": vapid_ready(), "devices": devices}
 
 
 @app.route("/whatsapp")

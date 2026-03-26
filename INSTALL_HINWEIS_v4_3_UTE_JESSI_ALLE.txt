@@ -1,0 +1,5 @@
+Version 4.3 erweitert das Push-System um drei Ziele: Ute, Jessi und Alle.
+
+Dieses Handy bleibt weiterhin nur Ute oder Jessi zugeordnet. Über "Push senden an" kann jetzt aber gezielt an Ute, Jessi oder an alle registrierten Geräte gesendet werden.
+
+Nach dem Deploy die App einmal neu laden und Push testen.
