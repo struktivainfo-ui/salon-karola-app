@@ -1,0 +1,12 @@
+Salon Karola v5.5 UX Final
+
+Neu in dieser Version:
+- kompaktere mobile Oberfläche
+- übersichtlichere Schnellzugriffe
+- feinere Abstände und Karten
+- Laptop-Ansicht bleibt unverändert
+
+Deploy:
+1. ZIP entpacken oder Inhalt in Git ersetzen
+2. Auf Render neu deployen
+3. Handy-App/Browsertab einmal komplett neu öffnen
