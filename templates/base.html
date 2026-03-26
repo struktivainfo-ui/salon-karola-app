@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.8.2 Final") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.8.3 Mobile Menü Fix") }}</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
@@ -401,18 +401,23 @@
         menuOverlay.addEventListener("click", () => closeMobileMenu());
       }
       if (navPushToggle) {
+        let pushToggleLockUntil = 0;
         const handlePushToggle = (event) => {
+          const now = Date.now();
+          if (now < pushToggleLockUntil) return;
+          pushToggleLockUntil = now + 350;
           event.preventDefault();
           event.stopPropagation();
           toggleDeviceStaffBar();
-          if (navPushGroup.classList.contains("open")) {
+          if (navPushGroup && navPushGroup.classList.contains("open")) {
             setTimeout(() => {
-              if (deviceNameInput && isMobileView()) deviceNameInput.scrollIntoView({ block: "nearest", behavior: "smooth" });
-            }, 80);
+              if (deviceNameInput && isMobileView()) {
+                try { deviceNameInput.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) {}
+              }
+            }, 120);
           }
         };
         navPushToggle.addEventListener("click", handlePushToggle);
-        navPushToggle.addEventListener("touchend", handlePushToggle, { passive: false });
       }
 
       if (mainNavLinks) {
