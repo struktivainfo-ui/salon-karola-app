@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.7.3 Ultra Luxus Final") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.8 Push System Komplett") }}</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
@@ -34,33 +34,24 @@
         <a class="{% if current_endpoint == 'import_customers' %}active{% endif %}" href="{{ url_for('import_customers') }}">Import</a>
         <a class="{% if current_endpoint == 'email_logs' %}active{% endif %}" href="{{ url_for('email_logs') }}">Logs</a>
         <a class="{% if current_endpoint == 'database_tools' %}active{% endif %}" href="{{ url_for('database_tools') }}">Datenbank</a>
-        <details class="nav-submenu nav-submenu-luxury" id="pushMenuGroup">
-          <summary class="nav-submenu-summary">
-            <span class="nav-submenu-eyebrow">Premium Bereich</span>
-            <span class="nav-submenu-title-row">
-              <span class="nav-submenu-title">Push für Handys</span>
-              <span class="nav-submenu-chevron" aria-hidden="true">⌄</span>
-            </span>
-            <span class="nav-submenu-status" id="pushStatusLabel">Ute · Dieses Gerät</span>
+        <details class="nav-push-group" id="navPushGroup">
+          <summary>
+            <span>Push-System</span>
+            <span class="nav-push-summary" id="pushStatusLabel">Ute · Dieses Gerät</span>
           </summary>
-          <div class="nav-submenu-panel" id="deviceStaffBody">
-            <div class="submenu-intro-card">
-              <span class="submenu-intro-badge">Salon Karola</span>
-              <strong>Luxus Push-Menü</strong>
-              <span class="helper-text">Gerät auswählen, Namen speichern und Push direkt für Ute oder Jessi aktivieren.</span>
-            </div>
-            <label class="submenu-label" for="deviceStaffSelect">Mitarbeiterin</label>
+          <div class="nav-push-panel">
+            <label for="deviceStaffSelect">Dieses Handy zuordnen</label>
             <select id="deviceStaffSelect">
               <option value="Ute">Ute</option>
               <option value="Jessi">Jessi</option>
             </select>
-            <label class="submenu-label" for="deviceNameInput">Gerätename</label>
+            <label for="deviceNameInput">Gerätename</label>
             <input type="text" id="deviceNameInput" placeholder="Gerätename" maxlength="80" />
-            <div class="submenu-actions">
-              <button type="button" class="btn btn-secondary btn-small luxury-action-btn" id="enablePushBtn">Push aktivieren</button>
-              <button type="button" class="btn btn-secondary btn-small luxury-action-btn" id="testPushBtn">Push testen</button>
+            <div class="nav-push-actions">
+              <button type="button" class="btn btn-secondary btn-small" id="enablePushBtn">Push aktivieren</button>
+              <button type="button" class="btn btn-secondary btn-small" id="testPushBtn">Push testen</button>
             </div>
-            <span class="helper-text helper-text-luxury" id="pushStatusMini">Push ist noch nicht aktiv.</span>
+            <span class="helper-text" id="pushStatusMini">Push ist noch nicht aktiv.</span>
           </div>
         </details>
         <a href="{{ url_for('logout') }}">Logout</a>
@@ -79,7 +70,7 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
-  <script>
+    <script>
     (function () {
       const isLoggedIn = {{ 'true' if session.get('admin_logged_in') else 'false' }};
       if (!isLoggedIn) return;
@@ -95,24 +86,24 @@
       const menuToggle = document.getElementById("menuToggle");
       const mainNavLinks = document.getElementById("mainNavLinks");
       const menuOverlay = document.getElementById("menuOverlay");
-      const pushMenuGroup = document.getElementById("pushMenuGroup");
-      const deviceStaffBody = document.getElementById("deviceStaffBody");
+      const navPushGroup = document.getElementById("navPushGroup");
       const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
 
       function openDeviceStaffBar() {
-        if (pushMenuGroup) pushMenuGroup.open = true;
+        if (navPushGroup) navPushGroup.open = true;
       }
 
       function closeDeviceStaffBar() {
-        if (pushMenuGroup) pushMenuGroup.open = false;
+        if (navPushGroup) navPushGroup.open = false;
       }
 
       function toggleDeviceStaffBar() {
-        if (!pushMenuGroup) return;
-        pushMenuGroup.open = !pushMenuGroup.open;
+        if (!navPushGroup) return;
+        navPushGroup.open = !navPushGroup.open;
       }
 
       function currentStaff() {
+
         return (localStorage.getItem(STORAGE_KEY_STAFF) || "Ute").trim() || "Ute";
       }
 
@@ -398,6 +389,20 @@
       if (menuOverlay) {
         menuOverlay.addEventListener("click", () => closeMobileMenu());
       }
+
+      if (deviceStaffToggleBtn) {
+        deviceStaffToggleBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          toggleDeviceStaffBar();
+        });
+      }
+
+      document.addEventListener("click", (event) => {
+        if (!deviceStaffBar || deviceStaffBar.classList.contains("collapsed")) return;
+        if (deviceStaffBar.contains(event.target)) return;
+        closeDeviceStaffBar();
+      });
 
 
       if (mainNavLinks) {
