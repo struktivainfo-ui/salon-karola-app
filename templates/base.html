@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.8 Push System Komplett") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.8.2 Final") }}</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
@@ -34,12 +34,12 @@
         <a class="{% if current_endpoint == 'import_customers' %}active{% endif %}" href="{{ url_for('import_customers') }}">Import</a>
         <a class="{% if current_endpoint == 'email_logs' %}active{% endif %}" href="{{ url_for('email_logs') }}">Logs</a>
         <a class="{% if current_endpoint == 'database_tools' %}active{% endif %}" href="{{ url_for('database_tools') }}">Datenbank</a>
-        <details class="nav-push-group" id="navPushGroup">
-          <summary>
+        <div class="nav-push-group" id="navPushGroup">
+          <button type="button" class="nav-push-toggle" id="navPushToggle" aria-expanded="false" aria-controls="navPushPanel">
             <span>Push-System</span>
             <span class="nav-push-summary" id="pushStatusLabel">Ute · Dieses Gerät</span>
-          </summary>
-          <div class="nav-push-panel">
+          </button>
+          <div class="nav-push-panel" id="navPushPanel" hidden>
             <label for="deviceStaffSelect">Dieses Handy zuordnen</label>
             <select id="deviceStaffSelect">
               <option value="Ute">Ute</option>
@@ -53,7 +53,7 @@
             </div>
             <span class="helper-text" id="pushStatusMini">Push ist noch nicht aktiv.</span>
           </div>
-        </details>
+        </div>
         <a href="{{ url_for('logout') }}">Logout</a>
       </nav>
     </div>
@@ -87,19 +87,29 @@
       const mainNavLinks = document.getElementById("mainNavLinks");
       const menuOverlay = document.getElementById("menuOverlay");
       const navPushGroup = document.getElementById("navPushGroup");
+      const navPushToggle = document.getElementById("navPushToggle");
+      const navPushPanel = document.getElementById("navPushPanel");
       const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
 
+      function setPushPanelOpen(open) {
+        if (!navPushGroup || !navPushPanel || !navPushToggle) return;
+        navPushGroup.classList.toggle("open", !!open);
+        navPushPanel.hidden = !open;
+        navPushToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      }
+
       function openDeviceStaffBar() {
-        if (navPushGroup) navPushGroup.open = true;
+        setPushPanelOpen(true);
       }
 
       function closeDeviceStaffBar() {
-        if (navPushGroup) navPushGroup.open = false;
+        setPushPanelOpen(false);
       }
 
       function toggleDeviceStaffBar() {
         if (!navPushGroup) return;
-        navPushGroup.open = !navPushGroup.open;
+        const isOpen = navPushGroup.classList.contains("open");
+        setPushPanelOpen(!isOpen);
       }
 
       function currentStaff() {
@@ -188,6 +198,7 @@
           closeMobileMenu();
 
           document.querySelectorAll("details[open]").forEach((el) => el.removeAttribute("open"));
+          closeDeviceStaffBar();
           document.querySelectorAll("dialog[open]").forEach((el) => { try { el.close(); } catch (e) {} });
 
           document.querySelectorAll(".app-menu.open, .app-menu.active, .mobile-menu.open, .mobile-menu.active, .drawer.open, .drawer.active, .overlay.show, .overlay.active, .modal.show, .modal.active").forEach((el) => {
@@ -389,20 +400,27 @@
       if (menuOverlay) {
         menuOverlay.addEventListener("click", () => closeMobileMenu());
       }
-
-      if (deviceStaffToggleBtn) {
-        deviceStaffToggleBtn.addEventListener("click", (event) => {
+      if (navPushToggle) {
+        const handlePushToggle = (event) => {
           event.preventDefault();
           event.stopPropagation();
           toggleDeviceStaffBar();
-        });
+          if (navPushGroup.classList.contains("open")) {
+            setTimeout(() => {
+              if (deviceNameInput && isMobileView()) deviceNameInput.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            }, 80);
+          }
+        };
+        navPushToggle.addEventListener("click", handlePushToggle);
+        navPushToggle.addEventListener("touchend", handlePushToggle, { passive: false });
       }
 
-      document.addEventListener("click", (event) => {
-        if (!deviceStaffBar || deviceStaffBar.classList.contains("collapsed")) return;
-        if (deviceStaffBar.contains(event.target)) return;
-        closeDeviceStaffBar();
-      });
+      if (mainNavLinks) {
+        mainNavLinks.addEventListener("click", (event) => {
+          const target = event.target.closest("#navPushGroup, #navPushGroup *");
+          if (target) event.stopPropagation();
+        });
+      }
 
 
       if (mainNavLinks) {
