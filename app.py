@@ -69,7 +69,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional 4.5 Final Mobile & Push Icon"
+APP_VERSION = "Salon Karola CRM Professional 4.6 Final Stable"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -2066,6 +2066,16 @@ def push_ping():
         result = webpush_send_to_staff(staff_name, "Salon Karola Push aktiv", f"Dieses Handy ist jetzt für {staff_name} registriert.", "/calendar")
         devices = push_devices_for_staff(staff_name)
     return {"ok": True, "result": result, "enabled": vapid_ready(), "devices": devices}
+
+
+@app.route("/push")
+@login_required
+def push_center():
+    return render_template(
+        "push.html",
+        current_endpoint="push_center",
+        app_version=APP_VERSION,
+    )
 
 
 @app.route("/whatsapp")
