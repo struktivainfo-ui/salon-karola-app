@@ -1282,33 +1282,3 @@ td {
     grid-template-columns: 1fr;
   }
 }
-
-
-/* v4.7 mobile menu tap fix */
-@media (max-width: 768px) {
-  .topbar,
-  .topbar-inner,
-  .nav-links,
-  .nav-links * {
-    pointer-events: auto;
-  }
-
-  .nav-links {
-    z-index: 10020 !important;
-    isolation: isolate;
-  }
-
-  .nav-links.mobile-open:not([hidden]) a {
-    position: relative;
-    z-index: 10021;
-    cursor: pointer;
-  }
-
-  .menu-close.mobile-menu-only {
-    z-index: 10030;
-  }
-
-  .menu-overlay {
-    z-index: 10010;
-  }
-}
