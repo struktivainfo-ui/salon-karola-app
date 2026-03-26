@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.9 Ultra Menü Perfekt") }}</div>
+          <div class="brand-subtitle">Professional App</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
@@ -30,6 +30,7 @@
       <nav class="nav-links" id="mainNavLinks" hidden>
         <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Dashboard</a>
         <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}">Kunden</a>
+        <a class="{% if current_endpoint == 'whatsapp_hub' %}active{% endif %}" href="{{ url_for('whatsapp_hub') }}">WhatsApp</a>
         <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}">Termine</a>
         <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('templates_view') }}">Vorlagen</a>
         <a class="{% if current_endpoint == 'import_customers' %}active{% endif %}" href="{{ url_for('import_customers') }}">Import</a>
@@ -445,7 +446,17 @@
 
       if (mainNavLinks) {
         mainNavLinks.querySelectorAll("a").forEach((link) => {
-          link.addEventListener("click", () => closeMobileMenu());
+          const navigateFromMenu = (event) => {
+            const href = link.getAttribute("href");
+            if (!href || href.startsWith("#")) return;
+            event.preventDefault();
+            event.stopPropagation();
+            closeMobileMenu();
+            window.setTimeout(() => { window.location.href = href; }, 20);
+          };
+          link.addEventListener("click", navigateFromMenu, { passive: false });
+          link.addEventListener("touchend", navigateFromMenu, { passive: false });
+          link.addEventListener("pointerup", navigateFromMenu, { passive: false });
         });
       }
 

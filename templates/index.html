@@ -1,42 +1,67 @@
 {% extends 'base.html' %}
 {% block title %}Dashboard - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card">
-  <div class="hero-row">
+<section class="app-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Salon Karola App</span>
+    <h1 class="app-hero-title">Alles Wichtige auf einen Blick</h1>
+    <p class="app-hero-text">Kunden, Termine, WhatsApp und Rückholung in einer klaren Oberfläche für den Alltag im Salon.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('customer_new') }}">Neuer Kontakt</a>
+    <a class="hero-action" href="{{ url_for('calendar_view') }}">Termine</a>
+    <a class="hero-action" href="{{ url_for('whatsapp_hub') }}">WhatsApp</a>
+    <a class="hero-action" href="{{ url_for('templates_view') }}">Vorlagen</a>
+  </div>
+</section>
+
+<section class="stats-shell">
+  <div class="stat-tile emphasis">
+    <div class="stat-head">Kunden</div>
+    <div class="stat-number">{{ stats.direct_customer_count|default(stats.total_customers, true) }}</div>
+    <div class="stat-foot">Gespeicherte Kontakte</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-head">Heute</div>
+    <div class="stat-number">{{ stats.appointments_today }}</div>
+    <div class="stat-foot">Termine heute</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-head">Diese Woche</div>
+    <div class="stat-number">{{ stats.appointments_week }}</div>
+    <div class="stat-foot">Geplante Termine</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-head">Rückholung</div>
+    <div class="stat-number">{{ stats.inactive_60 }}</div>
+    <div class="stat-foot">60+ Tage ohne Termin</div>
+  </div>
+</section>
+
+<section class="pro-panel space-top">
+  <div class="panel-header">
     <div>
-      <h1 class="hero-title">Dashboard</h1>
-      <p class="hero-text">Version 3.4 Pro mit Mail-API-Unterstützung über Resend, SMTP-Fallback und stabilerer Zustellung für Test- und Automatikmails.</p>
-    </div>
-    <div class="actions">
-      <a class="btn" href="{{ url_for('customer_new') }}">Neuen Kontakt anlegen</a>
-      <a class="btn btn-secondary" href="{{ url_for('run_automation_now') }}">Automatiklauf starten</a>
+      <span class="eyebrow">Schnellzugriff</span>
+      <h2>Aktionen</h2>
     </div>
   </div>
-</section>
-
-<section class="grid grid-4">
-  <div class="card stat-card"><div class="stat-label">Kunden</div><div class="stat-value">{{ stats.direct_customer_count|default(stats.total_customers, true) }}</div><div class="tiny-note">Direkt aus DB: {{ stats.direct_customer_count|default(0) }}</div><div class="tiny-note">Version: {{ app_version }}</div><div class="tiny-note">Aktualisiert: {{ deploy_marker }}</div></div>
-  <div class="card stat-card"><div class="stat-label">Heute Termine</div><div class="stat-value">{{ stats.appointments_today }}</div></div>
-  <div class="card stat-card"><div class="stat-label">Diese Woche</div><div class="stat-value">{{ stats.appointments_week }}</div></div>
-  <div class="card stat-card"><div class="stat-label">Rückholung 60 Tage</div><div class="stat-value">{{ stats.inactive_60 }}</div></div>
-</section>
-
-<section class="card space-top">
-  <div class="row-between wrap-mobile">
-    <h2>Schnellaktionen</h2>
-    <span class="badge">{{ app_version|default("3.3 Pro") }}</span>
-  </div>
-  <div class="quick-actions">
+  <div class="quick-actions clean-actions">
     <a class="quick-action" href="{{ url_for('customer_new') }}">➕ Kunde anlegen</a>
     <a class="quick-action" href="{{ url_for('calendar_view') }}">📅 Termine öffnen</a>
-    <a class="quick-action" href="{{ url_for('templates_view') }}">💬 Vorlagen bearbeiten</a>
-    <a class="quick-action" href="{{ url_for('run_automation_now') }}">⚡ Automatik prüfen</a>
+    <a class="quick-action" href="{{ url_for('templates_view') }}">✉️ Vorlagen</a>
+    <a class="quick-action" href="{{ url_for('whatsapp_hub') }}">💬 WhatsApp</a>
+    <a class="quick-action" href="{{ url_for('run_automation_now') }}">⚡ Automatik</a>
   </div>
 </section>
 
 <section class="grid grid-2 space-top">
-  <div class="card">
-    <h2>Schnellsuche</h2>
+  <div class="card clean-card">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">Suchen</span>
+        <h2>Kundensuche</h2>
+      </div>
+    </div>
     <form method="get" class="grid grid-2">
       <div class="form-group">
         <label>Suche</label>
@@ -56,20 +81,18 @@
         <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurücksetzen</a>
       </div>
     </form>
-    <div class="tiny-note">Mail: {% if smtp_ready %}<span class="badge ok">bereit</span>{% else %}<span class="badge warn">nicht vollständig</span>{% endif %}</div><div class="tiny-note">Mail-Modus: {{ mail_mode|upper }}</div><div class="tiny-note">DB-Pfad: {{ db_path }}</div>
-    {% if automation %}
-    <div class="tiny-note">Letzter Lauf: {{ automation.last_run_at|default('', true) or '-' }}</div>
-    <div class="tiny-note">Status: {{ automation.last_run_summary|default('', true) or '-' }}</div>
-    {% if automation.last_run_error %}<div class="tiny-note" style="color:#b42318;">Letzter Fehler: {{ automation.last_run_error }}</div>{% endif %}
-    {% if automation.dashboard_error %}<div class="tiny-note" style="color:#b42318;">Dashboard-Hinweis: {{ automation.dashboard_error }}</div>{% endif %}
-    {% endif %}
   </div>
 
-  <div class="card">
-    <h2>Nächste Geburtstage</h2>
+  <div class="card clean-card">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">Geburtstage</span>
+        <h2>Nächste Geburtstage</h2>
+      </div>
+    </div>
     <div class="list-stack">
       {% for item in birthdays %}
-      <div class="list-item">
+      <div class="list-item soft-item">
         <div class="row-between">
           <strong>{{ item['_firstname'] }} {{ item['_name'] }}</strong>
           <span class="badge">{{ item['_birthdate']|birthday }}</span>
@@ -77,21 +100,24 @@
         <div class="mobile-line">{{ item['_mail'] or 'Keine E-Mail' }}</div>
       </div>
       {% else %}
-      <div class="list-item">Keine Geburtstage vorhanden.</div>
+      <div class="list-item soft-item">Keine Geburtstage vorhanden.</div>
       {% endfor %}
     </div>
   </div>
 </section>
 
 <section class="grid grid-2 space-top">
-  <div class="card">
-    <div class="row-between">
-      <h2>Nächste Termine</h2>
+  <div class="card clean-card">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">Kalender</span>
+        <h2>Nächste Termine</h2>
+      </div>
       <a class="btn btn-secondary" href="{{ url_for('calendar_view') }}">Kalender</a>
     </div>
     <div class="list-stack">
       {% for appt in upcoming %}
-      <div class="list-item">
+      <div class="list-item soft-item">
         <div class="row-between">
           <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
           <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
@@ -100,19 +126,22 @@
         <div class="mobile-line"><span class="mobile-label">Telefon:</span> {{ appt['Customer_Mobiltelefon'] or appt['Customer_PersönlichesTelefon'] or '-' }}</div>
       </div>
       {% else %}
-      <div class="list-item">Keine Termine vorhanden.</div>
+      <div class="list-item soft-item">Keine Termine vorhanden.</div>
       {% endfor %}
     </div>
   </div>
 
-  <div class="card">
-    <div class="row-between">
-      <h2>Rückhol-System</h2>
+  <div class="card clean-card">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">Rückholung</span>
+        <h2>Kunden ohne aktuellen Termin</h2>
+      </div>
       <span class="badge">60+ Tage</span>
     </div>
     <div class="list-stack">
       {% for customer in inactive %}
-      <div class="list-item">
+      <div class="list-item soft-item">
         <div class="row-between">
           <strong>{{ customer['_firstname'] }} {{ customer['_name'] }}</strong>
           <span class="badge">{{ customer['last_appointment_at']|dt if customer['last_appointment_at'] else 'Noch kein Termin' }}</span>
@@ -123,14 +152,19 @@
         </div>
       </div>
       {% else %}
-      <div class="list-item">Aktuell keine inaktiven Kunden.</div>
+      <div class="list-item soft-item">Aktuell keine inaktiven Kunden.</div>
       {% endfor %}
     </div>
   </div>
 </section>
 
-<section class="card space-top">
-  <h2>Kundenliste</h2>
+<section class="card clean-card space-top">
+  <div class="panel-header">
+    <div>
+      <span class="eyebrow">Kontakte</span>
+      <h2>Kundenliste</h2>
+    </div>
+  </div>
   <div class="desktop-only">
     <div class="table-wrap">
       <table>
