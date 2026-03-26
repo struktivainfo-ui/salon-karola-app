@@ -69,7 +69,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional 5.1 Polished"
+APP_VERSION = "Salon Karola CRM Professional 5.2 Core"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -142,6 +142,52 @@ def customer_contact_select_sql():
     phone_sql = "COALESCE(Customer_PersönlichesTelefon, '')" if "Customer_PersönlichesTelefon" in cols else "''"
     city_sql = "COALESCE(Customer_Stadt, '')" if "Customer_Stadt" in cols else "''"
     return email_sql, mobile_sql, phone_sql, city_sql
+
+
+def customer_sort_key_sql():
+    return "LOWER(COALESCE(NULLIF(_name, ''), _firstname, '')), LOWER(COALESCE(_firstname, '')), _id"
+
+
+def split_customer_name(full_name):
+    parts = [part for part in (full_name or '').strip().split() if part]
+    if not parts:
+        return '', ''
+    if len(parts) == 1:
+        return '', parts[0]
+    return ' '.join(parts[:-1]), parts[-1]
+
+
+def find_customer_by_full_name(full_name):
+    normalized = ' '.join((full_name or '').strip().split())
+    if not normalized:
+        return None
+    like = f"%{normalized}%"
+    sql = f"""
+        SELECT _id, COALESCE(_firstname, '') AS _firstname, COALESCE(_name, '') AS _name
+        FROM _Customers
+        WHERE TRIM(COALESCE(_firstname, '') || ' ' || COALESCE(_name, '')) LIKE ?
+           OR TRIM(COALESCE(_name, '') || ' ' || COALESCE(_firstname, '')) LIKE ?
+        ORDER BY {customer_sort_key_sql()}
+        LIMIT 1
+    """
+    return get_db().execute(sql, (like, like)).fetchone()
+
+
+def create_placeholder_customer(full_name):
+    firstname, lastname = split_customer_name(full_name)
+    if not firstname and not lastname:
+        firstname = 'Kunde'
+    now = datetime.now().isoformat(timespec='seconds')
+    db = get_db()
+    cur = db.execute(
+        """
+        INSERT INTO _Customers(_name, _firstname, _mail, _birthdate, _notes, Customer_Adresse, Customer_PersönlichesTelefon, Customer_Mobiltelefon, Customer_Postleitzahl, Customer_Stadt, created_at)
+        VALUES (?, ?, '', NULL, 'Automatisch aus Schnell-Termin erstellt', '', '', '', '', '', ?)
+        """,
+        (lastname, firstname, now),
+    )
+    db.commit()
+    return cur.lastrowid
 
 
 
@@ -753,13 +799,18 @@ def _touch_push_subscription(subscription_id, **values):
     db.commit()
 
 
+
 def push_devices_for_staff(staff_name=None):
     db = get_db()
     params = []
     query = "SELECT * FROM push_subscriptions"
-    if staff_name in ("Ute", "Jessi"):
-        query += " WHERE staff_name = ?"
-        params.append(staff_name)
+    if staff_name in ("Ute", "Jessi", "Alle"):
+        if staff_name == "Alle":
+            query += " WHERE staff_name = ?"
+            params.append("Alle")
+        else:
+            query += " WHERE staff_name IN (?, 'Alle')"
+            params.append(staff_name)
     query += " ORDER BY staff_name ASC, COALESCE(last_success_at, last_seen_at, updated_at, created_at) DESC"
     rows = db.execute(query, params).fetchall()
     items = []
@@ -827,24 +878,41 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
         return {"ok": False, "sent": 0, "skipped": 0, "errors": [str(exc)]}
 
 
+
 def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
     if not vapid_ready():
         return {"sent": 0, "skipped": 0, "errors": ["VAPID nicht konfiguriert"]}
 
+    if target_staff not in ("Ute", "Jessi", "Alle"):
+        target_staff = "Ute"
+
     db = get_db()
-    rows = db.execute(
-        """
-        SELECT * FROM push_subscriptions
-        WHERE staff_name = ?
-        ORDER BY updated_at DESC
-        """,
-        (target_staff,),
-    ).fetchall()
+    if target_staff == "Alle":
+        rows = db.execute(
+            """
+            SELECT * FROM push_subscriptions
+            ORDER BY updated_at DESC
+            """
+        ).fetchall()
+    else:
+        rows = db.execute(
+            """
+            SELECT * FROM push_subscriptions
+            WHERE staff_name IN (?, 'Alle')
+            ORDER BY updated_at DESC
+            """,
+            (target_staff,),
+        ).fetchall()
 
     sent = 0
     skipped = 0
     errors = []
+    seen = set()
     for row in rows:
+        endpoint = row["endpoint"] or ""
+        if endpoint in seen:
+            continue
+        seen.add(endpoint)
         result = webpush_send_to_subscription_row(row, title, body, url)
         sent += int(result.get("sent") or 0)
         skipped += int(result.get("skipped") or 0)
@@ -892,7 +960,7 @@ def _push_appointment_reminder(appt):
 
 def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name):
     actor = (actor_name or staff_name or "Ute").strip() or "Ute"
-    target = "Jessi" if actor == "Ute" else "Ute"
+    target = "Alle" if actor == "Alle" else ("Jessi" if actor == "Ute" else "Ute")
     customer = get_db().execute(
         "SELECT _firstname, _name FROM _Customers WHERE _id = ?",
         (customer_id,),
@@ -1363,10 +1431,14 @@ def logout():
 
 @app.route("/")
 @login_required
+
 def index():
     db = get_db()
     q = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
+    alpha = (request.args.get("alpha") or "Alle").strip().upper()
+    if alpha != "ALLE" and not re.fullmatch(r"[A-Z]", alpha):
+        alpha = "Alle"
 
     base_query = """
         SELECT c.*, MAX(a.appointment_at) AS last_appointment_at
@@ -1392,12 +1464,29 @@ def index():
         if search_parts:
             conditions.append("(" + " OR ".join(search_parts) + ")")
 
+    if alpha != "ALLE":
+        conditions.append("UPPER(SUBSTR(COALESCE(NULLIF(c._name, ''), c._firstname, ''), 1, 1)) = ?")
+        params.append(alpha)
+
     if conditions:
         base_query += " WHERE " + " AND ".join(conditions)
 
-    base_query += " GROUP BY c._id ORDER BY c._name, c._firstname LIMIT 200"
+    base_query += f" GROUP BY c._id ORDER BY {customer_sort_key_sql()} LIMIT 200"
     customers = db.execute(base_query, params).fetchall()
     tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
+    alphabet_counts = db.execute(
+        """
+        SELECT UPPER(SUBSTR(COALESCE(NULLIF(_name, ''), _firstname, ''), 1, 1)) AS letter, COUNT(*) AS cnt
+        FROM _Customers
+        GROUP BY letter
+        ORDER BY letter
+        """
+    ).fetchall()
+    available_letters = {row["letter"] for row in alphabet_counts if row["letter"]}
+    alphabet = [
+        {"letter": letter, "available": letter in available_letters, "active": alpha == letter}
+        for letter in [chr(i) for i in range(ord('A'), ord('Z') + 1)]
+    ]
 
     stats = dashboard_stats()
     stats["direct_customer_count"] = direct_customer_count_from_file()
@@ -1415,6 +1504,8 @@ def index():
         customers=customers,
         q=q,
         tag=tag,
+        alpha=alpha,
+        alphabet=alphabet,
         stats=stats,
         upcoming=next_appointments(),
         birthdays=upcoming_birthdays(),
@@ -1431,6 +1522,98 @@ def index():
         deploy_marker=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         db_path=str(DB_PATH),
     )
+
+
+@app.route("/api/customers/search")
+@login_required
+def api_customers_search():
+    term = (request.args.get("q") or "").strip()
+    try:
+        limit = min(max(int(request.args.get("limit", 8) or 8), 1), 20)
+    except Exception:
+        limit = 8
+    if not term:
+        return {"items": []}
+    like = f"%{term}%"
+    sql = f"""
+        SELECT _id, COALESCE(_firstname, '') AS firstname, COALESCE(_name, '') AS lastname,
+               COALESCE(_mail, '') AS email,
+               COALESCE(Customer_Mobiltelefon, COALESCE(Customer_PersönlichesTelefon, '')) AS phone,
+               COALESCE(Customer_Stadt, '') AS city
+        FROM _Customers
+        WHERE COALESCE(_firstname, '') LIKE ?
+           OR COALESCE(_name, '') LIKE ?
+           OR TRIM(COALESCE(_firstname, '') || ' ' || COALESCE(_name, '')) LIKE ?
+           OR TRIM(COALESCE(_name, '') || ' ' || COALESCE(_firstname, '')) LIKE ?
+           OR COALESCE(_mail, '') LIKE ?
+           OR COALESCE(Customer_Mobiltelefon, '') LIKE ?
+           OR COALESCE(Customer_PersönlichesTelefon, '') LIKE ?
+           OR COALESCE(Customer_Stadt, '') LIKE ?
+        ORDER BY {customer_sort_key_sql()}
+        LIMIT ?
+    """
+    rows = get_db().execute(sql, (like, like, like, like, like, like, like, like, limit)).fetchall()
+    return {"items": [
+        {
+            "id": row["_id"],
+            "label": f"{row['firstname']} {row['lastname']}".strip(),
+            "firstname": row["firstname"],
+            "lastname": row["lastname"],
+            "email": row["email"],
+            "phone": row["phone"],
+            "city": row["city"],
+            "url": url_for("customer_detail", customer_id=row["_id"]),
+        } for row in rows
+    ]}
+
+
+@app.route("/appointment/manual", methods=["POST"])
+@login_required
+def appointment_manual():
+    db = get_db()
+    customer_id = (request.form.get("customer_id") or "").strip()
+    customer_name = (request.form.get("customer_name") or "").strip()
+    title = request.form.get("title", "Salon-Termin").strip() or "Salon-Termin"
+    appointment_at = (request.form.get("appointment_at") or "").strip()
+    if not appointment_at:
+        flash("Bitte Datum und Uhrzeit für den Termin angeben.")
+        return redirect(url_for("calendar_view", view="day"))
+
+    if customer_id.isdigit():
+        customer_id_int = int(customer_id)
+    else:
+        found = find_customer_by_full_name(customer_name)
+        customer_id_int = int(found["_id"]) if found else create_placeholder_customer(customer_name or "Neuer Kunde")
+
+    status = request.form.get("status", "geplant").strip() or "geplant"
+    staff_name = request.form.get("staff_name", "Ute").strip() or "Ute"
+    actor_name = request.form.get("actor_name", "").strip() or staff_name
+    now = datetime.now().isoformat(timespec="seconds")
+    db.execute(
+        """
+        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            customer_id_int,
+            title,
+            appointment_at,
+            request.form.get("notes", "").strip(),
+            int(request.form.get("reminder_hours", "24") or 24),
+            now,
+            status,
+            staff_name,
+            actor_name,
+            now,
+        ),
+    )
+    db.commit()
+    notify_result = notify_other_staff_for_appointment(customer_id_int, title, appointment_at, staff_name, actor_name)
+    flash_msg = "Schnell-Termin wurde gespeichert."
+    if notify_result.get("sent", 0) > 0:
+        flash_msg += f" Push gesendet: {notify_result['sent']}."
+    flash(flash_msg)
+    return redirect(url_for("calendar_view", view="day", date=(appointment_at[:10] if appointment_at else datetime.now().date().isoformat()), staff="Alle"))
 
 
 @app.route("/customer/new", methods=["GET", "POST"])
@@ -1926,20 +2109,23 @@ def push_public_key():
     return {"public_key": vapid_public_key(), "enabled": vapid_ready(), "format": "base64url", "generated": bool(_get_app_setting("push:vapid_generated_at", ""))}
 
 
+
 @app.route("/api/push/status")
 @login_required
 def push_status():
     staff_name = (request.args.get("staff_name") or "Ute").strip() or "Ute"
-    if staff_name not in ("Ute", "Jessi"):
+    if staff_name not in ("Ute", "Jessi", "Alle"):
         staff_name = "Ute"
     enabled = vapid_ready()
-    permission = None
     count = 0
     try:
-        row = get_db().execute(
-            "SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?",
-            (staff_name,),
-        ).fetchone()
+        if staff_name == "Alle":
+            row = get_db().execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
+        else:
+            row = get_db().execute(
+                "SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name IN (?, 'Alle')",
+                (staff_name,),
+            ).fetchone()
         count = int(row["cnt"] or 0) if row else 0
     except Exception:
         count = 0
@@ -1967,6 +2153,7 @@ def push_overview():
         "active_devices": total_active,
         "ute_devices": len(push_devices_for_staff("Ute")),
         "jessi_devices": len(push_devices_for_staff("Jessi")),
+        "all_devices": len(push_devices_for_staff("Alle")),
         "last_run_at": get_setting("automation:last_run_at", ""),
         "last_run_summary": get_setting("automation:last_run_summary", ""),
         "last_run_error": get_setting("automation:last_run_error", ""),
@@ -1977,7 +2164,7 @@ def push_overview():
 @login_required
 def push_devices():
     staff_name = (request.args.get("staff_name") or "").strip()
-    if staff_name not in ("Ute", "Jessi"):
+    if staff_name not in ("Ute", "Jessi", "Alle"):
         staff_name = None
     return {"ok": True, "items": push_devices_for_staff(staff_name)}
 
@@ -2016,7 +2203,7 @@ def push_subscribe():
     endpoint = (subscription.get("endpoint") or "").strip()
     staff_name = (payload.get("staff_name") or "Ute").strip() or "Ute"
     device_name = (payload.get("device_name") or "").strip()[:80]
-    if staff_name not in ("Ute", "Jessi"):
+    if staff_name not in ("Ute", "Jessi", "Alle"):
         staff_name = "Ute"
     if not endpoint:
         return {"ok": False, "error": "Keine Subscription empfangen."}, 400
