@@ -15,6 +15,18 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=app_version) }}" />
 </head>
 <body>
+  {% if session.get('admin_logged_in') and current_endpoint == 'index' %}
+  <div id="startupSplash" class="startup-splash" aria-hidden="true">
+    <div class="startup-splash-inner">
+      <div class="startup-splash-title">Jessi &amp; Ute</div>
+      <img class="startup-splash-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Emblem">
+      <div class="startup-splash-subtitle">Salon Karola</div>
+      <audio id="startupSound" preload="auto" playsinline>
+        <source src="{{ url_for('static', filename='sounds/start-chime.wav', v=app_version) }}" type="audio/wav">
+      </audio>
+    </div>
+  </div>
+  {% endif %}
   {% if session.get('admin_logged_in') %}
   <header class="topbar">
     <div class="container topbar-inner">
@@ -490,6 +502,37 @@
         if (window.innerWidth > 768) closeMobileMenu();
       });
 
+
+
+      function hideStartupSplash() {
+        const splash = document.getElementById("startupSplash");
+        if (!splash) return;
+        splash.classList.add("fade-out");
+        window.setTimeout(() => {
+          try { splash.remove(); } catch (e) {}
+        }, 950);
+      }
+
+      async function playStartupSound() {
+        const sound = document.getElementById("startupSound");
+        if (!sound) return;
+        try {
+          sound.volume = 0.45;
+          sound.currentTime = 0;
+          await sound.play();
+        } catch (error) {
+          // Mobile browsers can block autoplay with sound until the first interaction.
+        }
+      }
+
+      function runStartupSplash() {
+        const splash = document.getElementById("startupSplash");
+        if (!splash) return;
+        splash.classList.add("visible");
+        playStartupSound();
+        window.setTimeout(hideStartupSplash, 2200);
+      }
+
       window.addEventListener("load", async () => {
         try {
           const registration = await registerServiceWorker();
@@ -501,6 +544,7 @@
             }
           });
         } catch (e) {}
+        runStartupSplash();
         closeMobileMenu();
         closeDeviceStaffBar();
         await refreshPushStatus();
