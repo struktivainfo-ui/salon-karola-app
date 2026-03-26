@@ -1,0 +1,5 @@
+Version 3.8.3 Mobile Menü Fix
+
+Auf Handy wurde die doppelte Touch-/Click-Auslösung im Push-Untermenü entfernt.
+Nach dem Deploy App einmal komplett schließen und neu öffnen.
+Bei alter Ansicht Service Worker / Cache leeren.
