@@ -41,6 +41,47 @@
     </div>
   </form>
 </section>
+
+<section class="card space-top">
+  <div class="row-between wrap-mobile">
+    <div>
+      <h2>Schnell-Termin</h2>
+      <div class="helper-text">Termin direkt manuell eintragen. Bestehende Namen aus der Datenbank ploppen sofort auf.</div>
+    </div>
+    <span class="badge">v5.2</span>
+  </div>
+  <form method="post" action="{{ url_for('appointment_manual') }}" class="space-top appointment-sync-form">
+    <div class="form-row">
+      <div class="form-group customer-search-group">
+        <label>Name / Kontakt</label>
+        <input type="text" id="quickAppointmentCustomer" name="customer_name" placeholder="Name eingeben" autocomplete="off" required>
+        <input type="hidden" id="quickAppointmentCustomerId" name="customer_id">
+        <div id="quickAppointmentResults" class="autocomplete-box" hidden></div>
+      </div>
+      <div class="form-group"><label>Titel</label><input type="text" name="title" value="Salon-Termin"></div>
+      <div class="form-group"><label>Termin</label><input type="datetime-local" id="quickAppointmentAt" name="appointment_at" value="{{ selected_date }}T09:00" required></div>
+      <div class="form-group"><label>Mitarbeiterin</label>
+        <select name="staff_name">
+          <option value="Ute">Ute</option>
+          <option value="Jessi">Jessi</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Status</label>
+        <select name="status">
+          <option value="geplant">geplant</option>
+          <option value="bestätigt">bestätigt</option>
+          <option value="erledigt">erledigt</option>
+          <option value="nicht erschienen">nicht erschienen</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Erinnerung in Stunden</label><input type="number" name="reminder_hours" value="24"></div>
+    </div>
+    <input type="hidden" name="actor_name" id="quickAppointmentActor" value="">
+    <div class="form-group"><label>Notiz</label><textarea name="notes" rows="2"></textarea></div>
+    <div class="actions"><button type="submit">Schnell speichern</button></div>
+  </form>
+</section>
+
 {% if view == 'day' and staff == 'Alle' and split_day_views %}
 <section class="split-day-section space-top">
   <div class="row-between wrap-mobile split-day-header">
@@ -401,4 +442,50 @@
   });
 })();
 </script>
+<script>
+(function(){
+  const input = document.getElementById('quickAppointmentCustomer');
+  const hiddenId = document.getElementById('quickAppointmentCustomerId');
+  const box = document.getElementById('quickAppointmentResults');
+  const actor = document.getElementById('quickAppointmentActor');
+  if (actor) actor.value = localStorage.getItem('sk_device_staff') || 'Ute';
+  if (!input || !box || !hiddenId) return;
+  let timer = null;
+  function render(items){
+    if (!items.length){ box.hidden = true; box.innerHTML = ''; return; }
+    box.innerHTML = items.map((item) => `
+      <button type="button" class="autocomplete-item autocomplete-button" data-id="${item.id}" data-label="${item.label}">
+        <strong>${item.label}</strong>
+        <span>${item.phone || item.email || item.city || ''}</span>
+      </button>`).join('');
+    box.hidden = false;
+    box.querySelectorAll('.autocomplete-button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        input.value = btn.dataset.label || '';
+        hiddenId.value = btn.dataset.id || '';
+        box.hidden = true;
+      });
+    });
+  }
+  input.addEventListener('input', () => {
+    hiddenId.value = '';
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 1){ render([]); return; }
+    timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/customers/search?q=${encodeURIComponent(q)}&limit=8`, {cache:'no-store'});
+        const data = await res.json();
+        render(data.items || []);
+      } catch (e) { render([]); }
+    }, 120);
+  });
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('#quickAppointmentCustomer') && !event.target.closest('#quickAppointmentResults')) {
+      box.hidden = true;
+    }
+  });
+})();
+</script>
 {% endblock %}
+

@@ -12,6 +12,7 @@
     <a class="hero-action" href="{{ url_for('calendar_view') }}">Termine</a>
     <a class="hero-action" href="{{ url_for('whatsapp_hub') }}">WhatsApp</a>
     <a class="hero-action" href="{{ url_for('templates_view') }}">Vorlagen</a>
+    <a class="hero-action" href="{{ url_for('push_center') }}">Push</a>
   </div>
 </section>
 
@@ -64,9 +65,10 @@
       </div>
     </div>
     <form method="get" class="grid grid-2">
-      <div class="form-group">
+      <div class="form-group customer-search-group">
         <label>Suche</label>
-        <input type="text" name="q" value="{{ q }}" placeholder="Name, Mail, Stadt, Telefon">
+        <input type="text" id="dashboardSearchInput" name="q" value="{{ q }}" placeholder="Name, Mail, Stadt, Telefon" autocomplete="off">
+        <div id="dashboardSearchResults" class="autocomplete-box" hidden></div>
       </div>
       <div class="form-group">
         <label>Tag</label>
@@ -162,6 +164,22 @@
 <section class="card clean-card space-top">
   <div class="panel-header">
     <div>
+      <span class="eyebrow">Alphabet</span>
+      <h2>Datenbank A–Z</h2>
+    </div>
+    <span class="badge">{{ customers|length }} Treffer</span>
+  </div>
+  <div class="alphabet-bar space-top">
+    <a class="alphabet-chip {% if alpha == 'ALLE' %}active{% endif %}" href="{{ url_for('index', q=q, tag=tag) }}">Alle</a>
+    {% for item in alphabet %}
+    <a class="alphabet-chip {% if item.active %}active{% endif %} {% if not item.available %}disabled{% endif %}" href="{{ url_for('index', q=q, tag=tag, alpha=item.letter) }}">{{ item.letter }}</a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card clean-card space-top">
+  <div class="panel-header">
+    <div>
       <span class="eyebrow">Kontakte</span>
       <h2>Kundenliste</h2>
     </div>
@@ -206,4 +224,37 @@
     {% endfor %}
   </div>
 </section>
+<script>
+(function(){
+  const input = document.getElementById('dashboardSearchInput');
+  const box = document.getElementById('dashboardSearchResults');
+  if (!input || !box) return;
+  let timer = null;
+  function render(items){
+    if (!items.length){ box.hidden = true; box.innerHTML=''; return; }
+    box.innerHTML = items.map((item) => `
+      <a class="autocomplete-item" href="${item.url}">
+        <strong>${item.label || 'Unbekannt'}</strong>
+        <span>${item.phone || item.email || item.city || ''}</span>
+      </a>`).join('');
+    box.hidden = false;
+  }
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 1){ render([]); return; }
+    timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/customers/search?q=${encodeURIComponent(q)}&limit=8`, {cache:'no-store'});
+        const data = await res.json();
+        render(data.items || []);
+      } catch (e) { render([]); }
+    }, 120);
+  });
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('.customer-search-group')) render([]);
+  });
+})();
+</script>
 {% endblock %}
+

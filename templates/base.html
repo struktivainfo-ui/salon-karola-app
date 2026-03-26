@@ -522,6 +522,14 @@
       function runStartupSplash() {
         const splash = document.getElementById("startupSplash");
         if (!splash) return;
+        const splashKey = "sk_startup_splash_seen";
+        try {
+          if (sessionStorage.getItem(splashKey) === "1") {
+            splash.remove();
+            return;
+          }
+          sessionStorage.setItem(splashKey, "1");
+        } catch (e) {}
         splash.classList.add("visible");
         playStartupSound();
         window.setTimeout(hideStartupSplash, 2200);
