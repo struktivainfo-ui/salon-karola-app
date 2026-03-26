@@ -40,41 +40,16 @@
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
       <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menü schließen">×</button>
       <nav class="nav-links" id="mainNavLinks" hidden>
-        <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">Dashboard</a>
-        <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}">Kunden</a>
-        <a class="{% if current_endpoint == 'whatsapp_hub' %}active{% endif %}" href="{{ url_for('whatsapp_hub') }}">WhatsApp</a>
-        <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}">Termine</a>
-        <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('templates_view') }}">Vorlagen</a>
-        <a class="{% if current_endpoint == 'import_customers' %}active{% endif %}" href="{{ url_for('import_customers') }}">Import</a>
-        <a class="{% if current_endpoint == 'email_logs' %}active{% endif %}" href="{{ url_for('email_logs') }}">Logs</a>
-        <a class="{% if current_endpoint == 'database_tools' %}active{% endif %}" href="{{ url_for('database_tools') }}">Datenbank</a>
-        <div class="nav-push-group" id="navPushGroup">
-          <button type="button" class="nav-push-toggle" id="navPushToggle" aria-expanded="false" aria-controls="navPushPanel">
-            <span>Push-System</span>
-            <span class="nav-push-summary" id="pushStatusLabel">Ute · Dieses Gerät</span>
-          </button>
-          <div class="nav-push-panel" id="navPushPanel" hidden>
-            <label for="deviceStaffSelect">Dieses Handy zuordnen</label>
-            <select id="deviceStaffSelect">
-              <option value="Ute">Ute</option>
-              <option value="Jessi">Jessi</option>
-            </select>
-            <label for="pushTargetSelect">Push senden an</label>
-            <select id="pushTargetSelect">
-              <option value="Ute">Ute</option>
-              <option value="Jessi">Jessi</option>
-              <option value="Alle">Alle</option>
-            </select>
-            <label for="deviceNameInput">Gerätename</label>
-            <input type="text" id="deviceNameInput" placeholder="Gerätename" maxlength="80" />
-            <div class="nav-push-actions">
-              <button type="button" class="btn btn-secondary btn-small" id="enablePushBtn">Push aktivieren</button>
-              <button type="button" class="btn btn-secondary btn-small" id="testPushBtn">Push testen</button>
-            </div>
-            <span class="helper-text" id="pushStatusMini">Push ist noch nicht aktiv.</span>
-          </div>
-        </div>
-        <a href="{{ url_for('logout') }}">Logout</a>
+        <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}" data-nav-link="dashboard">Dashboard</a>
+        <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}" data-nav-link="kunden">Kunden</a>
+        <a class="{% if current_endpoint == 'whatsapp_hub' %}active{% endif %}" href="{{ url_for('whatsapp_hub') }}" data-nav-link="whatsapp">WhatsApp</a>
+        <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="termine">Termine</a>
+        <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('templates_view') }}" data-nav-link="vorlagen">Vorlagen</a>
+        <a class="{% if current_endpoint == 'import_customers' %}active{% endif %}" href="{{ url_for('import_customers') }}" data-nav-link="import">Import</a>
+        <a class="{% if current_endpoint == 'email_logs' %}active{% endif %}" href="{{ url_for('email_logs') }}" data-nav-link="logs">Logs</a>
+        <a class="{% if current_endpoint == 'database_tools' %}active{% endif %}" href="{{ url_for('database_tools') }}" data-nav-link="datenbank">Datenbank</a>
+                <a class="{% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('push_center') }}" data-nav-link="push">Push</a>
+        <a href="{{ url_for('logout') }}" data-nav-link="logout">Logout</a>
       </nav>
     </div>
   </header>
@@ -477,17 +452,21 @@
 
 
       if (mainNavLinks) {
-        mainNavLinks.querySelectorAll("a").forEach((link) => {
+        const navigateFromMenu = (link, event) => {
+          const href = link.getAttribute("href");
+          if (!href || href.startsWith("#")) return;
+          event.preventDefault();
+          event.stopPropagation();
+          closeMobileMenu();
+          window.setTimeout(() => { window.location.href = link.href || href; }, 10);
+        };
+
+        mainNavLinks.querySelectorAll("a[data-nav-link]").forEach((link) => {
           link.style.touchAction = "manipulation";
-          link.addEventListener("click", (event) => {
-            const href = link.getAttribute("href");
-            if (!href || href.startsWith("#")) return;
-            event.preventDefault();
-            event.stopPropagation();
-            const destination = link.href || href;
-            closeMobileMenu();
-            window.setTimeout(() => { window.location.assign(destination); }, 60);
-          }, { passive: false });
+          link.style.pointerEvents = "auto";
+          ["click", "touchend", "pointerup"].forEach((eventName) => {
+            link.addEventListener(eventName, (event) => navigateFromMenu(link, event), { passive: false });
+          });
         });
       }
 
