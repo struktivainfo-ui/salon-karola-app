@@ -59,6 +59,12 @@
               <option value="Ute">Ute</option>
               <option value="Jessi">Jessi</option>
             </select>
+            <label for="pushTargetSelect">Push senden an</label>
+            <select id="pushTargetSelect">
+              <option value="Ute">Ute</option>
+              <option value="Jessi">Jessi</option>
+              <option value="Alle">Alle</option>
+            </select>
             <label for="deviceNameInput">Gerätename</label>
             <input type="text" id="deviceNameInput" placeholder="Gerätename" maxlength="80" />
             <div class="nav-push-actions">
@@ -91,8 +97,10 @@
 
       const STORAGE_KEY_STAFF = "sk_device_staff";
       const STORAGE_KEY_DEVICE_NAME = "sk_device_name";
+      const STORAGE_KEY_PUSH_TARGET = "sk_push_target";
       const staffSelect = document.getElementById("deviceStaffSelect");
       const enablePushBtn = document.getElementById("enablePushBtn");
+      const pushTargetSelect = document.getElementById("pushTargetSelect");
       const pushStatusLabel = document.getElementById("pushStatusLabel");
       const pushStatusMini = document.getElementById("pushStatusMini");
       const deviceNameInput = document.getElementById("deviceNameInput");
@@ -128,8 +136,12 @@
       }
 
       function currentStaff() {
-
         return (localStorage.getItem(STORAGE_KEY_STAFF) || "Ute").trim() || "Ute";
+      }
+
+      function currentPushTarget() {
+        const value = (localStorage.getItem(STORAGE_KEY_PUSH_TARGET) || "Ute").trim() || "Ute";
+        return ["Ute", "Jessi", "Alle"].includes(value) ? value : "Ute";
       }
 
       function deviceNameFallback() {
@@ -167,6 +179,10 @@
 
         if (pushStatusLabel) {
           pushStatusLabel.textContent = `${currentStaff()} · ${currentDeviceName()}`;
+        }
+
+        if (pushTargetSelect && document.activeElement !== pushTargetSelect) {
+          pushTargetSelect.value = currentPushTarget();
         }
 
         if (deviceNameInput && document.activeElement !== deviceNameInput) {
@@ -320,7 +336,7 @@
       }
 
       async function triggerPushTest(showMessage = true) {
-        const staff = currentStaff();
+        const staff = currentPushTarget();
         const res = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staff)}`, { cache: "no-store" });
         const data = await res.json();
         const sent = (data.result && data.result.sent) || 0;
@@ -399,6 +415,10 @@
             }
           } catch (e) {}
         });
+      }
+
+      if (pushTargetSelect && !localStorage.getItem(STORAGE_KEY_PUSH_TARGET)) {
+        localStorage.setItem(STORAGE_KEY_PUSH_TARGET, currentPushTarget());
       }
 
       if (deviceNameInput) {
