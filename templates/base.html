@@ -478,17 +478,16 @@
 
       if (mainNavLinks) {
         mainNavLinks.querySelectorAll("a").forEach((link) => {
-          const navigateFromMenu = (event) => {
+          link.style.touchAction = "manipulation";
+          link.addEventListener("click", (event) => {
             const href = link.getAttribute("href");
             if (!href || href.startsWith("#")) return;
             event.preventDefault();
             event.stopPropagation();
+            const destination = link.href || href;
             closeMobileMenu();
-            window.setTimeout(() => { window.location.href = href; }, 20);
-          };
-          link.addEventListener("click", navigateFromMenu, { passive: false });
-          link.addEventListener("touchend", navigateFromMenu, { passive: false });
-          link.addEventListener("pointerup", navigateFromMenu, { passive: false });
+            window.setTimeout(() => { window.location.assign(destination); }, 60);
+          }, { passive: false });
         });
       }
 
