@@ -22,7 +22,7 @@
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">{{ app_version|default("3.6.0 Pro Clean Left Menu") }}</div>
+          <div class="brand-subtitle">{{ app_version|default("3.6.1 Pro Premium Push Menü") }}</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
@@ -34,6 +34,37 @@
         <a class="{% if current_endpoint == 'import_customers' %}active{% endif %}" href="{{ url_for('import_customers') }}">Import</a>
         <a class="{% if current_endpoint == 'email_logs' %}active{% endif %}" href="{{ url_for('email_logs') }}">Logs</a>
         <a class="{% if current_endpoint == 'database_tools' %}active{% endif %}" href="{{ url_for('database_tools') }}">Datenbank</a>
+        <div class="nav-push-submenu collapsed" id="deviceStaffBar" aria-expanded="false">
+          <button type="button" class="nav-push-toggle" id="deviceStaffToggleBtn" aria-expanded="false" aria-controls="deviceStaffBody">
+            <span class="nav-push-toggle-copy">
+              <span class="nav-push-toggle-title">Push für Handys</span>
+              <span class="nav-push-toggle-subtitle">Ute, Jessi und weitere Geräte sauber im Untermenü</span>
+            </span>
+            <span class="nav-push-toggle-summary-wrap">
+              <span class="nav-push-toggle-badge">Untermenü</span>
+              <span class="nav-push-toggle-summary" id="pushStatusLabel">Jessi · Android-Handy</span>
+            </span>
+            <span class="nav-push-toggle-icon" aria-hidden="true">▾</span>
+          </button>
+          <div class="nav-push-body" id="deviceStaffBody" hidden>
+            <div class="nav-push-card-head">
+              <div class="nav-push-card-title">Gerät auswählen</div>
+              <div class="nav-push-card-text">Lege fest, welches Handy Push erhalten soll, und teste die Benachrichtigung direkt.</div>
+            </div>
+            <div class="nav-push-fields">
+              <select id="deviceStaffSelect">
+                <option value="Ute">Ute</option>
+                <option value="Jessi">Jessi</option>
+              </select>
+              <input type="text" id="deviceNameInput" placeholder="Gerätename" maxlength="80" />
+            </div>
+            <div class="nav-push-actions">
+              <button type="button" class="btn btn-secondary btn-small" id="enablePushBtn">Push aktivieren</button>
+              <button type="button" class="btn btn-secondary btn-small" id="testPushBtn">Push testen</button>
+            </div>
+            <span class="helper-text" id="pushStatusMini">Push ist noch nicht aktiv.</span>
+          </div>
+        </div>
         <a href="{{ url_for('logout') }}">Logout</a>
       </nav>
     </div>
@@ -50,27 +81,7 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
-  {% if session.get('admin_logged_in') %}
-  <div class="device-staff-bar collapsed" id="deviceStaffBar" aria-expanded="false">
-    <div class="device-staff-bar-header">
-      <button type="button" class="device-staff-toggle" id="deviceStaffToggleBtn" aria-expanded="false" aria-controls="deviceStaffBody">
-        <span class="device-staff-toggle-title">Push für dieses Handy</span>
-        <span class="device-staff-toggle-summary" id="pushStatusLabel">Jessi · Android-Handy</span>
-        <span class="device-staff-toggle-icon" aria-hidden="true">▾</span>
-      </button>
-    </div>
-    <div class="device-staff-body" id="deviceStaffBody" hidden>
-      <select id="deviceStaffSelect">
-        <option value="Ute">Ute</option>
-        <option value="Jessi">Jessi</option>
-      </select>
-      <input type="text" id="deviceNameInput" placeholder="Gerätename" maxlength="80" />
-      <button type="button" class="btn btn-secondary btn-small" id="enablePushBtn">Push aktivieren</button>
-      <button type="button" class="btn btn-secondary btn-small" id="testPushBtn">Push testen</button>
-      <span class="helper-text" id="pushStatusMini">Push ist noch nicht aktiv.</span>
-    </div>
-  </div>
-  {% endif %}
+
   <script>
     (function () {
       const isLoggedIn = {{ 'true' if session.get('admin_logged_in') else 'false' }};
