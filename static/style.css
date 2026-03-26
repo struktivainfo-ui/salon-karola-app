@@ -872,6 +872,11 @@ td {
     font-weight: 700;
     background: rgba(255,255,255,.02);
     border: 1px solid rgba(212,175,55,.18);
+    position: relative;
+    z-index: 275;
+    pointer-events: auto !important;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .nav-push-group {
@@ -918,5 +923,209 @@ td {
   .bottom-nav,
   .mobile-only-flex {
     display: none !important;
+  }
+}
+
+
+.app-hero {
+  background: radial-gradient(circle at top left, rgba(212,175,55,.22), rgba(212,175,55,0) 38%), linear-gradient(180deg, #1b1b1d 0%, #121214 100%);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.28);
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1.2fr .9fr;
+  gap: 18px;
+  margin: 18px 0 8px;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: .78rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.app-hero-title {
+  margin: 0 0 10px;
+  font-size: 2rem;
+  line-height: 1.08;
+  color: #fff5cf;
+}
+
+.app-hero-text {
+  margin: 0;
+  max-width: 640px;
+  color: #e8dcc0;
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+.hero-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-self: stretch;
+}
+
+.hero-action {
+  min-height: 86px;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.03);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+.hero-action.primary {
+  background: linear-gradient(180deg, #f0d77a 0%, #d4af37 100%);
+  color: #111;
+}
+
+.stats-shell {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.stat-tile {
+  background: linear-gradient(180deg, #18181a 0%, #202023 100%);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.stat-tile.emphasis {
+  background: radial-gradient(circle at top left, rgba(212,175,55,.16), rgba(212,175,55,0) 42%), linear-gradient(180deg, #191919 0%, #232326 100%);
+}
+
+.stat-head {
+  color: var(--muted);
+  font-size: .92rem;
+  margin-bottom: 10px;
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff1b4;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.stat-foot {
+  color: #cdbd99;
+  font-size: .92rem;
+}
+
+.pro-panel {
+  background: linear-gradient(180deg, #171719 0%, #1d1d20 100%);
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.panel-header h2 {
+  margin: 0;
+}
+
+.clean-card {
+  border-radius: 24px;
+  padding: 20px;
+}
+
+.soft-item {
+  background: rgba(255,255,255,.02);
+  border-radius: 18px;
+  border: 1px solid rgba(212,175,55,.12);
+}
+
+.clean-actions .quick-action {
+  min-height: 76px;
+  border-radius: 20px;
+  font-size: 1rem;
+}
+
+.mobile-card, .link-card {
+  border-radius: 20px;
+}
+
+@media (max-width: 900px) {
+  .app-hero,
+  .stats-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 12px;
+  }
+
+  .topbar-inner {
+    padding: 12px;
+  }
+
+  .app-hero {
+    padding: 18px;
+    border-radius: 24px;
+  }
+
+  .app-hero-title {
+    font-size: 1.65rem;
+  }
+
+  .hero-actions-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .hero-action {
+    min-height: 70px;
+    border-radius: 18px;
+    font-size: .95rem;
+  }
+
+  .stats-shell {
+    gap: 12px;
+  }
+
+  .stat-tile {
+    border-radius: 20px;
+    padding: 16px;
+  }
+
+  .panel-header {
+    flex-direction: column;
+  }
+
+  .pro-panel,
+  .clean-card {
+    border-radius: 22px;
+    padding: 16px;
   }
 }
