@@ -452,22 +452,21 @@
 
 
       if (mainNavLinks) {
-        const navigateFromMenu = (link, event) => {
+        mainNavLinks.querySelectorAll("a[data-nav-link]").forEach((link) => {
+          link.style.touchAction = "manipulation";
+          link.style.pointerEvents = "auto";
+        });
+
+        mainNavLinks.addEventListener("click", (event) => {
+          const link = event.target.closest("a[data-nav-link]");
+          if (!link) return;
           const href = link.getAttribute("href");
           if (!href || href.startsWith("#")) return;
           event.preventDefault();
           event.stopPropagation();
           closeMobileMenu();
-          window.setTimeout(() => { window.location.href = link.href || href; }, 10);
-        };
-
-        mainNavLinks.querySelectorAll("a[data-nav-link]").forEach((link) => {
-          link.style.touchAction = "manipulation";
-          link.style.pointerEvents = "auto";
-          ["click", "touchend", "pointerup"].forEach((eventName) => {
-            link.addEventListener(eventName, (event) => navigateFromMenu(link, event), { passive: false });
-          });
-        });
+          window.location.assign(link.href || href);
+        }, true);
       }
 
       if (testPushBtn) {
