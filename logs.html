@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Logs - Salon Karola{% endblock %}
+{% block content %}
+<section class="hero-card">
+  <h1 class="hero-title">E-Mail-Logs</h1>
+  <p class="hero-text">Versendete Geburtstagsmails, Terminerinnerungen und Testmails.</p>
+</section>
+<section class="card">
+  <div class="list-stack">
+    {% for log in logs %}
+    <div class="list-item">
+      <div class="row-between">
+        <strong>{{ log['subject'] }}</strong>
+        <span class="badge">{{ log['sent_at']|dt }}</span>
+      </div>
+      <div class="mobile-line"><span class="mobile-label">Empfänger:</span> {{ log['recipient'] or '-' }}</div>
+      <div class="mobile-line"><span class="mobile-label">Status:</span> {{ log['status'] }}</div>
+      {% if log['error_message'] %}
+      <div class="mobile-line"><span class="mobile-label">Fehler:</span> {{ log['error_message'] }}</div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="list-item">Keine Logs vorhanden.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

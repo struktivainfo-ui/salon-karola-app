@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Push-System · Salon Karola{% endblock %}
+{% block content %}
+<section class="card hero-card page-headline-card">
+  <div class="hero-row">
+    <div>
+      <h1 class="hero-title">Push-System</h1>
+      <p class="muted">Hier ordnest du dieses Handy Ute oder Jessi zu, testest Push-Nachrichten und siehst registrierte Geräte.</p>
+    </div>
+  </div>
+</section>
+
+<section class="grid cols-2 push-page-grid">
+  <article class="card push-page-card">
+    <h2>Dieses Handy</h2>
+    <label for="deviceStaffSelect">Zuordnen zu</label>
+    <select id="deviceStaffSelect">
+      <option value="Ute">Ute</option>
+      <option value="Jessi">Jessi</option>
+    </select>
+
+    <label for="deviceNameInput">Gerätename</label>
+    <input type="text" id="deviceNameInput" placeholder="z. B. Handy Ute" maxlength="80">
+
+    <label for="pushTargetSelect">Push senden an</label>
+    <select id="pushTargetSelect">
+      <option value="Ute">Ute</option>
+      <option value="Jessi">Jessi</option>
+      <option value="Alle">Alle</option>
+    </select>
+
+    <div class="nav-push-actions push-page-actions">
+      <button type="button" class="btn btn-primary" id="enablePushBtn">Push aktivieren</button>
+      <button type="button" class="btn btn-secondary" id="testPushBtn">Push testen</button>
+    </div>
+
+    <div class="helper-text push-page-status" id="pushStatusMini">Push ist noch nicht aktiviert.</div>
+  </article>
+
+  <article class="card push-page-card">
+    <h2>Geräteübersicht</h2>
+    <div class="stats-grid compact-stats">
+      <div class="stat-card"><div class="stat-label">Ute</div><div class="stat-value" id="uteCount">0</div></div>
+      <div class="stat-card"><div class="stat-label">Jessi</div><div class="stat-value" id="jessiCount">0</div></div>
+      <div class="stat-card"><div class="stat-label">Aktiv</div><div class="stat-value" id="activeCount">0</div></div>
+      <div class="stat-card"><div class="stat-label">Gesamt</div><div class="stat-value" id="totalCount">0</div></div>
+    </div>
+    <button type="button" class="btn btn-secondary" id="reloadDevicesBtn">Geräte neu laden</button>
+    <div id="pushDevicesList" class="push-devices-list muted">Noch keine Geräte registriert.</div>
+  </article>
+</section>
+
+<script>
+(function () {
+  const list = document.getElementById('pushDevicesList');
+  const reloadBtn = document.getElementById('reloadDevicesBtn');
+  const uteCount = document.getElementById('uteCount');
+  const jessiCount = document.getElementById('jessiCount');
+  const activeCount = document.getElementById('activeCount');
+  const totalCount = document.getElementById('totalCount');
+
+  async function loadOverview() {
+    try {
+      const res = await fetch('/api/push/overview', { cache: 'no-store' });
+      const data = await res.json();
+      uteCount.textContent = data.ute_devices || 0;
+      jessiCount.textContent = data.jessi_devices || 0;
+      activeCount.textContent = data.active_devices || 0;
+      totalCount.textContent = data.total_devices || 0;
+    } catch (e) {}
+  }
+
+  async function loadDevices() {
+    if (!list) return;
+    list.innerHTML = 'Lade Geräte…';
+    try {
+      const res = await fetch('/api/push/devices', { cache: 'no-store' });
+      const data = await res.json();
+      const items = data.items || [];
+      if (!items.length) {
+        list.innerHTML = 'Noch keine Geräte registriert.';
+        return;
+      }
+      list.innerHTML = items.map((item) => {
+        const error = item.last_error ? `<div class="device-error">Fehler: ${item.last_error}</div>` : '';
+        return `
+          <div class="device-item">
+            <div class="device-title">${item.staff_name} · ${item.device_name}</div>
+            <div class="device-meta">Zuletzt aktiv: ${item.last_seen_at || '-'} </div>
+            ${error}
+          </div>`;
+      }).join('');
+    } catch (e) {
+      list.innerHTML = 'Geräte konnten nicht geladen werden.';
+    }
+  }
+
+  if (reloadBtn) {
+    reloadBtn.addEventListener('click', async () => {
+      await loadOverview();
+      await loadDevices();
+    });
+  }
+
+  window.addEventListener('load', async () => {
+    await loadOverview();
+    await loadDevices();
+  });
+})();
+</script>
+{% endblock %}

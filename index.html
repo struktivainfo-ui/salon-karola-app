@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard - Salon Karola{% endblock %}
+{% block content %}
+<section class="app-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Salon Karola App</span>
+    <h1 class="app-hero-title">Heute im Salon</h1>
+    <p class="app-hero-text">Eine klare Premium-Oberfläche für Kunden, Termine, Kalender, WhatsApp und den täglichen Überblick im Salon.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('customer_new') }}">Neuer Kontakt</a>
+    <a class="hero-action" href="{{ url_for('appointments_hub') }}">Termine</a>
+    <a class="hero-action" href="{{ url_for('calendar_view') }}">Kalender</a>
+    <a class="hero-action" href="{{ url_for('whatsapp_hub') }}">WhatsApp</a>
+    <a class="hero-action" href="{{ url_for('templates_view') }}">Vorlagen</a>
+  </div>
+</section>
+
+<section class="stats-shell">
+  <div class="stat-tile emphasis">
+    <div class="stat-head">Kunden</div>
+    <div class="stat-number">{{ stats.direct_customer_count|default(stats.total_customers, true) }}</div>
+    <div class="stat-foot">Gespeicherte Kontakte</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-head">Heute</div>
+    <div class="stat-number">{{ stats.appointments_today }}</div>
+    <div class="stat-foot">Termine heute</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-head">Diese Woche</div>
+    <div class="stat-number">{{ stats.appointments_week }}</div>
+    <div class="stat-foot">Geplante Termine</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-head">Rückholung</div>
+    <div class="stat-number">{{ stats.inactive_60 }}</div>
+    <div class="stat-foot">60+ Tage ohne Termin</div>
+  </div>
+</section>
+
+<section class="pro-panel space-top">
+  <div class="panel-header">
+    <div>
+      <span class="eyebrow">Schnellzugriff</span>
+      <h2>Aktionen</h2>
+    </div>
+  </div>
+  <div class="quick-actions clean-actions">
+    <a class="quick-action" href="{{ url_for('customer_new') }}">➕ Kunde anlegen</a>
+    <a class="quick-action" href="{{ url_for('appointments_hub') }}">🗓️ Termine öffnen</a>
+    <a class="quick-action" href="{{ url_for('calendar_view') }}">📅 Kalender öffnen</a>
+    <a class="quick-action" href="{{ url_for('templates_view') }}">✉️ Vorlagen</a>
+    <a class="quick-action" href="{{ url_for('whatsapp_hub') }}">💬 WhatsApp</a>
+    <a class="quick-action" href="{{ url_for('run_automation_now') }}">⚡ Automatik</a>
+  </div>
+</section>
+
+<section class="grid grid-2 space-top">
+  <div class="card clean-card">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">Suchen</span>
+        <h2>Kundensuche</h2>
+      </div>
+    </div>
+    <form method="get" class="grid grid-2">
+      <div class="form-group">
+        <label>Suche</label>
+        <input type="text" name="q" value="{{ q }}" placeholder="Name, Mail, Stadt, Telefon">
+      </div>
+      <div class="form-group">
+        <label>Tag</label>
+        <select name="tag">
+          <option value="">Alle</option>
+          {% for tag_row in tags %}
+          <option value="{{ tag_row['tag'] }}" {% if tag == tag_row['tag'] %}selected{% endif %}>{{ tag_row['tag'] }} ({{ tag_row['cnt'] }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="actions">
+        <button type="submit">Filtern</button>
+        <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurücksetzen</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card clean-card">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">Geburtstage</span>
+        <h2>Nächste Geburtstage</h2>
+      </div>
+    </div>
+    <div class="list-stack">
+      {% for item in birthdays %}
+      <div class="list-item soft-item">
+        <div class="row-between">
+          <strong>{{ item['_firstname'] }} {{ item['_name'] }}</strong>
+          <span class="badge">{{ item['_birthdate']|birthday }}</span>
+        </div>
+        <div class="mobile-line">{{ item['_mail'] or 'Keine E-Mail' }}</div>
+      </div>
+      {% else %}
+      <div class="list-item soft-item">Keine Geburtstage vorhanden.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="grid grid-2 space-top">
+  <div class="card clean-card">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">Kalender</span>
+        <h2>Nächste Termine</h2>
+      </div>
+      <div class="actions wrap-mobile"><a class="btn btn-secondary" href="{{ url_for('appointments_hub') }}">Termine</a><a class="btn btn-secondary" href="{{ url_for('calendar_view') }}">Kalender</a></div>
+    </div>
+    <div class="list-stack">
+      {% for appt in upcoming %}
+      <div class="list-item soft-item">
+        <div class="row-between">
+          <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
+          <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
+        </div>
+        <div class="mobile-line"><span class="mobile-label">Termin:</span> {{ appt['appointment_at']|dt if appt['appointment_at'] else 'Kein Termin gespeichert' }}</div>
+        <div class="mobile-line"><span class="mobile-label">Telefon:</span> {{ appt['Customer_Mobiltelefon'] or appt['Customer_PersönlichesTelefon'] or '-' }}</div>
+      </div>
+      {% else %}
+      <div class="list-item soft-item">Keine Termine vorhanden.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card clean-card">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">Rückholung</span>
+        <h2>Kunden ohne aktuellen Termin</h2>
+      </div>
+      <span class="badge">60+ Tage</span>
+    </div>
+    <div class="list-stack">
+      {% for customer in inactive %}
+      <div class="list-item soft-item">
+        <div class="row-between">
+          <strong>{{ customer['_firstname'] }} {{ customer['_name'] }}</strong>
+          <span class="badge">{{ customer['last_appointment_at']|dt if customer['last_appointment_at'] else 'Noch kein Termin' }}</span>
+        </div>
+        <div class="mobile-line">{{ customer['_mail'] or customer['Customer_Mobiltelefon'] or 'Kein Kontaktkanal' }}</div>
+        <div class="actions space-top">
+          <a class="btn btn-secondary" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">Öffnen</a>
+        </div>
+      </div>
+      {% else %}
+      <div class="list-item soft-item">Aktuell keine inaktiven Kunden.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="card clean-card space-top">
+  <div class="panel-header">
+    <div>
+      <span class="eyebrow">Kontakte</span>
+      <h2>Kundenliste</h2>
+    </div>
+  </div>
+  <div class="desktop-only">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>E-Mail</th><th>Mobil</th><th>Stadt</th></tr>
+        </thead>
+        <tbody>
+          {% for customer in customers %}
+          <tr>
+            <td>
+              <a href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">{{ customer['_firstname'] }} {{ customer['_name'] }}</a>
+              <span class="badge badge-health-{{ customer_activity_status(customer['last_appointment_at']) }}">{{ customer_activity_status(customer['last_appointment_at']) }}</span>
+            </td>
+            <td>{{ customer['_mail'] or '-' }}</td>
+            <td>{{ customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] or '-' }}</td>
+            <td>{{ customer['Customer_Stadt'] or '-' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4">Keine Kontakte gefunden.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="mobile-only">
+    {% for customer in customers %}
+    <a class="mobile-card link-card" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">
+      <div class="row-between wrap-mobile">
+        <h3>{{ customer['_firstname'] }} {{ customer['_name'] }}</h3>
+        <span class="badge badge-health-{{ customer_activity_status(customer['last_appointment_at']) }}">{{ customer_activity_status(customer['last_appointment_at']) }}</span>
+      </div>
+      <div class="mobile-line"><span class="mobile-label">E-Mail:</span> {{ customer['_mail'] or '-' }}</div>
+      <div class="mobile-line"><span class="mobile-label">Telefon:</span> {{ customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] or '-' }}</div>
+      <div class="mobile-line"><span class="mobile-label">Stadt:</span> {{ customer['Customer_Stadt'] or '-' }}</div>
+    </a>
+    {% else %}
+    <div class="mobile-card">Keine Kontakte gefunden.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

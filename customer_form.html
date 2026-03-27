@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% block title %}{% if customer %}Kontakt{% else %}Neuer Kontakt{% endif %} - Salon Karola{% endblock %}
+{% block content %}
+<section class="hero-card">
+  <div class="hero-row">
+    <div>
+      <h1 class="hero-title">{% if customer %}{{ customer['_firstname'] }} {{ customer['_name'] }}{% else %}Neuer Kontakt{% endif %}</h1>
+      <p class="hero-text">Kontaktdaten, Termine, WhatsApp und Kundenstatus an einem Ort.</p>
+    </div>
+    <div class="actions">
+      <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurück</a>
+      {% if customer and (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon']) %}
+      <a class="btn btn-secondary" href="{{ (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'])|phone_href }}">📞 Anrufen</a>
+      {% endif %}
+      {% if customer %}
+      <span class="badge badge-health-{{ customer_status }}">Kundenstatus: {{ customer_status }}</span>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+
+{% if customer %}
+<section class="app-hero customer-action-hero">
+  <div>
+    <span class="eyebrow">Schnellzugriff</span>
+    <h2 class="app-hero-title customer-action-title">Kundenaktionen auf einen Blick</h2>
+    <p class="app-hero-text">Direkt anrufen, sofort per WhatsApp schreiben oder ohne Umweg einen neuen Termin anlegen.</p>
+  </div>
+  <div class="hero-actions-grid">
+    {% if customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] %}
+    <a class="hero-action primary" href="{{ (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'])|phone_href }}">📞 Anrufen</a>
+    {% endif %}
+    {% if wa_link %}
+    <a class="hero-action" href="{{ wa_link }}" target="_blank" rel="noopener">💬 WhatsApp</a>
+    {% endif %}
+    <a class="hero-action" href="#termin-hinzufuegen">📅 Termin anlegen</a>
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <form method="post">
+    <div class="form-row">
+      <div class="form-group"><label>Vorname</label><input type="text" name="firstname" value="{{ customer['_firstname'] if customer else '' }}"></div>
+      <div class="form-group"><label>Nachname</label><input type="text" name="name" value="{{ customer['_name'] if customer else '' }}"></div>
+      <div class="form-group"><label>E-Mail</label><input type="email" name="mail" value="{{ customer['_mail'] if customer else '' }}"></div>
+      <div class="form-group"><label>Geburtstag</label><input type="date" name="birthdate" value="{{ customer['_birthdate'] if customer else '' }}"></div>
+      <div class="form-group"><label>Telefon</label><input type="text" name="phone" value="{{ customer['Customer_PersönlichesTelefon'] if customer else '' }}"></div>
+      <div class="form-group"><label>Mobil</label><input type="text" name="mobile" value="{{ customer['Customer_Mobiltelefon'] if customer else '' }}"></div>
+      <div class="form-group"><label>Adresse</label><input type="text" name="address" value="{{ customer['Customer_Adresse'] if customer else '' }}"></div>
+      <div class="form-group"><label>PLZ</label><input type="text" name="zip" value="{{ customer['Customer_Postleitzahl'] if customer else '' }}"></div>
+      <div class="form-group"><label>Stadt</label><input type="text" name="city" value="{{ customer['Customer_Stadt'] if customer else '' }}"></div>
+      <div class="form-group"><label>Tags (Komma getrennt)</label><input type="text" name="tags" value="{{ tags_text or '' }}"></div>
+    </div>
+    <div class="form-group"><label>Notizen</label><textarea name="notes">{{ customer['_notes'] if customer else '' }}</textarea></div>
+    <div class="actions">
+      <button type="submit">Speichern</button>
+      {% if customer %}
+      <a class="btn btn-secondary" href="{{ url_for('send_test', customer_id=customer['_id'], template_id='appointment') }}">Test Terminmail</a>
+      <a class="btn btn-secondary" href="{{ url_for('send_test', customer_id=customer['_id'], template_id='birthdate') }}">Test Geburtstagsmail</a>
+      {% endif %}
+    </div>
+  </form>
+</section>
+
+{% if customer %}
+<section class="card space-top">
+  <div class="row-between wrap-mobile">
+    <h2>Kontaktaktionen</h2>
+    <span class="badge">1 Klick</span>
+  </div>
+  <div class="quick-actions">
+    {% if customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] %}<a class="quick-action" href="{{ (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'])|phone_href }}">📞 Direkt anrufen</a>{% endif %}
+    {% if wa_link %}<a class="quick-action" href="{{ wa_link }}" target="_blank" rel="noopener">💬 Allgemeine Nachricht</a>{% endif %}
+    {% if wa_next_appt_link %}<a class="quick-action" href="{{ wa_next_appt_link }}" target="_blank" rel="noopener">📅 Terminbestätigung</a>{% endif %}
+    {% if wa_comeback_link %}<a class="quick-action" href="{{ wa_comeback_link }}" target="_blank" rel="noopener">🔁 Rückholung</a>{% endif %}
+  </div>
+</section>
+
+<section class="grid grid-2 space-top">
+  <div class="card" id="termin-hinzufuegen">
+    <h2>Termin hinzufügen</h2>
+    <form method="post" action="{{ url_for('appointment_new', customer_id=customer['_id']) }}" class="appointment-sync-form">
+      <div class="form-row">
+        <div class="form-group"><label>Titel</label><input type="text" name="title" value="Salon-Termin"></div>
+        <div class="form-group"><label>Termin</label><input type="datetime-local" name="appointment_at" required></div>
+        <div class="form-group"><label>Erinnerung in Stunden</label><input type="number" name="reminder_hours" value="24"></div>
+        <div class="form-group"><label>Status</label>
+          <select name="status">
+            <option value="geplant">geplant</option>
+            <option value="bestätigt">bestätigt</option>
+            <option value="erledigt">erledigt</option>
+            <option value="nicht erschienen">nicht erschienen</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Mitarbeiterin</label>
+          <select name="staff_name" id="newAppointmentStaff">
+            <option value="Ute">Ute</option>
+            <option value="Jessi">Jessi</option>
+          </select>
+          <div class="staff-quick-switch">
+            <button type="button" class="staff-pill active" data-target="newAppointmentStaff" data-value="Ute">Ute</button>
+            <button type="button" class="staff-pill" data-target="newAppointmentStaff" data-value="Jessi">Jessi</button>
+          </div>
+        </div>
+      </div>
+      <input type="hidden" name="actor_name" class="actor-name-field" value="">
+      <div class="form-group"><label>Notizen</label><textarea name="notes"></textarea></div>
+      <div class="helper-text">Die Kollegin bekommt auf dem anderen Handy eine Live-Benachrichtigung, sobald der Termin gespeichert wird.</div>
+      <button type="submit">Termin speichern</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Termine</h2>
+    <div class="list-stack">
+      {% for appt in appointments %}
+      <div class="list-item appointment-card appointment-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">
+        <div class="row-between wrap-mobile">
+          <strong>{{ appt['title'] }}</strong>
+          <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
+        </div>
+        <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt['appointment_at']|dt }}</div>
+        <div class="mobile-line"><span class="mobile-label">Mitarbeiterin:</span> {{ appt['staff_name'] or 'Ute' }}</div>
+        <div class="mobile-line">{{ appt['notes'] or 'Keine Notiz' }}</div>
+        <details class="space-top appointment-edit-box">
+          <summary>Termin bearbeiten</summary>
+          <form method="post" action="{{ url_for('appointment_edit', appointment_id=appt['id']) }}" class="space-top appointment-sync-form">
+            <div class="form-row">
+              <div class="form-group"><label>Titel</label><input type="text" name="title" value="{{ appt['title'] }}"></div>
+              <div class="form-group"><label>Termin</label><input type="datetime-local" name="appointment_at" value="{{ appt['appointment_at'][:16] }}" required></div>
+              <div class="form-group"><label>Erinnerung in Stunden</label><input type="number" name="reminder_hours" value="{{ appt['reminder_hours'] or 24 }}"></div>
+              <div class="form-group"><label>Status</label>
+                <select name="status">
+                  <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
+                  <option value="bestätigt" {% if appt['status'] == 'bestätigt' %}selected{% endif %}>bestätigt</option>
+                  <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
+                  <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
+                </select>
+              </div>
+              <div class="form-group"><label>Mitarbeiterin</label>
+                <select name="staff_name" id="staff_{{ appt['id'] }}">
+                  <option value="Ute" {% if (appt['staff_name'] or 'Ute') == 'Ute' %}selected{% endif %}>Ute</option>
+                  <option value="Jessi" {% if appt['staff_name'] == 'Jessi' %}selected{% endif %}>Jessi</option>
+                </select>
+                <div class="staff-quick-switch">
+                  <button type="button" class="staff-pill {% if (appt['staff_name'] or 'Ute') == 'Ute' %}active{% endif %}" data-target="staff_{{ appt['id'] }}" data-value="Ute">Ute</button>
+                  <button type="button" class="staff-pill {% if appt['staff_name'] == 'Jessi' %}active{% endif %}" data-target="staff_{{ appt['id'] }}" data-value="Jessi">Jessi</button>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" name="actor_name" class="actor-name-field" value="">
+            <div class="form-group"><label>Notizen</label><textarea name="notes">{{ appt['notes'] or '' }}</textarea></div>
+            <div class="actions">
+              <button class="btn btn-secondary" type="submit">Änderungen speichern</button>
+            </div>
+          </form>
+        </details>
+        <div class="actions space-top">
+          <form method="post" action="{{ url_for('appointment_update_status', appointment_id=appt['id']) }}" class="inline-form">
+            <select name="status">
+              <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
+              <option value="bestätigt" {% if appt['status'] == 'bestätigt' %}selected{% endif %}>bestätigt</option>
+              <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
+              <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
+            </select>
+            <button class="btn btn-secondary" type="submit">Nur Status speichern</button>
+          </form>
+          <form method="post" action="{{ url_for('appointment_delete', appointment_id=appt['id']) }}">
+            <button class="btn btn-danger" type="submit">Termin löschen</button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+      <div class="list-item">Noch keine Termine vorhanden.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="card space-top">
+  <h2>E-Mail-Logs</h2>
+  <div class="list-stack">
+    {% for log in logs %}
+    <div class="list-item">
+      <div class="row-between wrap-mobile">
+        <strong>{{ log['subject'] }}</strong>
+        <span class="badge">{{ log['sent_at']|dt }}</span>
+      </div>
+      <div class="mobile-line"><span class="mobile-label">Status:</span> {{ log['status'] }}</div>
+      <div class="mobile-line"><span class="mobile-label">Empfänger:</span> {{ log['recipient'] or '-' }}</div>
+      {% if log['error_message'] %}<div class="mobile-line"><span class="mobile-label">Fehler:</span> {{ log['error_message'] }}</div>{% endif %}
+    </div>
+    {% else %}
+    <div class="list-item">Noch keine Logs vorhanden.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".staff-pill").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const targetId = button.dataset.target;
+      const value = button.dataset.value;
+      const select = document.getElementById(targetId);
+      if (!select) return;
+      select.value = value;
+      const wrapper = button.closest('.staff-quick-switch');
+      if (wrapper) {
+        wrapper.querySelectorAll('.staff-pill').forEach(function (pill) {
+          pill.classList.toggle('active', pill === button);
+        });
+      }
+    });
+  });
+});
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const deviceStaff = localStorage.getItem("sk_device_staff") || "Ute";
+    document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
+    const newStaff = document.getElementById("newAppointmentStaff");
+    if (newStaff) {
+      newStaff.value = deviceStaff;
+      document.querySelectorAll('.staff-pill[data-target="newAppointmentStaff"]').forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.value === deviceStaff);
+      });
+    }
+  });
+</script>
+{% endblock %}

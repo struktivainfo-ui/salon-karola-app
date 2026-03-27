@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block title %}Termine - Salon Karola{% endblock %}
+{% block content %}
+<section class="hero-card clean-hero">
+  <div class="hero-row">
+    <div>
+      <h1 class="hero-title">Termine &amp; Eingabe</h1>
+      <p class="hero-text">Eigener Bereich für neue Termine, getrennte Tagesplanung von Ute und Jessi und einen ruhigen Überblick über kommende Buchungen.</p>
+    </div>
+    <div class="actions wrap-mobile">
+      <a class="btn btn-secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Zum Kalender</a>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="row-between wrap-mobile">
+    <div>
+      <h2>Neuen Termin anlegen</h2>
+      <div class="helper-text">Termineingabe ist jetzt bewusst getrennt vom Kalender, damit alles übersichtlicher bleibt.</div>
+    </div>
+    <span class="badge">Termineingabe</span>
+  </div>
+  <form method="post" class="appointment-sync-form space-top">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="customer_id">Name / Kontakt</label>
+        <select name="customer_id" id="customer_id" required>
+          <option value="">Kontakt auswählen</option>
+          {% for customer in customers %}
+          <option value="{{ customer['_id'] }}">{{ customer['firstname'] }} {{ customer['lastname'] }}{% if customer['phone'] %} · {{ customer['phone'] }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="title">Titel</label>
+        <input type="text" id="title" name="title" value="Salon-Termin">
+      </div>
+      <div class="form-group">
+        <label for="appointment_at">Termin</label>
+        <input type="datetime-local" id="appointment_at" name="appointment_at" required>
+      </div>
+      <div class="form-group">
+        <label for="staff_name">Mitarbeiterin</label>
+        <select name="staff_name" id="newAppointmentStaff">
+          <option value="Ute">Ute</option>
+          <option value="Jessi">Jessi</option>
+        </select>
+        <div class="staff-quick-switch">
+          <button type="button" class="staff-pill active" data-target="newAppointmentStaff" data-value="Ute">Ute</button>
+          <button type="button" class="staff-pill" data-target="newAppointmentStaff" data-value="Jessi">Jessi</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="status">Status</label>
+        <select name="status" id="status">
+          <option value="geplant">geplant</option>
+          <option value="bestätigt">bestätigt</option>
+          <option value="erledigt">erledigt</option>
+          <option value="nicht erschienen">nicht erschienen</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="reminder_hours">Erinnerung in Stunden</label>
+        <input type="number" id="reminder_hours" name="reminder_hours" value="24">
+      </div>
+    </div>
+    <input type="hidden" name="actor_name" class="actor-name-field" value="">
+    <div class="form-group">
+      <label for="notes">Notizen</label>
+      <textarea id="notes" name="notes"></textarea>
+    </div>
+    <div class="actions">
+      <button type="submit">Termin speichern</button>
+      <a class="btn btn-secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender öffnen</a>
+    </div>
+  </form>
+</section>
+
+<section class="split-day-section space-top">
+  <div class="row-between wrap-mobile split-day-header">
+    <div>
+      <h2>Heute getrennt nach Mitarbeiterin</h2>
+      <div class="helper-text">So siehst du Termine von Ute und Jessi direkt in zwei eigenen Bereichen.</div>
+    </div>
+    <span class="badge">Heute</span>
+  </div>
+  <div class="split-day-grid space-top">
+    {% for staff_name, items in today_split.items() %}
+    <section class="card split-day-card">
+      <div class="row-between wrap-mobile">
+        <h3>{{ staff_name }}</h3>
+        <span class="badge">{{ items|length }} Termine</span>
+      </div>
+      <div class="list-stack space-top split-day-list">
+        {% for appt in items %}
+        <a class="list-item appointment-card appointment-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+          <div class="row-between wrap-mobile">
+            <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
+            <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['appointment_at']|dt }}</span>
+          </div>
+          <div class="mobile-line">{{ appt['title'] }}</div>
+          <div class="mobile-line">{{ appt['Customer_Mobiltelefon'] or appt['Customer_PersönlichesTelefon'] or 'Keine Nummer' }}</div>
+        </a>
+        {% else %}
+        <div class="list-item">Heute keine Termine für {{ staff_name }}.</div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card space-top">
+  <div class="row-between wrap-mobile">
+    <div>
+      <h2>Nächste Termine</h2>
+      <div class="helper-text">Überblick über die kommenden Buchungen. Mit einem Tipp öffnet sich direkt der Kontakt.</div>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('calendar_view', view='week', staff='Alle') }}">Wochenkalender</a>
+  </div>
+  <div class="list-stack space-top">
+    {% for appt in upcoming %}
+    <a class="list-item appointment-card appointment-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+      <div class="row-between wrap-mobile">
+        <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
+        <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
+      </div>
+      <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt['appointment_at']|dt }}</div>
+      <div class="mobile-line"><span class="mobile-label">Leistung:</span> {{ appt['title'] }}</div>
+      <div class="mobile-line"><span class="mobile-label">Mitarbeiterin:</span> {{ appt['staff_name'] or 'Ute' }}</div>
+    </a>
+    {% else %}
+    <div class="list-item">Noch keine nächsten Termine vorhanden.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const deviceStaff = localStorage.getItem("sk_device_staff") || "Ute";
+  document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
+  const newStaff = document.getElementById("newAppointmentStaff");
+  if (newStaff) {
+    newStaff.value = deviceStaff;
+    document.querySelectorAll('.staff-pill[data-target="newAppointmentStaff"]').forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.value === deviceStaff);
+    });
+  }
+
+  document.querySelectorAll(".staff-pill").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const targetId = button.dataset.target;
+      const value = button.dataset.value;
+      const select = document.getElementById(targetId);
+      if (!select) return;
+      select.value = value;
+      const wrapper = button.closest('.staff-quick-switch');
+      if (wrapper) {
+        wrapper.querySelectorAll('.staff-pill').forEach(function (pill) {
+          pill.classList.toggle('active', pill === button);
+        });
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

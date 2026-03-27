@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Datenbank - Salon Karola{% endblock %}
+{% block content %}
+<section class="hero-card">
+  <h1 class="hero-title">Datenbank-Tools</h1>
+  <p class="hero-text">Export, Backup und Import deiner SQLite-Datenbank. Version 3.3 Pro behebt Dashboard-Probleme nach dem Import und stabilisiert alte Datenbanken.</p>
+</section>
+<section class="grid grid-2">
+  <div class="card">
+    <h2>Aktuelle Datenbank</h2>
+    {% if db_info %}
+    <div class="list-stack">
+      {% for table, count in db_info.counts.items() %}
+      <div class="list-item"><strong>{{ table }}</strong>: {{ count }}</div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="list-item">Keine Datenbank gefunden.</div>
+    {% endif %}
+    <div class="actions space-top">
+      <a class="btn" href="{{ url_for('export_database') }}">SQLite exportieren</a>
+      <a class="btn btn-secondary" href="{{ url_for('export_database_zip') }}">ZIP Backup</a>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Datenbank importieren</h2>
+    <form method="post" enctype="multipart/form-data">
+      <div class="form-group"><label>Datei</label><input type="file" name="db_file" accept=".sqlite,.db,.backup" required></div>
+      <div class="form-group">
+        <label>Aktion</label>
+        <select name="action">
+          <option value="replace">Komplett ersetzen</option>
+          <option value="merge">Zusammenführen</option>
+        </select>
+      </div>
+      <button type="submit">Import starten</button>
+    </form>
+  </div>
+</section>
+<section class="card space-top">
+  <h2>Backups</h2>
+  <div class="list-stack">
+    {% for item in backup_files %}
+    <a class="list-item" href="{{ url_for('download_backup', filename=item.name) }}">{{ item.name }}</a>
+    {% else %}
+    <div class="list-item">Noch keine Backups vorhanden.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
