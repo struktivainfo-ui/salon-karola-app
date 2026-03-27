@@ -3,32 +3,83 @@
 {% block content %}
 <section class="hero-card">
   <h1 class="hero-title">Mail-Vorlagen</h1>
-  <p class="hero-text">Geburtstagsmails und Terminerinnerungen direkt bearbeiten.</p>
+  <p class="hero-text">Diese Vorlagen werden zentral gespeichert. Änderungen gelten nach dem Speichern auf allen Geräten im Salon.</p>
 </section>
 
 <section class="card">
-  <form method="post">
-    <h2>Geburtstag</h2>
-    <div class="form-group">
-      <label>Betreff</label>
-      <input type="text" name="birthdate_subject" value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}">
+  <div class="stats-grid compact-grid">
+    <div class="stat-card">
+      <div class="stat-label">Aktive Quelle</div>
+      <div class="stat-value">Zentrale Datenbank</div>
     </div>
-    <div class="form-group">
-      <label>Text</label>
-      <textarea name="birthdate_body">{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}</textarea>
+    <div class="stat-card">
+      <div class="stat-label">Bearbeitet von</div>
+      <div class="stat-value">{{ template_editor }}</div>
+    </div>
+  </div>
+  <p class="muted" style="margin-top:10px;">E-Mails werden zentral versendet und nicht pro Benutzer getrennt ausgelöst.</p>
+</section>
+
+<section class="card">
+  <form method="post" class="template-form-grid">
+    <div class="template-editor-card">
+      <h2>Geburtstagsmail</h2>
+      <p class="muted">Aktive Vorlage für Geburtstage.</p>
+      <div class="form-group">
+        <label>Betreff</label>
+        <input type="text" name="birthdate_subject" value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}">
+      </div>
+      <div class="form-group">
+        <label>Text</label>
+        <textarea name="birthdate_body" rows="10">{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}</textarea>
+      </div>
+      <div class="template-meta">
+        <strong>Zuletzt gespeichert:</strong>
+        <span>{{ templates['birthdate']['updated_at'] if 'birthdate' in templates and templates['birthdate']['updated_at'] else 'Systemstandard' }}</span><br>
+        <strong>Von:</strong>
+        <span>{{ templates['birthdate']['updated_by'] if 'birthdate' in templates and templates['birthdate']['updated_by'] else 'System' }}</span>
+      </div>
     </div>
 
-    <h2>Termin</h2>
-    <div class="form-group">
-      <label>Betreff</label>
-      <input type="text" name="appointment_subject" value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}">
-    </div>
-    <div class="form-group">
-      <label>Text</label>
-      <textarea name="appointment_body">{{ templates['appointment']['body'] if 'appointment' in templates else '' }}</textarea>
+    <div class="template-editor-card">
+      <h2>Terminerinnerung</h2>
+      <p class="muted">Aktive Vorlage für Erinnerungen vor einem Termin.</p>
+      <div class="form-group">
+        <label>Betreff</label>
+        <input type="text" name="appointment_subject" value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}">
+      </div>
+      <div class="form-group">
+        <label>Text</label>
+        <textarea name="appointment_body" rows="10">{{ templates['appointment']['body'] if 'appointment' in templates else '' }}</textarea>
+      </div>
+      <div class="template-meta">
+        <strong>Zuletzt gespeichert:</strong>
+        <span>{{ templates['appointment']['updated_at'] if 'appointment' in templates and templates['appointment']['updated_at'] else 'Systemstandard' }}</span><br>
+        <strong>Von:</strong>
+        <span>{{ templates['appointment']['updated_by'] if 'appointment' in templates and templates['appointment']['updated_by'] else 'System' }}</span>
+      </div>
     </div>
 
-    <button type="submit">Vorlagen speichern</button>
+    <div class="template-actions-row">
+      <button type="submit">Vorlagen speichern</button>
+    </div>
   </form>
+</section>
+
+<section class="card">
+  <h2>Vorschau der aktiven Vorlagen</h2>
+  <p class="muted">So sehen die aktuell gespeicherten Vorlagen beim Versand ungefähr aus.</p>
+  <div class="template-form-grid">
+    <div class="template-editor-card preview-card">
+      <h3>Geburtstagsmail Vorschau</h3>
+      <div class="preview-subject"><strong>Betreff:</strong> {{ previews['birthdate']['subject'] }}</div>
+      <pre class="preview-body">{{ previews['birthdate']['body'] }}</pre>
+    </div>
+    <div class="template-editor-card preview-card">
+      <h3>Terminerinnerung Vorschau</h3>
+      <div class="preview-subject"><strong>Betreff:</strong> {{ previews['appointment']['subject'] }}</div>
+      <pre class="preview-body">{{ previews['appointment']['body'] }}</pre>
+    </div>
+  </div>
 </section>
 {% endblock %}
