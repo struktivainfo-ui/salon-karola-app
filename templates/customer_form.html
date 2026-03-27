@@ -19,6 +19,26 @@
   </div>
 </section>
 
+
+{% if customer %}
+<section class="app-hero customer-action-hero">
+  <div>
+    <span class="eyebrow">Schnellzugriff</span>
+    <h2 class="app-hero-title customer-action-title">Kundenaktionen auf einen Blick</h2>
+    <p class="app-hero-text">Direkt anrufen, sofort per WhatsApp schreiben oder ohne Umweg einen neuen Termin anlegen.</p>
+  </div>
+  <div class="hero-actions-grid">
+    {% if customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] %}
+    <a class="hero-action primary" href="{{ (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'])|phone_href }}">📞 Anrufen</a>
+    {% endif %}
+    {% if wa_link %}
+    <a class="hero-action" href="{{ wa_link }}" target="_blank" rel="noopener">💬 WhatsApp</a>
+    {% endif %}
+    <a class="hero-action" href="#termin-hinzufuegen">📅 Termin anlegen</a>
+  </div>
+</section>
+{% endif %}
+
 <section class="card">
   <form method="post">
     <div class="form-row">
@@ -59,7 +79,7 @@
 </section>
 
 <section class="grid grid-2 space-top">
-  <div class="card">
+  <div class="card" id="termin-hinzufuegen">
     <h2>Termin hinzufügen</h2>
     <form method="post" action="{{ url_for('appointment_new', customer_id=customer['_id']) }}" class="appointment-sync-form">
       <div class="form-row">

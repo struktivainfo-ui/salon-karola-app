@@ -64,7 +64,7 @@
       <div class="day-timeline compact-timeline space-top">
         {% for slot in staff_day['timeline']['slots'] %}
         <div class="day-slot">
-          <div class="day-slot-time">{{ slot['time'] }}</div>
+          <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff if staff != 'Alle' else 'Ute', source='slot') }}">{{ slot['time'] }}</a>
           <div class="day-slot-content">
             {% for appt in slot['items'] %}
             <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
@@ -124,7 +124,7 @@
   <div class="day-timeline space-top">
     {% for slot in day_view['timeline']['slots'] %}
     <div class="day-slot">
-      <div class="day-slot-time">{{ slot['time'] }}</div>
+      <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff if staff != 'Alle' else 'Ute', source='slot') }}">{{ slot['time'] }}</a>
       <div class="day-slot-content">
         {% for appt in slot['items'] %}
         <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">

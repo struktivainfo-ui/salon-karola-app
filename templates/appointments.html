@@ -22,6 +22,7 @@
     <span class="badge">Termineingabe</span>
   </div>
   <form method="post" class="appointment-sync-form space-top">
+    <input type="hidden" name="source" value="{{ prefill_source }}">
     <div class="form-row">
       <div class="form-group">
         <label for="customer_id">Name / Kontakt</label>
@@ -38,13 +39,13 @@
       </div>
       <div class="form-group">
         <label for="appointment_at">Termin</label>
-        <input type="datetime-local" id="appointment_at" name="appointment_at" required>
+        <input type="datetime-local" id="appointment_at" name="appointment_at" value="{{ prefill_at }}" required>
       </div>
       <div class="form-group">
         <label for="staff_name">Mitarbeiterin</label>
         <select name="staff_name" id="newAppointmentStaff">
-          <option value="Ute">Ute</option>
-          <option value="Jessi">Jessi</option>
+          <option value="Ute" {% if prefill_staff == 'Ute' %}selected{% endif %}>Ute</option>
+          <option value="Jessi" {% if prefill_staff == 'Jessi' %}selected{% endif %}>Jessi</option>
         </select>
         <div class="staff-quick-switch">
           <button type="button" class="staff-pill active" data-target="newAppointmentStaff" data-value="Ute">Ute</button>
@@ -70,12 +71,42 @@
       <label for="notes">Notizen</label>
       <textarea id="notes" name="notes"></textarea>
     </div>
+    <section class="card soft-card space-top">
+      <h3>Manuell anlegen</h3>
+      <div class="form-row">
+        <div class="form-group"><label for="manual_firstname">Vorname</label><input type="text" id="manual_firstname" name="manual_firstname"></div>
+        <div class="form-group"><label for="manual_lastname">Nachname</label><input type="text" id="manual_lastname" name="manual_lastname"></div>
+        <div class="form-group"><label for="manual_phone">Telefon</label><input type="text" id="manual_phone" name="manual_phone"></div>
+        <div class="form-group"><label for="manual_email">E-Mail</label><input type="email" id="manual_email" name="manual_email"></div>
+      </div>
+      <div class="helper-text">Wenn oben kein Kontakt ausgewählt wird, wird beim Speichern automatisch ein neuer Kontakt mit diesen Daten angelegt.</div>
+    </section>
     <div class="actions">
       <button type="submit">Termin speichern</button>
       <a class="btn btn-secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender öffnen</a>
     </div>
   </form>
 </section>
+<section class="card slot-entry-card space-top">
+  <div class="row-between wrap-mobile">
+    <div>
+      <h2>Schnelleingabe aus Uhrzeit</h2>
+      <div class="helper-text">Wenn du in der Tagesansicht auf eine Uhrzeit drückst, landet die Zeit hier. Du kannst dann einen Kontakt aus der Datenbank einsetzen oder den Termin direkt manuell anlegen.</div>
+    </div>
+    <span class="badge">{{ prefill_at }}</span>
+  </div>
+  <div class="split-day-grid space-top">
+    <div class="card soft-card">
+      <h3>Aus Datenbank einsetzen</h3>
+      <div class="helper-text">Wähle oben einfach den Kontakt aus der Liste und speichere den Termin.</div>
+    </div>
+    <div class="card soft-card">
+      <h3>Manuell anlegen</h3>
+      <div class="helper-text">Die manuellen Felder liegen jetzt direkt im Formular oben und werden sauber mitgespeichert.</div>
+    </div>
+  </div>
+</section>
+
 
 <section class="split-day-section space-top">
   <div class="row-between wrap-mobile split-day-header">
@@ -138,7 +169,7 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  const deviceStaff = localStorage.getItem("sk_device_staff") || "Ute";
+  const deviceStaff = "{{ prefill_staff }}" || localStorage.getItem("sk_device_staff") || "Ute";
   document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
   const newStaff = document.getElementById("newAppointmentStaff");
   if (newStaff) {
