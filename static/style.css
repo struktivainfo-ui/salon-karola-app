@@ -1398,3 +1398,31 @@ body {
     border-radius: 24px;
   }
 }
+
+
+.customer-action-hero {
+  margin-top: 16px;
+  margin-bottom: 18px;
+}
+
+.customer-action-title {
+  font-size: 1.6rem;
+}
+
+.customer-action-hero .hero-actions-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.customer-action-hero .hero-action {
+  min-height: 92px;
+}
+
+@media (max-width: 900px) {
+  .customer-action-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-action-hero .hero-actions-grid {
+    grid-template-columns: 1fr;
+  }
+}
