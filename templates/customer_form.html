@@ -9,6 +9,9 @@
     </div>
     <div class="actions">
       <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurück</a>
+      {% if customer and (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon']) %}
+      <a class="btn btn-secondary" href="{{ (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'])|phone_href }}">📞 Anrufen</a>
+      {% endif %}
       {% if customer %}
       <span class="badge badge-health-{{ customer_status }}">Kundenstatus: {{ customer_status }}</span>
       {% endif %}
@@ -44,10 +47,11 @@
 {% if customer %}
 <section class="card space-top">
   <div class="row-between wrap-mobile">
-    <h2>WhatsApp Vorlagen</h2>
+    <h2>Kontaktaktionen</h2>
     <span class="badge">1 Klick</span>
   </div>
   <div class="quick-actions">
+    {% if customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] %}<a class="quick-action" href="{{ (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'])|phone_href }}">📞 Direkt anrufen</a>{% endif %}
     {% if wa_link %}<a class="quick-action" href="{{ wa_link }}" target="_blank" rel="noopener">💬 Allgemeine Nachricht</a>{% endif %}
     {% if wa_next_appt_link %}<a class="quick-action" href="{{ wa_next_appt_link }}" target="_blank" rel="noopener">📅 Terminbestätigung</a>{% endif %}
     {% if wa_comeback_link %}<a class="quick-action" href="{{ wa_comeback_link }}" target="_blank" rel="noopener">🔁 Rückholung</a>{% endif %}
