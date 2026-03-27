@@ -77,7 +77,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional v6.1 Final Stable Pro"
+APP_VERSION = "Salon Karola CRM Professional v6.1.4 Menu Stability Fix"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=APP_TIMEZONE)
