@@ -12,3 +12,6 @@ Diese Version enthält:
 - Dateien in GitHub hochladen
 - in Render die Persistent Disk unter `/opt/render/project/src/data` nutzen
 - Start Command: `gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application`
+
+
+Version: v6.1 Final Stable Pro

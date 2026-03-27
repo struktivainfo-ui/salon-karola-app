@@ -69,7 +69,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional 4.7.3 Final Kundenaktionen"
+APP_VERSION = "Salon Karola CRM Professional v6.1 Final Stable Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -118,6 +118,35 @@ def set_setting(key, value):
             (key, value),
         )
         conn.commit()
+
+
+
+def acquire_automation_lock(ttl_seconds=120):
+    now = datetime.now()
+    lock_until = (now + timedelta(seconds=ttl_seconds)).isoformat(timespec="seconds")
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute("SELECT value FROM app_settings WHERE key = ?", ("automation:lock_until",)).fetchone()
+        existing_until = _parse_dt_safe(row[0]) if row and row[0] else None
+        if existing_until and existing_until > now:
+            conn.rollback()
+            return False
+        conn.execute(
+            """
+            INSERT INTO app_settings(key, value) VALUES(?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            ("automation:lock_until", lock_until),
+        )
+        conn.commit()
+        return True
+
+
+def release_automation_lock():
+    try:
+        set_setting("automation:lock_until", "")
+    except Exception:
+        pass
 
 def table_columns(table_name):
     try:
@@ -1098,6 +1127,8 @@ def run_automation_if_due(force=False):
     last_run = _parse_dt_safe(get_setting("automation:last_run_at"))
     if not force and last_run and (now - last_run).total_seconds() < AUTOMATION_MIN_INTERVAL_SECONDS:
         return {"ok": True, "skipped": True}
+    if not acquire_automation_lock(ttl_seconds=max(90, AUTOMATION_MIN_INTERVAL_SECONDS)):
+        return {"ok": True, "skipped": True, "locked": True}
     try:
         return scheduler_tick()
     except Exception as exc:
@@ -1106,6 +1137,8 @@ def run_automation_if_due(force=False):
         except Exception:
             pass
         return {"ok": False, "error": str(exc)}
+    finally:
+        release_automation_lock()
 
 
 @app.before_request
@@ -1390,6 +1423,9 @@ def index():
     db = get_db()
     q = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
+    sort = (request.args.get("sort") or "az").strip().lower()
+    if sort not in {"az", "za", "recent"}:
+        sort = "az"
 
     base_query = """
         SELECT c.*, MAX(a.appointment_at) AS last_appointment_at
@@ -1418,7 +1454,13 @@ def index():
     if conditions:
         base_query += " WHERE " + " AND ".join(conditions)
 
-    base_query += " GROUP BY c._id ORDER BY c._name, c._firstname LIMIT 200"
+    order_sql = "COALESCE(c._name, ''), COALESCE(c._firstname, '')"
+    if sort == "za":
+        order_sql = "COALESCE(c._name, '') DESC, COALESCE(c._firstname, '') DESC"
+    elif sort == "recent":
+        order_sql = "MAX(a.appointment_at) DESC, COALESCE(c._name, ''), COALESCE(c._firstname, '')"
+
+    base_query += f" GROUP BY c._id ORDER BY {order_sql} LIMIT 200"
     customers = db.execute(base_query, params).fetchall()
     tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
 
@@ -1438,6 +1480,7 @@ def index():
         customers=customers,
         q=q,
         tag=tag,
+        sort=sort,
         stats=stats,
         upcoming=next_appointments(),
         birthdays=upcoming_birthdays(),
@@ -1555,6 +1598,44 @@ def customer_detail(customer_id):
         current_endpoint="customer_detail",
         app_version=APP_VERSION,
     )
+
+
+
+
+@app.route("/api/customer/<int:customer_id>/summary")
+@login_required
+def customer_summary_api(customer_id):
+    db = get_db()
+    customer = db.execute("SELECT * FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
+    if not customer:
+        return jsonify({"ok": False, "error": "Kontakt nicht gefunden."}), 404
+
+    latest_appointment = db.execute(
+        "SELECT appointment_at, title, staff_name, status FROM appointments WHERE customer_id = ? ORDER BY appointment_at DESC LIMIT 1",
+        (customer_id,),
+    ).fetchone()
+    tags = [
+        r["tag"]
+        for r in db.execute("SELECT tag FROM customer_tags WHERE customer_id = ? ORDER BY tag", (customer_id,)).fetchall()
+    ]
+    return jsonify({
+        "ok": True,
+        "item": {
+            "id": customer["_id"],
+            "name": customer_full_name(customer),
+            "email": customer["_mail"] or "",
+            "phone": customer_phone(customer),
+            "city": customer["Customer_Stadt"] or "",
+            "address": customer["Customer_Adresse"] or "",
+            "zip": customer["Customer_Postleitzahl"] or "",
+            "notes": customer["_notes"] or "",
+            "birthdate": customer["_birthdate"] or "",
+            "tags": tags,
+            "latest_appointment": dict(latest_appointment) if latest_appointment else None,
+            "detail_url": url_for("customer_detail", customer_id=customer_id),
+            "call_url": normalized_phone_number(customer_phone(customer)) and f"tel:{normalized_phone_number(customer_phone(customer))}" or "",
+        }
+    })
 
 
 def save_tags(customer_id, tags_text):
@@ -1875,19 +1956,45 @@ def appointments_hub():
         actor_name = (request.form.get("actor_name") or "").strip() or staff_name
         notes = (request.form.get("notes") or "").strip()
         reminder_hours = int(request.form.get("reminder_hours", "24") or 24)
+        manual_firstname = (request.form.get("manual_firstname") or "").strip()
+        manual_lastname = (request.form.get("manual_lastname") or "").strip()
+        manual_phone = (request.form.get("manual_phone") or "").strip()
+        manual_email = (request.form.get("manual_email") or "").strip()
 
-        if not customer_id_raw.isdigit():
-            flash("Bitte zuerst einen Kontakt auswählen.")
-            return redirect(url_for("appointments_hub"))
         if not appointment_at:
             flash("Bitte Datum und Uhrzeit für den Termin angeben.")
             return redirect(url_for("appointments_hub"))
 
-        customer_id = int(customer_id_raw)
-        customer_row = db.execute("SELECT _id FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
-        if not customer_row:
-            flash("Der ausgewählte Kontakt wurde nicht gefunden.")
-            return redirect(url_for("appointments_hub"))
+        customer_id = None
+        if customer_id_raw.isdigit():
+            customer_id = int(customer_id_raw)
+            customer_row = db.execute("SELECT _id FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
+            if not customer_row:
+                flash("Der ausgewählte Kontakt wurde nicht gefunden.")
+                return redirect(url_for("appointments_hub"))
+        else:
+            if not (manual_firstname or manual_lastname):
+                flash("Bitte einen Kontakt aus der Datenbank wählen oder Name für den manuellen Termin eintragen.")
+                return redirect(url_for("appointments_hub"))
+            cur = db.execute(
+                """
+                INSERT INTO _Customers(_name, _firstname, _mail, _birthdate, _notes, Customer_Adresse, Customer_PersönlichesTelefon, Customer_Mobiltelefon, Customer_Postleitzahl, Customer_Stadt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    manual_lastname,
+                    manual_firstname,
+                    manual_email,
+                    None,
+                    f"Automatisch aus Termin-Schnelleingabe erstellt.\n{notes}".strip(),
+                    "",
+                    manual_phone,
+                    manual_phone,
+                    "",
+                    "",
+                ),
+            )
+            customer_id = cur.lastrowid
 
         db.execute(
             """
@@ -1932,6 +2039,14 @@ def appointments_hub():
         staff_name = (row["staff_name"] or "Ute") if row["staff_name"] in {"Ute", "Jessi"} else "Ute"
         today_split.setdefault(staff_name, []).append(row)
 
+    prefill_at = (request.args.get("appointment_at") or "").strip()
+    if not prefill_at:
+        prefill_at = datetime.now().replace(second=0, microsecond=0).isoformat(timespec="minutes")
+    prefill_staff = (request.args.get("staff") or "Ute").strip()
+    if prefill_staff not in {"Ute", "Jessi"}:
+        prefill_staff = "Ute"
+    prefill_source = (request.args.get("source") or "manual").strip()
+
     return render_template(
         "appointments.html",
         customers=customers,
@@ -1939,6 +2054,9 @@ def appointments_hub():
         upcoming=next_appointments(limit=20),
         current_endpoint="appointments_hub",
         app_version=APP_VERSION,
+        prefill_at=prefill_at,
+        prefill_staff=prefill_staff,
+        prefill_source=prefill_source,
     )
 
 
