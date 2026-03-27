@@ -48,6 +48,14 @@ except Exception:
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 DB_PATH = Path(os.getenv("DATABASE_PATH", str(BASE_DIR / "salon_karola.db")))
+APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Europe/Berlin")
+os.environ.setdefault("TZ", APP_TIMEZONE)
+try:
+    import time as _time
+    if hasattr(_time, "tzset"):
+        _time.tzset()
+except Exception:
+    pass
 
 app = Flask(
     __name__,
@@ -69,10 +77,10 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional v6.1.2 Final Clean"
+APP_VERSION = "Salon Karola CRM Professional v6.1 Final Stable Pro"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
-scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
+scheduler = BackgroundScheduler(timezone=APP_TIMEZONE)
 AUTOMATION_MIN_INTERVAL_SECONDS = int(os.getenv("AUTOMATION_MIN_INTERVAL_SECONDS", "300"))
 
 
@@ -2029,7 +2037,7 @@ def appointments_hub():
         SELECT _id, COALESCE(_firstname, '') AS firstname, COALESCE(_name, '') AS lastname,
                COALESCE(Customer_Mobiltelefon, Customer_PersönlichesTelefon, '') AS phone
         FROM _Customers
-        ORDER BY COALESCE(_name, ''), COALESCE(_firstname, '')
+        ORDER BY COALESCE(_name, '') COLLATE NOCASE ASC, COALESCE(_firstname, '') COLLATE NOCASE ASC
         LIMIT 500
         """
     ).fetchall()

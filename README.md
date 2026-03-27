@@ -14,4 +14,4 @@ Diese Version enthält:
 - Start Command: `gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application`
 
 
-Version: v6.1.2 Final Clean
+Version: v6.1 Final Stable Pro
