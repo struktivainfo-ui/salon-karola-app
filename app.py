@@ -69,7 +69,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional 5.5.1 Kalender Fix"
+APP_VERSION = "Salon Karola CRM Professional 5.6 Clean Stable"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
