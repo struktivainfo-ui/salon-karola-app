@@ -127,7 +127,7 @@
         <input type="hidden" id="customerSearchId" value="">
         <datalist id="customerSearchOptions">
           {% for customer in customers %}
-          <option value="{{ customer['_firstname'] }} {{ customer['_name'] }}{% if customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] %} — {{ customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] }}{% endif %}" data-id="{{ customer['_id'] }}"></option>
+          <option value="{{ customer['_name'] }}{% if customer['_firstname'] %}, {{ customer['_firstname'] }}{% endif %}{% if customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] %} — {{ customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] }}{% endif %}" data-id="{{ customer['_id'] }}"></option>
           {% endfor %}
         </datalist>
         <div class="helper-text">Bei der Suche kommt der Name jetzt wieder mit Auswahl. Wenn du einen Kontakt auswählst, kannst du ihn sofort im Extra-Fenster öffnen.</div>

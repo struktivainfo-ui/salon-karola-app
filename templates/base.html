@@ -39,7 +39,6 @@
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
       <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menü schließen">×</button>
-      <div class="menu-overlay" id="menuOverlay" aria-hidden="true"></div>
       <nav class="nav-links" id="mainNavLinks" hidden>
         <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}" data-nav-link="dashboard">Dashboard</a>
         <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
@@ -60,6 +59,7 @@
       </nav>
     </div>
   </header>
+  <div class="menu-overlay" id="menuOverlay" aria-hidden="true"></div>
   {% endif %}
   <main class="container">
     {% with messages = get_flashed_messages() %}

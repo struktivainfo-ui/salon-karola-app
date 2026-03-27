@@ -26,10 +26,10 @@
     <div class="form-row">
       <div class="form-group">
         <label for="customer_id">Name / Kontakt</label>
-        <select name="customer_id" id="customer_id" required>
+        <select name="customer_id" id="customer_id">
           <option value="">Kontakt auswählen</option>
           {% for customer in customers %}
-          <option value="{{ customer['_id'] }}">{{ customer['firstname'] }} {{ customer['lastname'] }}{% if customer['phone'] %} · {{ customer['phone'] }}{% endif %}</option>
+          <option value="{{ customer['_id'] }}">{{ customer['lastname'] }}{% if customer['firstname'] %}, {{ customer['firstname'] }}{% endif %}{% if customer['phone'] %} · {{ customer['phone'] }}{% endif %}</option>
           {% endfor %}
         </select>
       </div>
