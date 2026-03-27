@@ -120,8 +120,17 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Termine</h1>
-      <p class="hero-text">Klare Tages-, Wochen- und Monatsansicht für einen schnellen Überblick im Salon.</p>
+      <p class="hero-text">Klare Tages-, Wochen- und Monatsansicht mit direktem Schnellzugriff. Mobil und am Laptop bewusst stabil gehalten.</p>
     </div>
+  </div>
+</section>
+
+<section class="card compact-calendar-shortcuts">
+  <div class="quick-actions compact-quick-actions">
+    <a class="quick-action quick-action-calendar" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=staff) }}">📅 Tag</a>
+    <a class="quick-action quick-action-calendar" href="{{ url_for('calendar_view', view='week', date=selected_date, staff=staff) }}">🗓️ Woche</a>
+    <a class="quick-action quick-action-calendar" href="{{ url_for('calendar_view', view='month', date=selected_date, staff=staff) }}">📆 Monat</a>
+    <a class="quick-action" href="#quickAppointmentCustomer">➕ Schnell-Termin</a>
   </div>
 </section>
 
@@ -163,7 +172,7 @@
       <h2>Schnell-Termin</h2>
       <div class="helper-text">Termin direkt manuell eintragen. Bestehende Namen aus der Datenbank ploppen sofort auf.</div>
     </div>
-    <span class="badge">v5.5 UX Final</span>
+    <span class="badge">v5.6 Clean Stable</span>
   </div>
   <form method="post" action="{{ url_for('appointment_manual') }}" class="space-top appointment-sync-form">
     <div class="form-row">
