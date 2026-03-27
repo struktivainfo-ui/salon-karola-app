@@ -813,8 +813,9 @@ td {
   .topbar {
     position: sticky;
     top: 0;
-    z-index: 240;
+    z-index: 1000;
     backdrop-filter: blur(12px);
+    isolation: isolate;
   }
 
   .topbar-inner {
@@ -839,7 +840,7 @@ td {
     align-items: center;
     box-shadow: 0 12px 24px rgba(0,0,0,.22);
     position: relative;
-    z-index: 271;
+    z-index: 1002;
   }
 
   .menu-close.mobile-menu-only {
@@ -860,7 +861,7 @@ td {
     transform: translateY(-6px);
     transition: opacity .2s ease, transform .2s ease;
     position: relative;
-    z-index: 271;
+    z-index: 1002;
   }
 
   .menu-close.mobile-menu-only.visible {
@@ -891,7 +892,7 @@ td {
     visibility: hidden;
     pointer-events: none;
     transition: transform .24s ease, opacity .2s ease, visibility .2s ease;
-    z-index: 270;
+    z-index: 1001;
     margin: 0 !important;
   }
 
@@ -932,7 +933,7 @@ td {
     background: rgba(255,255,255,.02);
     border: 1px solid rgba(212,175,55,.18);
     position: relative;
-    z-index: 275;
+    z-index: 1003;
     pointer-events: auto !important;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -966,7 +967,7 @@ td {
     visibility: hidden;
     pointer-events: none;
     transition: opacity .2s ease, visibility .2s ease;
-    z-index: 250;
+    z-index: 1000;
   }
 
   .menu-overlay.active {
@@ -1252,32 +1253,6 @@ td {
 }
 
 @media (max-width: 768px) {
-  .nav-links {
-    top: calc(env(safe-area-inset-top, 0px) + 132px) !important;
-    left: 12px !important;
-    right: 12px !important;
-    z-index: 6000;
-  }
-
-  .nav-links.mobile-open:not([hidden]) {
-    pointer-events: auto !important;
-  }
-
-  .nav-links a,
-  .nav-links.mobile-open:not([hidden]) a {
-    pointer-events: auto !important;
-    z-index: 6002 !important;
-  }
-
-  .menu-overlay {
-    z-index: 5990 !important;
-  }
-
-  .menu-toggle.mobile-only-inline,
-  .menu-close.mobile-menu-only {
-    z-index: 6005 !important;
-  }
-
   .push-page-grid {
     grid-template-columns: 1fr;
   }
