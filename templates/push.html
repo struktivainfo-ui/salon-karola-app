@@ -5,7 +5,7 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Push-System</h1>
-      <p class="muted">Hier ordnest du dieses Handy Ute, Jessi oder Alle zu, testest Push-Nachrichten und siehst registrierte Geräte.</p>
+      <p class="muted">Hier ordnest du dieses Handy Ute oder Jessi zu, testest Push-Nachrichten und siehst registrierte Geräte.</p>
     </div>
   </div>
 </section>
@@ -17,7 +17,6 @@
     <select id="deviceStaffSelect">
       <option value="Ute">Ute</option>
       <option value="Jessi">Jessi</option>
-      <option value="Alle">Alle</option>
     </select>
 
     <label for="deviceNameInput">Gerätename</label>
@@ -43,7 +42,6 @@
     <div class="stats-grid compact-stats">
       <div class="stat-card"><div class="stat-label">Ute</div><div class="stat-value" id="uteCount">0</div></div>
       <div class="stat-card"><div class="stat-label">Jessi</div><div class="stat-value" id="jessiCount">0</div></div>
-      <div class="stat-card"><div class="stat-label">Alle</div><div class="stat-value" id="allCount">0</div></div>
       <div class="stat-card"><div class="stat-label">Aktiv</div><div class="stat-value" id="activeCount">0</div></div>
       <div class="stat-card"><div class="stat-label">Gesamt</div><div class="stat-value" id="totalCount">0</div></div>
     </div>
@@ -58,7 +56,6 @@
   const reloadBtn = document.getElementById('reloadDevicesBtn');
   const uteCount = document.getElementById('uteCount');
   const jessiCount = document.getElementById('jessiCount');
-  const allCount = document.getElementById('allCount');
   const activeCount = document.getElementById('activeCount');
   const totalCount = document.getElementById('totalCount');
 
@@ -68,7 +65,6 @@
       const data = await res.json();
       uteCount.textContent = data.ute_devices || 0;
       jessiCount.textContent = data.jessi_devices || 0;
-      allCount.textContent = data.all_devices || 0;
       activeCount.textContent = data.active_devices || 0;
       totalCount.textContent = data.total_devices || 0;
     } catch (e) {}

@@ -1,18 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{% if customer %}Kontakt{% else %}Neuer Kontakt{% endif %} - Salon Karola<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const deviceStaff = localStorage.getItem("sk_device_staff") || "Ute";
-    document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
-    const newStaff = document.getElementById("newAppointmentStaff");
-    if (newStaff) {
-      newStaff.value = deviceStaff;
-      document.querySelectorAll('.staff-pill[data-target="newAppointmentStaff"]').forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.value === deviceStaff);
-      });
-    }
-  });
-</script>
-{% endblock %}
+{% block title %}{% if customer %}Kontakt{% else %}Neuer Kontakt{% endif %} - Salon Karola{% endblock %}
 {% block content %}
 <section class="hero-card">
   <div class="hero-row">

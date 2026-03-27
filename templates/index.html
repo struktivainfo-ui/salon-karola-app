@@ -4,15 +4,15 @@
 <section class="app-hero">
   <div class="app-hero-copy">
     <span class="eyebrow">Salon Karola App</span>
-    <h1 class="app-hero-title">Alles Wichtige auf einen Blick</h1>
-    <p class="app-hero-text">Kunden, Termine, WhatsApp und Rückholung in einer klaren Oberfläche für den Alltag im Salon.</p>
+    <h1 class="app-hero-title">Heute im Salon</h1>
+    <p class="app-hero-text">Eine klare Premium-Oberfläche für Kunden, Termine, Kalender, WhatsApp und den täglichen Überblick im Salon.</p>
   </div>
   <div class="hero-actions-grid">
     <a class="hero-action primary" href="{{ url_for('customer_new') }}">Neuer Kontakt</a>
-    <a class="hero-action" href="{{ url_for('calendar_view') }}">Termine</a>
+    <a class="hero-action" href="{{ url_for('appointments_hub') }}">Termine</a>
+    <a class="hero-action" href="{{ url_for('calendar_view') }}">Kalender</a>
     <a class="hero-action" href="{{ url_for('whatsapp_hub') }}">WhatsApp</a>
     <a class="hero-action" href="{{ url_for('templates_view') }}">Vorlagen</a>
-    <a class="hero-action" href="{{ url_for('push_center') }}">Push</a>
   </div>
 </section>
 
@@ -47,9 +47,9 @@
     </div>
   </div>
   <div class="quick-actions clean-actions">
-    <a class="quick-action" href="{{ url_for('customer_new') }}">➕ Kunde</a>
-    <a class="quick-action quick-action-calendar" href="{{ url_for('calendar_view', view='day') }}">📅 Kalender</a>
-    <a class="quick-action" href="{{ url_for('push_center') }}">🔔 Push</a>
+    <a class="quick-action" href="{{ url_for('customer_new') }}">➕ Kunde anlegen</a>
+    <a class="quick-action" href="{{ url_for('appointments_hub') }}">🗓️ Termine öffnen</a>
+    <a class="quick-action" href="{{ url_for('calendar_view') }}">📅 Kalender öffnen</a>
     <a class="quick-action" href="{{ url_for('templates_view') }}">✉️ Vorlagen</a>
     <a class="quick-action" href="{{ url_for('whatsapp_hub') }}">💬 WhatsApp</a>
     <a class="quick-action" href="{{ url_for('run_automation_now') }}">⚡ Automatik</a>
@@ -65,10 +65,9 @@
       </div>
     </div>
     <form method="get" class="grid grid-2">
-      <div class="form-group customer-search-group">
+      <div class="form-group">
         <label>Suche</label>
-        <input type="text" id="dashboardSearchInput" name="q" value="{{ q }}" placeholder="Name, Mail, Stadt, Telefon" autocomplete="off">
-        <div id="dashboardSearchResults" class="autocomplete-box" hidden></div>
+        <input type="text" name="q" value="{{ q }}" placeholder="Name, Mail, Stadt, Telefon">
       </div>
       <div class="form-group">
         <label>Tag</label>
@@ -116,7 +115,7 @@
         <span class="eyebrow">Kalender</span>
         <h2>Nächste Termine</h2>
       </div>
-      <a class="btn btn-secondary" href="{{ url_for('calendar_view') }}">Kalender</a>
+      <div class="actions wrap-mobile"><a class="btn btn-secondary" href="{{ url_for('appointments_hub') }}">Termine</a><a class="btn btn-secondary" href="{{ url_for('calendar_view') }}">Kalender</a></div>
     </div>
     <div class="list-stack">
       {% for appt in upcoming %}
@@ -158,22 +157,6 @@
       <div class="list-item soft-item">Aktuell keine inaktiven Kunden.</div>
       {% endfor %}
     </div>
-  </div>
-</section>
-
-<section class="card clean-card space-top">
-  <div class="panel-header">
-    <div>
-      <span class="eyebrow">Alphabet</span>
-      <h2>Datenbank A–Z</h2>
-    </div>
-    <span class="badge">{{ customers|length }} Treffer</span>
-  </div>
-  <div class="alphabet-bar space-top">
-    <a class="alphabet-chip {% if alpha == 'ALLE' %}active{% endif %}" href="{{ url_for('index', q=q, tag=tag) }}">Alle</a>
-    {% for item in alphabet %}
-    <a class="alphabet-chip {% if item.active %}active{% endif %} {% if not item.available %}disabled{% endif %}" href="{{ url_for('index', q=q, tag=tag, alpha=item.letter) }}">{{ item.letter }}</a>
-    {% endfor %}
   </div>
 </section>
 
@@ -224,37 +207,4 @@
     {% endfor %}
   </div>
 </section>
-<script>
-(function(){
-  const input = document.getElementById('dashboardSearchInput');
-  const box = document.getElementById('dashboardSearchResults');
-  if (!input || !box) return;
-  let timer = null;
-  function render(items){
-    if (!items.length){ box.hidden = true; box.innerHTML=''; return; }
-    box.innerHTML = items.map((item) => `
-      <a class="autocomplete-item" href="${item.url}">
-        <strong>${item.label || 'Unbekannt'}</strong>
-        <span>${item.phone || item.email || item.city || ''}</span>
-      </a>`).join('');
-    box.hidden = false;
-  }
-  input.addEventListener('input', () => {
-    clearTimeout(timer);
-    const q = input.value.trim();
-    if (q.length < 1){ render([]); return; }
-    timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/customers/search?q=${encodeURIComponent(q)}&limit=8`, {cache:'no-store'});
-        const data = await res.json();
-        render(data.items || []);
-      } catch (e) { render([]); }
-    }, 120);
-  });
-  document.addEventListener('click', (event) => {
-    if (!event.target.closest('.customer-search-group')) render([]);
-  });
-})();
-</script>
 {% endblock %}
-

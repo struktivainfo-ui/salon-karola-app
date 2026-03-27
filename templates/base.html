@@ -28,40 +28,35 @@
   </div>
   {% endif %}
   {% if session.get('admin_logged_in') %}
-  <header class="topbar clean-topbar">
+  <header class="topbar">
     <div class="container topbar-inner">
       <div class="brand">
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
           <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">Kunden · Kalender · Organisation</div>
+          <div class="brand-subtitle">Salon-Organisation</div>
         </div>
       </div>
-      <nav class="nav-links clean-nav" id="mainNavLinks">
+      <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
+      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menü schließen">×</button>
+      <nav class="nav-links" id="mainNavLinks" hidden>
         <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}" data-nav-link="dashboard">Dashboard</a>
         <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}" data-nav-link="kunden">Kunden</a>
-        <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view', view='day') }}" data-nav-link="termine">Termine</a>
-        <a class="{% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('push_center') }}" data-nav-link="push">Push</a>
         <a class="{% if current_endpoint == 'whatsapp_hub' %}active{% endif %}" href="{{ url_for('whatsapp_hub') }}" data-nav-link="whatsapp">WhatsApp</a>
+        <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>
+        <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('templates_view') }}" data-nav-link="vorlagen">Vorlagen</a>
         <a class="{% if current_endpoint == 'import_customers' %}active{% endif %}" href="{{ url_for('import_customers') }}" data-nav-link="import">Import</a>
         <a class="{% if current_endpoint == 'email_logs' %}active{% endif %}" href="{{ url_for('email_logs') }}" data-nav-link="logs">Logs</a>
         <a class="{% if current_endpoint == 'database_tools' %}active{% endif %}" href="{{ url_for('database_tools') }}" data-nav-link="datenbank">Datenbank</a>
+                <a class="{% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('push_center') }}" data-nav-link="push">Push</a>
         <a href="{{ url_for('logout') }}" data-nav-link="logout">Logout</a>
       </nav>
     </div>
   </header>
+  <div class="menu-overlay" id="menuOverlay" aria-hidden="true"></div>
   {% endif %}
-  {% if session.get('admin_logged_in') %}
-  <nav class="mobile-bottom-nav" aria-label="Schnellnavigation">
-    <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">🏠<span>Start</span></a>
-    <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}">👤<span>Kunden</span></a>
-    <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view', view='day') }}">📅<span>Kalender</span></a>
-    <a class="{% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('push_center') }}">🔔<span>Push</span></a>
-  </nav>
-  {% endif %}
-
-  <main class="container main-shell">
+  <main class="container">
     {% with messages = get_flashed_messages() %}
       {% if messages %}
         {% for message in messages %}
@@ -174,8 +169,9 @@
       function closeMobileMenu() {
         if (mainNavLinks) {
           mainNavLinks.classList.remove("mobile-open");
-          mainNavLinks.hidden = false;
+          if (isMobileView()) mainNavLinks.hidden = true;
         }
+        if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
         document.body.classList.remove("mobile-menu-open");
         if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
         if (menuClose) menuClose.classList.remove("visible");
@@ -184,14 +180,22 @@
       function openMobileMenu() {
         if (mainNavLinks) {
           mainNavLinks.hidden = false;
-          mainNavLinks.classList.add("mobile-open");
+          requestAnimationFrame(() => mainNavLinks.classList.add("mobile-open"));
         }
+        if (menuOverlay) { menuOverlay.classList.add("active"); menuOverlay.setAttribute("aria-hidden", "false"); }
+        document.body.classList.add("mobile-menu-open");
+        if (menuToggle) menuToggle.setAttribute("aria-expanded", "true");
+        if (menuClose) menuClose.classList.add("visible");
       }
 
       function toggleMobileMenu() {
         if (!mainNavLinks) return;
-        closeDeviceStaffBar();
-        openMobileMenu();
+        if (mainNavLinks.classList.contains("mobile-open")) {
+          closeMobileMenu();
+          closeDeviceStaffBar();
+        } else {
+          openMobileMenu();
+        }
       }
 
       function closeAppMenuAfterPush() {
@@ -361,12 +365,16 @@
 
       function applyResponsiveMenuState() {
         if (!mainNavLinks) return;
-        mainNavLinks.hidden = false;
-        mainNavLinks.classList.remove("mobile-open");
-        if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
-        document.body.classList.remove("mobile-menu-open");
-        if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
-        if (menuClose) menuClose.classList.remove("visible");
+        if (isMobileView()) {
+          mainNavLinks.hidden = !mainNavLinks.classList.contains("mobile-open");
+        } else {
+          mainNavLinks.hidden = false;
+          mainNavLinks.classList.remove("mobile-open");
+          if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
+          document.body.classList.remove("mobile-menu-open");
+          if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
+          if (menuClose) menuClose.classList.remove("visible");
+        }
       }
 
       applyResponsiveMenuState();
@@ -445,21 +453,19 @@
 
 
       if (mainNavLinks) {
-        mainNavLinks.addEventListener("click", (event) => {
-          const link = event.target.closest("a[data-nav-link]");
-          if (!link) return;
+        const navigateFromMenu = (link, event) => {
           const href = link.getAttribute("href");
           if (!href || href.startsWith("#")) return;
           event.preventDefault();
           event.stopPropagation();
           closeMobileMenu();
-          window.location.assign(link.href || href);
-        }, true);
+          window.setTimeout(() => { window.location.href = link.href || href; }, 10);
+        };
 
         mainNavLinks.querySelectorAll("a[data-nav-link]").forEach((link) => {
           link.style.touchAction = "manipulation";
           link.style.pointerEvents = "auto";
-          link.setAttribute("tabindex", "0");
+          link.addEventListener("click", (event) => navigateFromMenu(link, event), { passive: false });
         });
       }
 
@@ -490,14 +496,7 @@
       });
 
       window.addEventListener("resize", () => {
-        closeMobileMenu();
-      });
-
-      window.addEventListener("DOMContentLoaded", () => {
-        if (mainNavLinks) {
-          mainNavLinks.hidden = false;
-          mainNavLinks.classList.add("mobile-open");
-        }
+        if (window.innerWidth > 768) closeMobileMenu();
       });
 
 
@@ -526,14 +525,6 @@
       function runStartupSplash() {
         const splash = document.getElementById("startupSplash");
         if (!splash) return;
-        const splashKey = "sk_startup_splash_seen";
-        try {
-          if (sessionStorage.getItem(splashKey) === "1") {
-            splash.remove();
-            return;
-          }
-          sessionStorage.setItem(splashKey, "1");
-        } catch (e) {}
         splash.classList.add("visible");
         playStartupSound();
         window.setTimeout(hideStartupSplash, 2200);
