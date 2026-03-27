@@ -69,7 +69,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "6.1"
+APP_VERSION = "Salon Karola CRM Professional 4.7.1 Final Design"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -142,52 +142,6 @@ def customer_contact_select_sql():
     phone_sql = "COALESCE(Customer_PersönlichesTelefon, '')" if "Customer_PersönlichesTelefon" in cols else "''"
     city_sql = "COALESCE(Customer_Stadt, '')" if "Customer_Stadt" in cols else "''"
     return email_sql, mobile_sql, phone_sql, city_sql
-
-
-def customer_sort_key_sql():
-    return "LOWER(COALESCE(NULLIF(_name, ''), _firstname, '')), LOWER(COALESCE(_firstname, '')), _id"
-
-
-def split_customer_name(full_name):
-    parts = [part for part in (full_name or '').strip().split() if part]
-    if not parts:
-        return '', ''
-    if len(parts) == 1:
-        return '', parts[0]
-    return ' '.join(parts[:-1]), parts[-1]
-
-
-def find_customer_by_full_name(full_name):
-    normalized = ' '.join((full_name or '').strip().split())
-    if not normalized:
-        return None
-    like = f"%{normalized}%"
-    sql = f"""
-        SELECT _id, COALESCE(_firstname, '') AS _firstname, COALESCE(_name, '') AS _name
-        FROM _Customers
-        WHERE TRIM(COALESCE(_firstname, '') || ' ' || COALESCE(_name, '')) LIKE ?
-           OR TRIM(COALESCE(_name, '') || ' ' || COALESCE(_firstname, '')) LIKE ?
-        ORDER BY {customer_sort_key_sql()}
-        LIMIT 1
-    """
-    return get_db().execute(sql, (like, like)).fetchone()
-
-
-def create_placeholder_customer(full_name):
-    firstname, lastname = split_customer_name(full_name)
-    if not firstname and not lastname:
-        firstname = 'Kunde'
-    now = datetime.now().isoformat(timespec='seconds')
-    db = get_db()
-    cur = db.execute(
-        """
-        INSERT INTO _Customers(_name, _firstname, _mail, _birthdate, _notes, Customer_Adresse, Customer_PersönlichesTelefon, Customer_Mobiltelefon, Customer_Postleitzahl, Customer_Stadt, created_at)
-        VALUES (?, ?, '', NULL, 'Automatisch aus Schnell-Termin erstellt', '', '', '', '', '', ?)
-        """,
-        (lastname, firstname, now),
-    )
-    db.commit()
-    return cur.lastrowid
 
 
 
@@ -358,9 +312,6 @@ def init_db():
         add_column_if_missing("_Customers", "Customer_PersönlichesTelefon", "TEXT")
         add_column_if_missing("_Customers", "Customer_Mobiltelefon", "TEXT")
         add_column_if_missing("_Customers", "Customer_Postleitzahl", "TEXT")
-        add_column_if_missing("_MailTemplates", "updated_at", "TEXT")
-        add_column_if_missing("_MailTemplates", "updated_by", "TEXT")
-        conn.execute("UPDATE _MailTemplates SET updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP), updated_by = COALESCE(updated_by, 'System')")
         add_column_if_missing("_Customers", "Customer_Stadt", "TEXT")
         add_column_if_missing(
             "_Customers",
@@ -602,35 +553,6 @@ def render_template_text(template_id, customer, appointment=None):
     return subject, body
 
 
-def get_mail_templates_map():
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            "SELECT id, subject, body, COALESCE(updated_at, '') AS updated_at, COALESCE(updated_by, '') AS updated_by FROM _MailTemplates WHERE id IN ('birthdate','appointment') ORDER BY id"
-        ).fetchall()
-    return {row["id"]: row for row in rows}
-
-
-def _template_preview_customer():
-    return {
-        "_firstname": "Anna",
-        "_name": "Muster",
-        "_mail": "anna@example.com",
-        "Customer_Mobiltelefon": "07051/6344",
-        "Customer_PersönlichesTelefon": "",
-    }
-
-
-def get_template_preview_map():
-    customer = _template_preview_customer()
-    appointment = {"appointment_at": datetime.now().replace(hour=9, minute=0, second=0, microsecond=0).isoformat(timespec="seconds")}
-    previews = {}
-    for template_id in ["birthdate", "appointment"]:
-        subject, body = render_template_text(template_id, customer, appointment)
-        previews[template_id] = {"subject": subject, "body": body}
-    return previews
-
-
 def log_email(customer_id, email_type, subject, body, recipient, status, error_message=None):
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
@@ -831,18 +753,13 @@ def _touch_push_subscription(subscription_id, **values):
     db.commit()
 
 
-
 def push_devices_for_staff(staff_name=None):
     db = get_db()
     params = []
     query = "SELECT * FROM push_subscriptions"
-    if staff_name in ("Ute", "Jessi", "Alle"):
-        if staff_name == "Alle":
-            query += " WHERE staff_name = ?"
-            params.append("Alle")
-        else:
-            query += " WHERE staff_name IN (?, 'Alle')"
-            params.append(staff_name)
+    if staff_name in ("Ute", "Jessi"):
+        query += " WHERE staff_name = ?"
+        params.append(staff_name)
     query += " ORDER BY staff_name ASC, COALESCE(last_success_at, last_seen_at, updated_at, created_at) DESC"
     rows = db.execute(query, params).fetchall()
     items = []
@@ -910,41 +827,24 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
         return {"ok": False, "sent": 0, "skipped": 0, "errors": [str(exc)]}
 
 
-
 def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
     if not vapid_ready():
         return {"sent": 0, "skipped": 0, "errors": ["VAPID nicht konfiguriert"]}
 
-    if target_staff not in ("Ute", "Jessi", "Alle"):
-        target_staff = "Ute"
-
     db = get_db()
-    if target_staff == "Alle":
-        rows = db.execute(
-            """
-            SELECT * FROM push_subscriptions
-            ORDER BY updated_at DESC
-            """
-        ).fetchall()
-    else:
-        rows = db.execute(
-            """
-            SELECT * FROM push_subscriptions
-            WHERE staff_name IN (?, 'Alle')
-            ORDER BY updated_at DESC
-            """,
-            (target_staff,),
-        ).fetchall()
+    rows = db.execute(
+        """
+        SELECT * FROM push_subscriptions
+        WHERE staff_name = ?
+        ORDER BY updated_at DESC
+        """,
+        (target_staff,),
+    ).fetchall()
 
     sent = 0
     skipped = 0
     errors = []
-    seen = set()
     for row in rows:
-        endpoint = row["endpoint"] or ""
-        if endpoint in seen:
-            continue
-        seen.add(endpoint)
         result = webpush_send_to_subscription_row(row, title, body, url)
         sent += int(result.get("sent") or 0)
         skipped += int(result.get("skipped") or 0)
@@ -992,7 +892,7 @@ def _push_appointment_reminder(appt):
 
 def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name):
     actor = (actor_name or staff_name or "Ute").strip() or "Ute"
-    target = "Alle" if actor == "Alle" else ("Jessi" if actor == "Ute" else "Ute")
+    target = "Jessi" if actor == "Ute" else "Ute"
     customer = get_db().execute(
         "SELECT _firstname, _name FROM _Customers WHERE _id = ?",
         (customer_id,),
@@ -1052,56 +952,6 @@ def build_day_timeline(selected_date, staff="Alle"):
     }
 
 
-def _try_acquire_daily_mail_lock(lock_key):
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS mail_send_lock (
-                lock_key TEXT PRIMARY KEY,
-                created_at TEXT NOT NULL
-            )
-            """
-        )
-        cur = conn.execute(
-            "INSERT OR IGNORE INTO mail_send_lock(lock_key, created_at) VALUES (?, ?)",
-            (lock_key, datetime.now().isoformat(timespec="seconds")),
-        )
-        conn.commit()
-        return cur.rowcount == 1
-
-
-def _email_already_logged(customer_id, email_type, recipient, subject, day_iso=None):
-    day_iso = day_iso or datetime.now().date().isoformat()
-    with sqlite3.connect(DB_PATH) as conn:
-        row = conn.execute(
-            """
-            SELECT 1
-            FROM email_log
-            WHERE customer_id = ?
-              AND email_type = ?
-              AND recipient = ?
-              AND subject = ?
-              AND date(sent_at) = ?
-              AND status = 'sent'
-            LIMIT 1
-            """,
-            (customer_id, email_type, recipient, subject, day_iso),
-        ).fetchone()
-    return row is not None
-
-
-def _claim_appointment_reminder(appointment_id):
-    now_iso = datetime.now().isoformat(timespec="seconds")
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.execute(
-            "UPDATE appointments SET reminder_sent_at = ? WHERE id = ? AND reminder_sent_at IS NULL",
-            (now_iso, appointment_id),
-        )
-        conn.commit()
-        return cur.rowcount == 1, now_iso
-
-
-
 # ---------- Automated jobs ----------
 def run_birthday_job():
     today = datetime.now().strftime("%m-%d")
@@ -1131,13 +981,6 @@ def run_birthday_job():
             continue
 
         subject, body = render_template_text("birthdate", customer)
-        lock_key = f"birthday:{customer['_id']}:{datetime.now().date().isoformat()}"
-        if _email_already_logged(customer["_id"], "birthday", customer["_mail"], subject):
-            set_setting(mail_key, datetime.now().isoformat(timespec="seconds"))
-            continue
-        if not _try_acquire_daily_mail_lock(lock_key):
-            continue
-
         try:
             send_email(customer["_mail"], subject, body)
             set_setting(mail_key, datetime.now().isoformat(timespec="seconds"))
@@ -1181,22 +1024,18 @@ def run_appointment_job():
                 continue
 
             subject, body = render_template_text("appointment", appt, appt)
-            if _email_already_logged(appt["customer_id"], "appointment", appt["_mail"], subject):
-                continue
-            claimed, claimed_at = _claim_appointment_reminder(appt["id"])
-            if not claimed:
-                continue
-
             try:
                 send_email(appt["_mail"], subject, body)
+                conn.execute(
+                    "UPDATE appointments SET reminder_sent_at = ? WHERE id = ?",
+                    (datetime.now().isoformat(timespec="seconds"), appt["id"]),
+                )
+                conn.commit()
                 log_email(appt["customer_id"], "appointment", subject, body, appt["_mail"], "sent")
                 push_result = _push_appointment_reminder(appt)
                 push_sent += int(push_result.get("sent") or 0)
                 sent += 1
             except Exception as exc:
-                with sqlite3.connect(DB_PATH) as retry_conn:
-                    retry_conn.execute("UPDATE appointments SET reminder_sent_at = NULL WHERE id = ?", (appt["id"],))
-                    retry_conn.commit()
                 log_email(appt["customer_id"], "appointment", subject, body, appt["_mail"], "error", str(exc))
                 errors += 1
 
@@ -1234,9 +1073,6 @@ def _parse_dt_safe(value):
 def run_automation_if_due(force=False):
     now = datetime.now()
     last_run = _parse_dt_safe(get_setting("automation:last_run_at"))
-    auto_enabled = (get_setting("automation:auto_http_runner", "0") or "0").strip() == "1"
-    if not force and not auto_enabled:
-        return {"ok": True, "skipped": True, "reason": "auto_http_runner_disabled"}
     if not force and last_run and (now - last_run).total_seconds() < AUTOMATION_MIN_INTERVAL_SECONDS:
         return {"ok": True, "skipped": True}
     try:
@@ -1251,6 +1087,11 @@ def run_automation_if_due(force=False):
 
 @app.before_request
 def opportunistic_automation_runner():
+    if request.endpoint in {"static", "manifest", "service_worker"}:
+        return None
+    if request.method != "GET":
+        return None
+    run_automation_if_due(force=False)
     return None
 
 
@@ -1522,14 +1363,10 @@ def logout():
 
 @app.route("/")
 @login_required
-
 def index():
     db = get_db()
     q = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
-    alpha = (request.args.get("alpha") or "Alle").strip().upper()
-    if alpha != "ALLE" and not re.fullmatch(r"[A-Z]", alpha):
-        alpha = "Alle"
 
     base_query = """
         SELECT c.*, MAX(a.appointment_at) AS last_appointment_at
@@ -1555,29 +1392,12 @@ def index():
         if search_parts:
             conditions.append("(" + " OR ".join(search_parts) + ")")
 
-    if alpha != "ALLE":
-        conditions.append("UPPER(SUBSTR(COALESCE(NULLIF(c._name, ''), c._firstname, ''), 1, 1)) = ?")
-        params.append(alpha)
-
     if conditions:
         base_query += " WHERE " + " AND ".join(conditions)
 
-    base_query += f" GROUP BY c._id ORDER BY {customer_sort_key_sql()} LIMIT 200"
+    base_query += " GROUP BY c._id ORDER BY c._name, c._firstname LIMIT 200"
     customers = db.execute(base_query, params).fetchall()
     tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
-    alphabet_counts = db.execute(
-        """
-        SELECT UPPER(SUBSTR(COALESCE(NULLIF(_name, ''), _firstname, ''), 1, 1)) AS letter, COUNT(*) AS cnt
-        FROM _Customers
-        GROUP BY letter
-        ORDER BY letter
-        """
-    ).fetchall()
-    available_letters = {row["letter"] for row in alphabet_counts if row["letter"]}
-    alphabet = [
-        {"letter": letter, "available": letter in available_letters, "active": alpha == letter}
-        for letter in [chr(i) for i in range(ord('A'), ord('Z') + 1)]
-    ]
 
     stats = dashboard_stats()
     stats["direct_customer_count"] = direct_customer_count_from_file()
@@ -1595,8 +1415,6 @@ def index():
         customers=customers,
         q=q,
         tag=tag,
-        alpha=alpha,
-        alphabet=alphabet,
         stats=stats,
         upcoming=next_appointments(),
         birthdays=upcoming_birthdays(),
@@ -1613,98 +1431,6 @@ def index():
         deploy_marker=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         db_path=str(DB_PATH),
     )
-
-
-@app.route("/api/customers/search")
-@login_required
-def api_customers_search():
-    term = (request.args.get("q") or "").strip()
-    try:
-        limit = min(max(int(request.args.get("limit", 8) or 8), 1), 20)
-    except Exception:
-        limit = 8
-    if not term:
-        return {"items": []}
-    like = f"%{term}%"
-    sql = f"""
-        SELECT _id, COALESCE(_firstname, '') AS firstname, COALESCE(_name, '') AS lastname,
-               COALESCE(_mail, '') AS email,
-               COALESCE(Customer_Mobiltelefon, COALESCE(Customer_PersönlichesTelefon, '')) AS phone,
-               COALESCE(Customer_Stadt, '') AS city
-        FROM _Customers
-        WHERE COALESCE(_firstname, '') LIKE ?
-           OR COALESCE(_name, '') LIKE ?
-           OR TRIM(COALESCE(_firstname, '') || ' ' || COALESCE(_name, '')) LIKE ?
-           OR TRIM(COALESCE(_name, '') || ' ' || COALESCE(_firstname, '')) LIKE ?
-           OR COALESCE(_mail, '') LIKE ?
-           OR COALESCE(Customer_Mobiltelefon, '') LIKE ?
-           OR COALESCE(Customer_PersönlichesTelefon, '') LIKE ?
-           OR COALESCE(Customer_Stadt, '') LIKE ?
-        ORDER BY {customer_sort_key_sql()}
-        LIMIT ?
-    """
-    rows = get_db().execute(sql, (like, like, like, like, like, like, like, like, limit)).fetchall()
-    return {"items": [
-        {
-            "id": row["_id"],
-            "label": f"{row['firstname']} {row['lastname']}".strip(),
-            "firstname": row["firstname"],
-            "lastname": row["lastname"],
-            "email": row["email"],
-            "phone": row["phone"],
-            "city": row["city"],
-            "url": url_for("customer_detail", customer_id=row["_id"]),
-        } for row in rows
-    ]}
-
-
-@app.route("/appointment/manual", methods=["POST"])
-@login_required
-def appointment_manual():
-    db = get_db()
-    customer_id = (request.form.get("customer_id") or "").strip()
-    customer_name = (request.form.get("customer_name") or "").strip()
-    title = request.form.get("title", "Salon-Termin").strip() or "Salon-Termin"
-    appointment_at = (request.form.get("appointment_at") or "").strip()
-    if not appointment_at:
-        flash("Bitte Datum und Uhrzeit für den Termin angeben.")
-        return redirect(url_for("calendar_view", view="day"))
-
-    if customer_id.isdigit():
-        customer_id_int = int(customer_id)
-    else:
-        found = find_customer_by_full_name(customer_name)
-        customer_id_int = int(found["_id"]) if found else create_placeholder_customer(customer_name or "Neuer Kunde")
-
-    status = request.form.get("status", "geplant").strip() or "geplant"
-    staff_name = request.form.get("staff_name", "Ute").strip() or "Ute"
-    actor_name = request.form.get("actor_name", "").strip() or staff_name
-    now = datetime.now().isoformat(timespec="seconds")
-    db.execute(
-        """
-        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            customer_id_int,
-            title,
-            appointment_at,
-            request.form.get("notes", "").strip(),
-            int(request.form.get("reminder_hours", "24") or 24),
-            now,
-            status,
-            staff_name,
-            actor_name,
-            now,
-        ),
-    )
-    db.commit()
-    notify_result = notify_other_staff_for_appointment(customer_id_int, title, appointment_at, staff_name, actor_name)
-    flash_msg = "Schnell-Termin wurde gespeichert."
-    if notify_result.get("sent", 0) > 0:
-        flash_msg += f" Push gesendet: {notify_result['sent']}."
-    flash(flash_msg)
-    return redirect(url_for("calendar_view", view="day", date=(appointment_at[:10] if appointment_at else datetime.now().date().isoformat()), staff="Alle"))
 
 
 @app.route("/customer/new", methods=["GET", "POST"])
@@ -2112,6 +1838,87 @@ def _calendar_nav_date(selected_date, view, step):
     return selected_date.replace(year=year, month=month, day=day).isoformat()
 
 
+@app.route("/appointments", methods=["GET", "POST"])
+@login_required
+def appointments_hub():
+    db = get_db()
+
+    if request.method == "POST":
+        customer_id_raw = (request.form.get("customer_id") or "").strip()
+        appointment_at = (request.form.get("appointment_at") or "").strip()
+        title = (request.form.get("title") or "Salon-Termin").strip() or "Salon-Termin"
+        status = (request.form.get("status") or "geplant").strip() or "geplant"
+        staff_name = (request.form.get("staff_name") or "Ute").strip() or "Ute"
+        actor_name = (request.form.get("actor_name") or "").strip() or staff_name
+        notes = (request.form.get("notes") or "").strip()
+        reminder_hours = int(request.form.get("reminder_hours", "24") or 24)
+
+        if not customer_id_raw.isdigit():
+            flash("Bitte zuerst einen Kontakt auswählen.")
+            return redirect(url_for("appointments_hub"))
+        if not appointment_at:
+            flash("Bitte Datum und Uhrzeit für den Termin angeben.")
+            return redirect(url_for("appointments_hub"))
+
+        customer_id = int(customer_id_raw)
+        customer_row = db.execute("SELECT _id FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
+        if not customer_row:
+            flash("Der ausgewählte Kontakt wurde nicht gefunden.")
+            return redirect(url_for("appointments_hub"))
+
+        db.execute(
+            """
+            INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                customer_id,
+                title,
+                appointment_at,
+                notes,
+                reminder_hours,
+                datetime.now().isoformat(timespec="seconds"),
+                status,
+                staff_name,
+                actor_name,
+                datetime.now().isoformat(timespec="seconds"),
+            ),
+        )
+        db.commit()
+        notify_result = notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name)
+        flash_msg = "Termin wurde gespeichert."
+        if vapid_ready() and notify_result.get("sent", 0) > 0:
+            flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
+        elif not vapid_ready():
+            flash_msg += " Push ist noch nicht komplett aktiv – bitte VAPID-Keys in Render setzen."
+        flash(flash_msg)
+        return redirect(url_for("appointments_hub"))
+
+    customers = db.execute(
+        """
+        SELECT _id, COALESCE(_firstname, '') AS firstname, COALESCE(_name, '') AS lastname,
+               COALESCE(Customer_Mobiltelefon, Customer_PersönlichesTelefon, '') AS phone
+        FROM _Customers
+        ORDER BY COALESCE(_name, ''), COALESCE(_firstname, '')
+        LIMIT 500
+        """
+    ).fetchall()
+    today_rows = today_appointments(limit=50)
+    today_split = {"Ute": [], "Jessi": []}
+    for row in today_rows:
+        staff_name = (row["staff_name"] or "Ute") if row["staff_name"] in {"Ute", "Jessi"} else "Ute"
+        today_split.setdefault(staff_name, []).append(row)
+
+    return render_template(
+        "appointments.html",
+        customers=customers,
+        today_split=today_split,
+        upcoming=next_appointments(limit=20),
+        current_endpoint="appointments_hub",
+        app_version=APP_VERSION,
+    )
+
+
 @app.route("/calendar")
 @login_required
 def calendar_view():
@@ -2200,23 +2007,20 @@ def push_public_key():
     return {"public_key": vapid_public_key(), "enabled": vapid_ready(), "format": "base64url", "generated": bool(_get_app_setting("push:vapid_generated_at", ""))}
 
 
-
 @app.route("/api/push/status")
 @login_required
 def push_status():
     staff_name = (request.args.get("staff_name") or "Ute").strip() or "Ute"
-    if staff_name not in ("Ute", "Jessi", "Alle"):
+    if staff_name not in ("Ute", "Jessi"):
         staff_name = "Ute"
     enabled = vapid_ready()
+    permission = None
     count = 0
     try:
-        if staff_name == "Alle":
-            row = get_db().execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
-        else:
-            row = get_db().execute(
-                "SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name IN (?, 'Alle')",
-                (staff_name,),
-            ).fetchone()
+        row = get_db().execute(
+            "SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?",
+            (staff_name,),
+        ).fetchone()
         count = int(row["cnt"] or 0) if row else 0
     except Exception:
         count = 0
@@ -2244,7 +2048,6 @@ def push_overview():
         "active_devices": total_active,
         "ute_devices": len(push_devices_for_staff("Ute")),
         "jessi_devices": len(push_devices_for_staff("Jessi")),
-        "all_devices": len(push_devices_for_staff("Alle")),
         "last_run_at": get_setting("automation:last_run_at", ""),
         "last_run_summary": get_setting("automation:last_run_summary", ""),
         "last_run_error": get_setting("automation:last_run_error", ""),
@@ -2255,7 +2058,7 @@ def push_overview():
 @login_required
 def push_devices():
     staff_name = (request.args.get("staff_name") or "").strip()
-    if staff_name not in ("Ute", "Jessi", "Alle"):
+    if staff_name not in ("Ute", "Jessi"):
         staff_name = None
     return {"ok": True, "items": push_devices_for_staff(staff_name)}
 
@@ -2294,7 +2097,7 @@ def push_subscribe():
     endpoint = (subscription.get("endpoint") or "").strip()
     staff_name = (payload.get("staff_name") or "Ute").strip() or "Ute"
     device_name = (payload.get("device_name") or "").strip()[:80]
-    if staff_name not in ("Ute", "Jessi", "Alle"):
+    if staff_name not in ("Ute", "Jessi"):
         staff_name = "Ute"
     if not endpoint:
         return {"ok": False, "error": "Keine Subscription empfangen."}, 400
@@ -2399,36 +2202,23 @@ def whatsapp_hub():
 def templates_view():
     db = get_db()
     if request.method == "POST":
-        editor = (session.get("admin_name") or "Salon Karola Admin").strip()
-        saved_at = datetime.now().isoformat(timespec="seconds")
         for template_id in ["birthdate", "appointment"]:
             subject = request.form.get(f"{template_id}_subject", "").strip()
             body = request.form.get(f"{template_id}_body", "").strip()
             existing = db.execute("SELECT rowid FROM _MailTemplates WHERE id = ? LIMIT 1", (template_id,)).fetchone()
             if existing:
-                db.execute(
-                    "UPDATE _MailTemplates SET subject = ?, body = ?, updated_at = ?, updated_by = ? WHERE id = ?",
-                    (subject, body, saved_at, editor, template_id),
-                )
+                db.execute("UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?", (subject, body, template_id))
             else:
-                db.execute(
-                    "INSERT INTO _MailTemplates(id, subject, body, updated_at, updated_by) VALUES (?, ?, ?, ?, ?)",
-                    (template_id, subject, body, saved_at, editor),
-                )
+                db.execute("INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)", (template_id, subject, body))
         db.commit()
-        flash("Vorlagen wurden zentral gespeichert und sind jetzt auf allen Geräten gleich.")
+        flash("Vorlagen wurden gespeichert.")
         return redirect(url_for("templates_view"))
 
-    templates = get_mail_templates_map()
-    previews = get_template_preview_map()
-    return render_template(
-        "templates.html",
-        templates=templates,
-        previews=previews,
-        current_endpoint="templates_view",
-        app_version=APP_VERSION,
-        template_editor=(session.get("admin_name") or "Salon Karola Admin"),
-    )
+    templates = {
+        r["id"]: r
+        for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
+    }
+    return render_template("templates.html", templates=templates, current_endpoint="templates_view")
 
 
 @app.route("/send-test/<int:customer_id>/<template_id>")
