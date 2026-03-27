@@ -1796,3 +1796,185 @@ td {
     border-radius: 11px;
   }
 }
+
+
+/* 5.5.1 Kalender Fix */
+.quick-action-calendar{box-shadow:0 0 0 1px rgba(212,175,55,.16), 0 14px 26px rgba(0,0,0,.18);}
+.mobile-calendar-fab{display:none;}
+@media (max-width: 768px){
+  .mobile-calendar-fab{display:inline-flex;position:fixed;right:12px;bottom:84px;z-index:260;align-items:center;justify-content:center;min-height:46px;padding:0 14px;border-radius:999px;background:linear-gradient(180deg,#e1c15a 0%, #c89d1d 100%);color:#111;font-weight:800;box-shadow:0 18px 32px rgba(0,0,0,.28);border:1px solid rgba(0,0,0,.08);}
+}
+
+
+/* v5.6 Clean Stable */
+.clean-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 240;
+  backdrop-filter: blur(12px);
+}
+
+.clean-nav {
+  align-items: center;
+}
+
+.main-shell {
+  padding-bottom: 92px;
+}
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+.compact-calendar-shortcuts {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.compact-quick-actions {
+  margin-top: 0;
+}
+
+@media (max-width: 768px) {
+  .menu-toggle.mobile-only-inline,
+  .menu-close.mobile-menu-only,
+  .menu-overlay {
+    display: none !important;
+  }
+
+  .topbar.clean-topbar {
+    padding-bottom: 8px;
+  }
+
+  .clean-topbar .topbar-inner {
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 10px 8px;
+  }
+
+  .clean-topbar .brand {
+    grid-column: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .clean-topbar .brand-logo {
+    width: 42px;
+    height: 42px;
+  }
+
+  .clean-topbar .brand-title {
+    font-size: 1rem;
+  }
+
+  .clean-topbar .brand-subtitle {
+    font-size: .74rem;
+  }
+
+  .clean-nav,
+  .clean-nav[hidden] {
+    display: flex !important;
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    scrollbar-width: none;
+  }
+
+  .clean-nav::before {
+    content: none !important;
+  }
+
+  .clean-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .clean-nav a {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 8px 11px;
+    border-radius: 11px;
+    font-size: .82rem;
+    white-space: nowrap;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(212,175,55,.16);
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, rgba(10,10,10,.92) 0%, rgba(15,15,15,.98) 100%);
+    border-top: 1px solid rgba(212,175,55,.16);
+    z-index: 260;
+    backdrop-filter: blur(14px);
+  }
+
+  .mobile-bottom-nav a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-height: 52px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(212,175,55,.14);
+    color: var(--text);
+    font-size: .8rem;
+    font-weight: 700;
+  }
+
+  .mobile-bottom-nav a span {
+    font-size: .72rem;
+    line-height: 1;
+  }
+
+  .mobile-bottom-nav a.active {
+    color: var(--gold-soft);
+    border-color: rgba(212,175,55,.35);
+    background: rgba(212,175,55,.12);
+  }
+
+  .main-shell {
+    padding-bottom: 104px;
+  }
+
+  .quick-actions.compact-quick-actions {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 8px;
+  }
+
+  .compact-calendar-shortcuts .quick-action {
+    min-height: 52px;
+    padding: 10px;
+  }
+}
+
+@media (min-width: 769px) {
+  .main-shell {
+    padding-bottom: 24px;
+  }
+}
