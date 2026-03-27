@@ -69,7 +69,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional 4.7.1 Final Design"
+APP_VERSION = "Salon Karola CRM Professional 4.7.2 Final"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -588,10 +588,33 @@ def safe_count(query, params=()):
         return 0
 
 
+def normalized_phone_number(raw_value):
+    raw_value = (raw_value or "").strip()
+    if not raw_value:
+        return ""
+    keep = []
+    for idx, ch in enumerate(raw_value):
+        if ch.isdigit():
+            keep.append(ch)
+        elif ch == "+" and idx == 0:
+            keep.append(ch)
+    number = "".join(keep)
+    if number.startswith("00"):
+        number = "+" + number[2:]
+    elif number.startswith("0"):
+        number = "+49" + number[1:]
+    elif number and not number.startswith("+"):
+        number = "+" + number
+    return number
+
+
+def phone_href(value):
+    number = normalized_phone_number(value)
+    return f"tel:{number}" if number else ""
+
+
 def whatsapp_link(customer, text=None):
-    number = "".join(ch for ch in customer_phone(customer) if ch.isdigit())
-    if number.startswith("0"):
-        number = "49" + number[1:]
+    number = normalized_phone_number(customer_phone(customer)).replace("+", "")
     if not number:
         return ""
     text = text or f"Hallo {customer_full_name(customer)}, hier ist Salon Karola."
@@ -2339,12 +2362,18 @@ def format_birthday(value):
         return str(value)
 
 
+@app.template_filter("phone_href")
+def format_phone_href(value):
+    return phone_href(value)
+
+
 @app.context_processor
 def inject_globals():
     return {
         "admin_name": session.get("admin_name"),
         "customer_activity_status": customer_activity_status,
         "whatsapp_link": whatsapp_link,
+        "phone_href": phone_href,
         "app_version": APP_VERSION,
     }
 
