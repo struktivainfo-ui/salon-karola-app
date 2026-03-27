@@ -58,8 +58,8 @@
         <a href="{{ url_for('logout') }}" data-nav-link="logout">Logout</a>
       </nav>
     </div>
+    <div class="menu-overlay" id="menuOverlay" aria-hidden="true"></div>
   </header>
-  <div class="menu-overlay" id="menuOverlay" aria-hidden="true"></div>
   {% endif %}
   <main class="container">
     {% with messages = get_flashed_messages() %}
