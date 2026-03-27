@@ -69,7 +69,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional 5.6 Clean Stable"
+APP_VERSION = "6.1"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 
 scheduler = BackgroundScheduler(timezone=os.getenv("APP_TIMEZONE", "Europe/Berlin"))
@@ -358,6 +358,9 @@ def init_db():
         add_column_if_missing("_Customers", "Customer_PersönlichesTelefon", "TEXT")
         add_column_if_missing("_Customers", "Customer_Mobiltelefon", "TEXT")
         add_column_if_missing("_Customers", "Customer_Postleitzahl", "TEXT")
+        add_column_if_missing("_MailTemplates", "updated_at", "TEXT")
+        add_column_if_missing("_MailTemplates", "updated_by", "TEXT")
+        conn.execute("UPDATE _MailTemplates SET updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP), updated_by = COALESCE(updated_by, 'System')")
         add_column_if_missing("_Customers", "Customer_Stadt", "TEXT")
         add_column_if_missing(
             "_Customers",
@@ -597,6 +600,35 @@ def render_template_text(template_id, customer, appointment=None):
         subject = subject.replace(key, value)
         body = body.replace(key, value)
     return subject, body
+
+
+def get_mail_templates_map():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT id, subject, body, COALESCE(updated_at, '') AS updated_at, COALESCE(updated_by, '') AS updated_by FROM _MailTemplates WHERE id IN ('birthdate','appointment') ORDER BY id"
+        ).fetchall()
+    return {row["id"]: row for row in rows}
+
+
+def _template_preview_customer():
+    return {
+        "_firstname": "Anna",
+        "_name": "Muster",
+        "_mail": "anna@example.com",
+        "Customer_Mobiltelefon": "07051/6344",
+        "Customer_PersönlichesTelefon": "",
+    }
+
+
+def get_template_preview_map():
+    customer = _template_preview_customer()
+    appointment = {"appointment_at": datetime.now().replace(hour=9, minute=0, second=0, microsecond=0).isoformat(timespec="seconds")}
+    previews = {}
+    for template_id in ["birthdate", "appointment"]:
+        subject, body = render_template_text(template_id, customer, appointment)
+        previews[template_id] = {"subject": subject, "body": body}
+    return previews
 
 
 def log_email(customer_id, email_type, subject, body, recipient, status, error_message=None):
@@ -1020,6 +1052,56 @@ def build_day_timeline(selected_date, staff="Alle"):
     }
 
 
+def _try_acquire_daily_mail_lock(lock_key):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mail_send_lock (
+                lock_key TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO mail_send_lock(lock_key, created_at) VALUES (?, ?)",
+            (lock_key, datetime.now().isoformat(timespec="seconds")),
+        )
+        conn.commit()
+        return cur.rowcount == 1
+
+
+def _email_already_logged(customer_id, email_type, recipient, subject, day_iso=None):
+    day_iso = day_iso or datetime.now().date().isoformat()
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM email_log
+            WHERE customer_id = ?
+              AND email_type = ?
+              AND recipient = ?
+              AND subject = ?
+              AND date(sent_at) = ?
+              AND status = 'sent'
+            LIMIT 1
+            """,
+            (customer_id, email_type, recipient, subject, day_iso),
+        ).fetchone()
+    return row is not None
+
+
+def _claim_appointment_reminder(appointment_id):
+    now_iso = datetime.now().isoformat(timespec="seconds")
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.execute(
+            "UPDATE appointments SET reminder_sent_at = ? WHERE id = ? AND reminder_sent_at IS NULL",
+            (now_iso, appointment_id),
+        )
+        conn.commit()
+        return cur.rowcount == 1, now_iso
+
+
+
 # ---------- Automated jobs ----------
 def run_birthday_job():
     today = datetime.now().strftime("%m-%d")
@@ -1049,6 +1131,13 @@ def run_birthday_job():
             continue
 
         subject, body = render_template_text("birthdate", customer)
+        lock_key = f"birthday:{customer['_id']}:{datetime.now().date().isoformat()}"
+        if _email_already_logged(customer["_id"], "birthday", customer["_mail"], subject):
+            set_setting(mail_key, datetime.now().isoformat(timespec="seconds"))
+            continue
+        if not _try_acquire_daily_mail_lock(lock_key):
+            continue
+
         try:
             send_email(customer["_mail"], subject, body)
             set_setting(mail_key, datetime.now().isoformat(timespec="seconds"))
@@ -1092,18 +1181,22 @@ def run_appointment_job():
                 continue
 
             subject, body = render_template_text("appointment", appt, appt)
+            if _email_already_logged(appt["customer_id"], "appointment", appt["_mail"], subject):
+                continue
+            claimed, claimed_at = _claim_appointment_reminder(appt["id"])
+            if not claimed:
+                continue
+
             try:
                 send_email(appt["_mail"], subject, body)
-                conn.execute(
-                    "UPDATE appointments SET reminder_sent_at = ? WHERE id = ?",
-                    (datetime.now().isoformat(timespec="seconds"), appt["id"]),
-                )
-                conn.commit()
                 log_email(appt["customer_id"], "appointment", subject, body, appt["_mail"], "sent")
                 push_result = _push_appointment_reminder(appt)
                 push_sent += int(push_result.get("sent") or 0)
                 sent += 1
             except Exception as exc:
+                with sqlite3.connect(DB_PATH) as retry_conn:
+                    retry_conn.execute("UPDATE appointments SET reminder_sent_at = NULL WHERE id = ?", (appt["id"],))
+                    retry_conn.commit()
                 log_email(appt["customer_id"], "appointment", subject, body, appt["_mail"], "error", str(exc))
                 errors += 1
 
@@ -1141,6 +1234,9 @@ def _parse_dt_safe(value):
 def run_automation_if_due(force=False):
     now = datetime.now()
     last_run = _parse_dt_safe(get_setting("automation:last_run_at"))
+    auto_enabled = (get_setting("automation:auto_http_runner", "0") or "0").strip() == "1"
+    if not force and not auto_enabled:
+        return {"ok": True, "skipped": True, "reason": "auto_http_runner_disabled"}
     if not force and last_run and (now - last_run).total_seconds() < AUTOMATION_MIN_INTERVAL_SECONDS:
         return {"ok": True, "skipped": True}
     try:
@@ -1155,11 +1251,6 @@ def run_automation_if_due(force=False):
 
 @app.before_request
 def opportunistic_automation_runner():
-    if request.endpoint in {"static", "manifest", "service_worker"}:
-        return None
-    if request.method != "GET":
-        return None
-    run_automation_if_due(force=False)
     return None
 
 
@@ -2024,7 +2115,7 @@ def _calendar_nav_date(selected_date, view, step):
 @app.route("/calendar")
 @login_required
 def calendar_view():
-    view = (request.args.get("view") or "day").strip().lower()
+    view = (request.args.get("view") or "week").strip().lower()
     if view not in {"day", "week", "month"}:
         view = "week"
 
@@ -2308,23 +2399,36 @@ def whatsapp_hub():
 def templates_view():
     db = get_db()
     if request.method == "POST":
+        editor = (session.get("admin_name") or "Salon Karola Admin").strip()
+        saved_at = datetime.now().isoformat(timespec="seconds")
         for template_id in ["birthdate", "appointment"]:
             subject = request.form.get(f"{template_id}_subject", "").strip()
             body = request.form.get(f"{template_id}_body", "").strip()
             existing = db.execute("SELECT rowid FROM _MailTemplates WHERE id = ? LIMIT 1", (template_id,)).fetchone()
             if existing:
-                db.execute("UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?", (subject, body, template_id))
+                db.execute(
+                    "UPDATE _MailTemplates SET subject = ?, body = ?, updated_at = ?, updated_by = ? WHERE id = ?",
+                    (subject, body, saved_at, editor, template_id),
+                )
             else:
-                db.execute("INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)", (template_id, subject, body))
+                db.execute(
+                    "INSERT INTO _MailTemplates(id, subject, body, updated_at, updated_by) VALUES (?, ?, ?, ?, ?)",
+                    (template_id, subject, body, saved_at, editor),
+                )
         db.commit()
-        flash("Vorlagen wurden gespeichert.")
+        flash("Vorlagen wurden zentral gespeichert und sind jetzt auf allen Geräten gleich.")
         return redirect(url_for("templates_view"))
 
-    templates = {
-        r["id"]: r
-        for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
-    }
-    return render_template("templates.html", templates=templates, current_endpoint="templates_view")
+    templates = get_mail_templates_map()
+    previews = get_template_preview_map()
+    return render_template(
+        "templates.html",
+        templates=templates,
+        previews=previews,
+        current_endpoint="templates_view",
+        app_version=APP_VERSION,
+        template_editor=(session.get("admin_name") or "Salon Karola Admin"),
+    )
 
 
 @app.route("/send-test/<int:customer_id>/<template_id>")
