@@ -77,7 +77,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional v6.1.6 Data Safe Backup"
+APP_VERSION = "Salon Karola CRM Professional v6.2 Clean UI"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
