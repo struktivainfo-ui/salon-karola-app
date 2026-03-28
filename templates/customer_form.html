@@ -4,8 +4,7 @@
 <section class="hero-card">
   <div class="hero-row">
     <div>
-      <h1 class="hero-title">{% if customer %}{{ customer['_firstname'] }} {{ customer['_name'] }}{% else %}Neuer Kontakt{% endif %}</h1>
-      <p class="hero-text">Kontaktdaten, Termine, WhatsApp und Kundenstatus an einem Ort.</p>
+      <h1 class="hero-title">{% if customer %}{{ customer['_firstname'] }} {{ customer['_name'] }}{% else %}Kontakt{% endif %}</h1>
     </div>
     <div class="actions">
       <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurück</a>
@@ -23,9 +22,9 @@
 {% if customer %}
 <section class="app-hero customer-action-hero">
   <div>
-    <span class="eyebrow">Schnellzugriff</span>
+    
     <h2 class="app-hero-title customer-action-title">Kundenaktionen auf einen Blick</h2>
-    <p class="app-hero-text">Direkt anrufen, sofort per WhatsApp schreiben oder ohne Umweg einen neuen Termin anlegen.</p>
+    
   </div>
   <div class="hero-actions-grid">
     {% if customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] %}
@@ -107,7 +106,7 @@
       </div>
       <input type="hidden" name="actor_name" class="actor-name-field" value="">
       <div class="form-group"><label>Notizen</label><textarea name="notes"></textarea></div>
-      <div class="helper-text">Die Kollegin bekommt auf dem anderen Handy eine Live-Benachrichtigung, sobald der Termin gespeichert wird.</div>
+      
       <button type="submit">Termin speichern</button>
     </form>
   </div>

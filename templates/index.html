@@ -3,9 +3,7 @@
 {% block content %}
 <section class="app-hero">
   <div class="app-hero-copy">
-    <span class="eyebrow">Salon Karola App</span>
-    <h1 class="app-hero-title">Heute im Salon</h1>
-    <p class="app-hero-text">Eine klare Premium-Oberfläche für Kunden, Termine, Kalender, WhatsApp und den täglichen Überblick im Salon.</p>
+    <h1 class="app-hero-title">Dashboard</h1>
   </div>
   <div class="hero-actions-grid">
     <a class="hero-action primary" href="{{ url_for('customer_new') }}">Neuer Kontakt</a>
@@ -43,7 +41,7 @@
   <div class="card clean-card">
     <div class="panel-header">
       <div>
-        <span class="eyebrow">Leitstand</span>
+        
         <h2>Heute im Blick</h2>
       </div>
       <span class="badge">{{ now|dt if now else '' }}</span>
@@ -75,7 +73,7 @@
   <div class="card clean-card">
     <div class="panel-header">
       <div>
-        <span class="eyebrow">Heute</span>
+        
         <h2>Offene Punkte</h2>
       </div>
     </div>
@@ -98,7 +96,7 @@
 <section class="pro-panel space-top">
   <div class="panel-header">
     <div>
-      <span class="eyebrow">Schnellzugriff</span>
+      
       <h2>Aktionen</h2>
     </div>
   </div>
@@ -116,7 +114,7 @@
   <div class="card clean-card">
     <div class="panel-header">
       <div>
-        <span class="eyebrow">Suchen</span>
+        
         <h2>Kundensuche</h2>
       </div>
     </div>
@@ -130,7 +128,7 @@
           <option value="{{ customer['_name'] }}{% if customer['_firstname'] %}, {{ customer['_firstname'] }}{% endif %}{% if customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] %} — {{ customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] }}{% endif %}" data-id="{{ customer['_id'] }}"></option>
           {% endfor %}
         </datalist>
-        <div class="helper-text">Bei der Suche kommt der Name jetzt wieder mit Auswahl. Wenn du einen Kontakt auswählst, kannst du ihn sofort im Extra-Fenster öffnen.</div>
+        
       </div>
       <div class="form-group">
         <label>Tag</label>
@@ -160,7 +158,7 @@
   <div class="card clean-card">
     <div class="panel-header">
       <div>
-        <span class="eyebrow">Geburtstage</span>
+        
         <h2>Nächste Geburtstage</h2>
       </div>
     </div>
@@ -184,7 +182,7 @@
   <div class="card clean-card">
     <div class="panel-header">
       <div>
-        <span class="eyebrow">Kalender</span>
+        
         <h2>Nächste Termine</h2>
       </div>
       <div class="actions wrap-mobile"><a class="btn btn-secondary" href="{{ url_for('appointments_hub') }}">Termine</a><a class="btn btn-secondary" href="{{ url_for('calendar_view') }}">Kalender</a></div>
@@ -208,7 +206,7 @@
   <div class="card clean-card">
     <div class="panel-header">
       <div>
-        <span class="eyebrow">Rückholung</span>
+        
         <h2>Kunden ohne aktuellen Termin</h2>
       </div>
       <span class="badge">60+ Tage</span>
@@ -235,7 +233,7 @@
 <section class="card clean-card space-top">
   <div class="panel-header">
     <div>
-      <span class="eyebrow">Kontakte</span>
+      
       <h2>Kundenliste</h2>
     </div>
   </div>
@@ -285,7 +283,7 @@
   <div class="customer-preview-panel" role="dialog" aria-modal="true" aria-labelledby="customerPreviewTitle">
     <div class="row-between wrap-mobile">
       <div>
-        <span class="eyebrow">Kontakt gefunden</span>
+        
         <h2 id="customerPreviewTitle">Kundendaten</h2>
       </div>
       <button type="button" class="btn btn-secondary" data-close-preview>Zurück</button>

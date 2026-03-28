@@ -5,7 +5,6 @@
   <div class="hero-row">
     <div>
       <h1 class="hero-title">Kalender</h1>
-      <p class="hero-text">Tages-, Wochen- und Monatsansicht mit klarer Trennung für Ute, Jessi oder beide zusammen.</p>
     </div>
   </div>
 </section>
@@ -14,7 +13,7 @@
   <div class="row-between wrap-mobile">
     <div>
       <h2>Kalendersteuerung</h2>
-      <div class="helper-text">Wähle Mitarbeiterin, Ansicht und Datum für deinen Tagesablauf.</div>
+      
     </div>
     <span class="badge">{{ staff }} • {{ selected_date }}</span>
   </div>
@@ -45,8 +44,8 @@
 <section class="split-day-section space-top">
   <div class="row-between wrap-mobile split-day-header">
     <div>
-      <h2>Zwei Tagesansichten</h2>
-      <div class="helper-text">Ute und Jessi getrennt – so siehst du beide Tagespläne direkt nebeneinander.</div>
+      <h2>Tagesansicht</h2>
+      
     </div>
     <span class="badge">{{ selected_date }}</span>
   </div>
@@ -102,8 +101,8 @@
 <section class="card space-top">
   <div class="row-between wrap-mobile">
     <div>
-      <h2>Gesamtansicht des Tages</h2>
-      <div class="helper-text">Alle Termine zusammengefasst.</div>
+      <h2>Tag</h2>
+      
     </div>
     <span class="badge">{{ day_view['items']|length }} Termine</span>
   </div>
@@ -238,7 +237,7 @@
 
 <section class="card space-top mobile-only">
   <div class="row-between wrap-mobile">
-    <h2>Mobile Schnellübersicht</h2>
+    <h2>Mobil</h2>
     <span class="badge">{{ staff }} • {{ selected_date }}</span>
   </div>
   {% if view == 'week' and week_view %}
