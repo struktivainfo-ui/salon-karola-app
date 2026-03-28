@@ -77,7 +77,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional v6.2.1 Mobile Dashboard Clean"
+APP_VERSION = "Salon Karola CRM Professional v6.2.2 Push Final"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
@@ -2390,7 +2390,17 @@ def push_delete_device(subscription_id):
 def push_subscribe():
     payload = request.get_json(silent=True) or {}
     subscription = payload.get("subscription") or {}
-    endpoint = (subscription.get("endpoint") or "").strip()
+    if isinstance(subscription, str):
+        try:
+            subscription = json.loads(subscription)
+        except Exception:
+            subscription = {}
+    if not isinstance(subscription, dict):
+        try:
+            subscription = dict(subscription)
+        except Exception:
+            subscription = {}
+    endpoint = (subscription.get("endpoint") or payload.get("endpoint") or "").strip()
     staff_name = (payload.get("staff_name") or "Ute").strip() or "Ute"
     device_name = (payload.get("device_name") or "").strip()[:80]
     if staff_name not in ("Ute", "Jessi"):
@@ -2415,7 +2425,8 @@ def push_subscribe():
         (endpoint, json.dumps(subscription), staff_name, device_name, request.headers.get("User-Agent", "")[:500], now, now, now, "", 0),
     )
     db.commit()
-    return {"ok": True, "staff_name": staff_name, "device_name": device_name}
+    row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?", (staff_name,)).fetchone()
+    return {"ok": True, "staff_name": staff_name, "device_name": device_name, "device_count": int(row["cnt"] or 0) if row else 0}
 
 
 @app.route("/api/push/unsubscribe", methods=["POST"])
@@ -2437,12 +2448,14 @@ def push_ping():
     if staff_name == "Alle":
         result = webpush_send_to_all_staff("Salon Karola Push aktiv", "Test-Push an alle registrierten Geräte.", "/calendar")
         devices = push_devices_for_staff(None)
+        device_count = len(devices)
     else:
         if staff_name not in ("Ute", "Jessi"):
             staff_name = "Ute"
-        result = webpush_send_to_staff(staff_name, "Salon Karola Push aktiv", f"Dieses Handy ist jetzt für {staff_name} registriert.", "/calendar")
         devices = push_devices_for_staff(staff_name)
-    return {"ok": True, "result": result, "enabled": vapid_ready(), "devices": devices}
+        device_count = len(devices)
+        result = webpush_send_to_staff(staff_name, "Salon Karola Push aktiv", f"Dieses Handy ist jetzt für {staff_name} registriert.", "/calendar")
+    return {"ok": True, "result": result, "enabled": vapid_ready(), "devices": devices, "device_count": device_count}
 
 
 @app.route("/push")
