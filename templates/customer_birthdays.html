@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Geburtstage - Salon Karola{% endblock %}
+{% block content %}
+<section class="app-hero">
+  <div class="app-hero-copy"><h1 class="app-hero-title">Nächste Geburtstage</h1></div>
+  <div class="hero-actions-grid">
+    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
+    <a class="hero-action" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
+  </div>
+</section>
+<section class="card clean-card space-top">
+  <div class="list-stack">
+    {% for item in birthdays %}
+    <div class="list-item soft-item">
+      <div class="row-between wrap-mobile">
+        <strong>{{ item['_name'] }}{% if item['_firstname'] %}, {{ item['_firstname'] }}{% endif %}</strong>
+        <span class="badge">{{ item['_birthdate']|birthday }}</span>
+      </div>
+      <div class="mobile-line">{{ item['_mail'] or item['Customer_Mobiltelefon'] or item['Customer_PersönlichesTelefon'] or 'Kein Kontaktkanal' }}</div>
+      <div class="actions space-top"><a class="btn btn-secondary" href="{{ url_for('customer_detail', customer_id=item['_id']) }}">Öffnen</a></div>
+    </div>
+    {% else %}
+    <div class="list-item soft-item">Keine Geburtstage vorhanden.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

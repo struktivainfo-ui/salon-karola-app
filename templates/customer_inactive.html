@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Ohne Termin - Salon Karola{% endblock %}
+{% block content %}
+<section class="app-hero">
+  <div class="app-hero-copy"><h1 class="app-hero-title">Kunden ohne aktuellen Termin</h1></div>
+  <div class="hero-actions-grid">
+    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
+    <a class="hero-action" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
+  </div>
+</section>
+<section class="card clean-card space-top">
+  <div class="panel-header">
+    <div><h2>60+ Tage ohne Termin</h2></div>
+    <span class="badge">{{ inactive|length }}</span>
+  </div>
+  <div class="list-stack">
+    {% for customer in inactive %}
+    <div class="list-item soft-item">
+      <div class="row-between wrap-mobile">
+        <strong>{{ customer['_name'] }}{% if customer['_firstname'] %}, {{ customer['_firstname'] }}{% endif %}</strong>
+        <span class="badge">{{ customer['last_appointment_at']|dt if customer['last_appointment_at'] else 'Noch kein Termin' }}</span>
+      </div>
+      <div class="mobile-line">{{ customer['_mail'] or customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] or 'Kein Kontaktkanal' }}</div>
+      <div class="actions space-top"><a class="btn btn-secondary" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">Öffnen</a></div>
+    </div>
+    {% else %}
+    <div class="list-item soft-item">Aktuell keine inaktiven Kunden.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

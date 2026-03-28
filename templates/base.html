@@ -43,7 +43,15 @@
         <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}" data-nav-link="dashboard">Dashboard</a>
         <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>
-        <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}" data-nav-link="kunden">Kunden</a>
+        <details class="nav-admin-group" id="navCustomerGroup">
+          <summary class="nav-admin-summary {% if current_endpoint in ['customer_new', 'customer_detail', 'customer_search_page', 'customer_birthdays_page', 'customer_inactive_page'] %}active{% endif %}">Kunden</summary>
+          <div class="nav-admin-links">
+            <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}" data-nav-link="kunden">Kontakt</a>
+            <a class="{% if current_endpoint == 'customer_search_page' %}active{% endif %}" href="{{ url_for('customer_search_page') }}" data-nav-link="kundensuche">Kundensuche</a>
+            <a class="{% if current_endpoint == 'customer_birthdays_page' %}active{% endif %}" href="{{ url_for('customer_birthdays_page') }}" data-nav-link="geburtstage">Geburtstage</a>
+            <a class="{% if current_endpoint == 'customer_inactive_page' %}active{% endif %}" href="{{ url_for('customer_inactive_page') }}" data-nav-link="ohne-termin">Ohne Termin</a>
+          </div>
+        </details>
         <a class="{% if current_endpoint == 'whatsapp_hub' %}active{% endif %}" href="{{ url_for('whatsapp_hub') }}" data-nav-link="whatsapp">WhatsApp</a>
         <details class="nav-admin-group" id="navAdminGroup">
           <summary class="nav-admin-summary">Admin</summary>
