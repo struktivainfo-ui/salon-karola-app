@@ -39,6 +39,62 @@
   </div>
 </section>
 
+<section class="grid grid-2 space-top">
+  <div class="card clean-card">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">Leitstand</span>
+        <h2>Heute im Blick</h2>
+      </div>
+      <span class="badge">{{ now|dt if now else '' }}</span>
+    </div>
+    <div class="dashboard-leitstand">
+      <div class="leitstand-card">
+        <div class="leitstand-label">Nächster Termin</div>
+        <div class="leitstand-value">{% if upcoming %}{{ upcoming[0]['appointment_at']|dt }}{% else %}Heute frei{% endif %}</div>
+        <div class="leitstand-sub">{% if upcoming %}{{ upcoming[0]['_firstname'] }} {{ upcoming[0]['_name'] }} · {{ upcoming[0]['staff_name'] or 'Ute' }}{% else %}Kein geplanter Termin gefunden{% endif %}</div>
+      </div>
+      <div class="leitstand-card">
+        <div class="leitstand-label">Termine heute</div>
+        <div class="leitstand-value">{{ today_items|length }}</div>
+        <div class="leitstand-sub">Davon offen: {{ due_items|length }}</div>
+      </div>
+      <div class="leitstand-card">
+        <div class="leitstand-label">Teamverteilung</div>
+        <div class="mini-list">
+          {% for row in staff_counts %}
+          <div class="mini-list-item"><strong>{{ row['staff_name'] or 'Ute' }}</strong> · {{ row['count'] or 0 }} Termine heute</div>
+          {% else %}
+          <div class="mini-list-item">Noch keine Teamtermine eingetragen.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card clean-card">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">Heute</span>
+        <h2>Offene Punkte</h2>
+      </div>
+    </div>
+    <div class="list-stack">
+      {% for item in due_items %}
+      <div class="list-item soft-item">
+        <div class="row-between">
+          <strong>{{ item['_firstname'] }} {{ item['_name'] }}</strong>
+          <span class="badge">{{ item['appointment_at']|dt }}</span>
+        </div>
+        <div class="mobile-line">{{ item['title'] or 'Salon-Termin' }} · {{ item['staff_name'] or 'Ute' }}</div>
+      </div>
+      {% else %}
+      <div class="list-item soft-item">Keine offenen Erinnerungen oder Nachfasspunkte.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
 <section class="pro-panel space-top">
   <div class="panel-header">
     <div>
@@ -64,10 +120,17 @@
         <h2>Kundensuche</h2>
       </div>
     </div>
-    <form method="get" class="grid grid-2">
+    <form method="get" class="grid grid-2 customer-search-form" id="customerSearchForm">
       <div class="form-group">
         <label>Suche</label>
-        <input type="text" name="q" value="{{ q }}" placeholder="Name, Mail, Stadt, Telefon">
+        <input type="text" id="customerSearchInput" name="q" value="{{ q }}" placeholder="Name, Mail, Stadt, Telefon" list="customerSearchOptions" autocomplete="off">
+        <input type="hidden" id="customerSearchId" value="">
+        <datalist id="customerSearchOptions">
+          {% for customer in customers %}
+          <option value="{{ customer['_name'] }}{% if customer['_firstname'] %}, {{ customer['_firstname'] }}{% endif %}{% if customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] %} — {{ customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] }}{% endif %}" data-id="{{ customer['_id'] }}"></option>
+          {% endfor %}
+        </datalist>
+        <div class="helper-text">Bei der Suche kommt der Name jetzt wieder mit Auswahl. Wenn du einen Kontakt auswählst, kannst du ihn sofort im Extra-Fenster öffnen.</div>
       </div>
       <div class="form-group">
         <label>Tag</label>
@@ -78,8 +141,17 @@
           {% endfor %}
         </select>
       </div>
-      <div class="actions">
+      <div class="form-group">
+        <label>Sortierung</label>
+        <select name="sort">
+          <option value="az" {% if sort == 'az' %}selected{% endif %}>A–Z</option>
+          <option value="za" {% if sort == 'za' %}selected{% endif %}>Z–A</option>
+          <option value="recent" {% if sort == 'recent' %}selected{% endif %}>Zuletzt mit Termin</option>
+        </select>
+      </div>
+      <div class="actions customer-search-actions">
         <button type="submit">Filtern</button>
+        <button type="button" class="btn btn-secondary" id="openCustomerPreviewBtn">Kontakt direkt öffnen</button>
         <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurücksetzen</a>
       </div>
     </form>
@@ -207,4 +279,101 @@
     {% endfor %}
   </div>
 </section>
+
+<div class="customer-preview-modal" id="customerPreviewModal" hidden>
+  <div class="customer-preview-backdrop" data-close-preview></div>
+  <div class="customer-preview-panel" role="dialog" aria-modal="true" aria-labelledby="customerPreviewTitle">
+    <div class="row-between wrap-mobile">
+      <div>
+        <span class="eyebrow">Kontakt gefunden</span>
+        <h2 id="customerPreviewTitle">Kundendaten</h2>
+      </div>
+      <button type="button" class="btn btn-secondary" data-close-preview>Zurück</button>
+    </div>
+    <div class="customer-preview-body" id="customerPreviewBody">Lade Daten…</div>
+    <div class="actions space-top preview-actions">
+      <a class="btn" id="customerPreviewOpenLink" href="#">Ganz öffnen</a>
+      <a class="btn btn-secondary" id="customerPreviewCallLink" href="#" hidden>📞 Anrufen</a>
+      <button type="button" class="btn btn-secondary" data-close-preview>Zurück</button>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  const input = document.getElementById("customerSearchInput");
+  const hiddenId = document.getElementById("customerSearchId");
+  const openBtn = document.getElementById("openCustomerPreviewBtn");
+  const datalist = document.getElementById("customerSearchOptions");
+  const modal = document.getElementById("customerPreviewModal");
+  const body = document.getElementById("customerPreviewBody");
+  const openLink = document.getElementById("customerPreviewOpenLink");
+  const callLink = document.getElementById("customerPreviewCallLink");
+
+  function resolveCustomerId(){
+    const value = (input?.value || "").trim();
+    if (!value || !datalist) return "";
+    const option = Array.from(datalist.options).find(opt => opt.value === value);
+    const id = option ? option.dataset.id : "";
+    if (hiddenId) hiddenId.value = id || "";
+    return id || "";
+  }
+
+  function closeModal(){
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.classList.remove("modal-open");
+  }
+
+  async function openPreview(){
+    const customerId = resolveCustomerId();
+    if (!customerId) {
+      alert("Bitte einen Kontakt aus der Auswahl anklicken.");
+      return;
+    }
+    modal.hidden = false;
+    document.body.classList.add("modal-open");
+    body.innerHTML = "Lade Daten…";
+    const response = await fetch(`/api/customer/${customerId}/summary`, {cache: 'no-store'});
+    if (!response.ok) {
+      body.innerHTML = "Kontakt konnte nicht geladen werden.";
+      return;
+    }
+    const data = await response.json();
+    const item = data.item || {};
+    openLink.href = item.detail_url || '#';
+    if (callLink) {
+      if (item.call_url) {
+        callLink.hidden = false;
+        callLink.href = item.call_url;
+      } else {
+        callLink.hidden = true;
+        callLink.href = '#';
+      }
+    }
+    body.innerHTML = `
+      <div class="preview-grid">
+        <div class="preview-item"><span>Name</span><strong>${item.name || '-'}</strong></div>
+        <div class="preview-item"><span>Telefon</span><strong>${item.phone || '-'}</strong></div>
+        <div class="preview-item"><span>E-Mail</span><strong>${item.email || '-'}</strong></div>
+        <div class="preview-item"><span>Stadt</span><strong>${item.city || '-'}</strong></div>
+        <div class="preview-item"><span>Adresse</span><strong>${(item.address || '-') + ((item.zip || item.city) ? ' · ' + [item.zip, item.city].filter(Boolean).join(' ') : '')}</strong></div>
+        <div class="preview-item"><span>Geburtstag</span><strong>${item.birthdate || '-'}</strong></div>
+        <div class="preview-item preview-item-wide"><span>Tags</span><strong>${(item.tags || []).length ? item.tags.join(', ') : '-'}</strong></div>
+        <div class="preview-item preview-item-wide"><span>Notizen</span><strong>${item.notes || '-'}</strong></div>
+        <div class="preview-item preview-item-wide"><span>Letzter Termin</span><strong>${item.latest_appointment ? `${item.latest_appointment.appointment_at || ''} · ${item.latest_appointment.title || ''} · ${item.latest_appointment.staff_name || ''}` : 'Noch kein Termin'}</strong></div>
+      </div>`;
+  }
+
+  input?.addEventListener('change', function(){
+    const resolved = resolveCustomerId();
+    if (resolved) openPreview();
+  });
+  input?.addEventListener('input', resolveCustomerId);
+  openBtn?.addEventListener('click', openPreview);
+  input?.addEventListener('keydown', function(event){ if (event.key === 'Enter' && resolveCustomerId()) { event.preventDefault(); openPreview(); } });
+  modal?.querySelectorAll('[data-close-preview]').forEach(btn => btn.addEventListener('click', closeModal));
+  modal?.querySelector('.customer-preview-backdrop')?.addEventListener('click', closeModal);
+});
+</script>
+
 {% endblock %}
