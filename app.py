@@ -1321,14 +1321,26 @@ def staff_dashboard_counts():
         FROM appointments
         WHERE appointment_at >= ? AND appointment_at < ?
         GROUP BY COALESCE(staff_name, 'Ute')
+        ORDER BY CASE COALESCE(staff_name, 'Ute')
+            WHEN 'Ute' THEN 1
+            WHEN 'Jessi' THEN 2
+            ELSE 99
+        END,
+        COALESCE(staff_name, 'Ute')
         """,
         (today_start, tomorrow_start),
     ).fetchall()
+
     data = {"Ute": 0, "Jessi": 0}
     for row in rows:
-        if row["staff_name"] in data:
-            data[row["staff_name"]] = row["cnt"]
-    return data
+        staff_name = (row["staff_name"] or "Ute").strip() if isinstance(row["staff_name"], str) else "Ute"
+        if staff_name in data:
+            data[staff_name] = int(row["cnt"] or 0)
+
+    return [
+        {"staff_name": "Ute", "count": data["Ute"]},
+        {"staff_name": "Jessi", "count": data["Jessi"]},
+    ]
 
 
 def today_appointments(limit=20):
