@@ -277,6 +277,39 @@
         return outputArray;
       }
 
+
+      function uint8ArrayToBase64Url(uint8Array) {
+        if (!uint8Array || !uint8Array.length) return "";
+        let binary = "";
+        for (let i = 0; i < uint8Array.length; i += 1) binary += String.fromCharCode(uint8Array[i]);
+        return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+      }
+
+      function arrayBufferToBase64Url(buffer) {
+        if (!buffer) return "";
+        return uint8ArrayToBase64Url(new Uint8Array(buffer));
+      }
+
+      async function ensureFreshSubscription(registration, expectedPublicKey) {
+        const existing = await registration.pushManager.getSubscription();
+        if (!existing) return null;
+        const endpoint = (existing.endpoint || "").trim();
+        const currentKey = arrayBufferToBase64Url(existing.options && existing.options.applicationServerKey);
+        if (endpoint && currentKey && currentKey === (expectedPublicKey || "").trim()) {
+          return existing;
+        }
+        try {
+          await fetch("/api/push/unsubscribe", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ subscription: { endpoint } }),
+          });
+        } catch (e) {}
+        try { await existing.unsubscribe(); } catch (e) {}
+        return null;
+      }
+
       async function registerPushSubscription(showMessage = true) {
         if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
           setPushUi("Dieser Browser unterstützt keine Hintergrund-Pushs.");
@@ -301,7 +334,7 @@
         }
 
         const registration = await navigator.serviceWorker.ready;
-        let subscription = await registration.pushManager.getSubscription();
+        let subscription = await ensureFreshSubscription(registration, config.public_key);
         if (!subscription) {
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
@@ -398,7 +431,7 @@
             return;
           }
           const registration = await navigator.serviceWorker.ready;
-          const subscription = await registration.pushManager.getSubscription();
+          const subscription = await ensureFreshSubscription(registration, config.public_key);
           if (Notification.permission === "granted" && subscription) {
             setPushUi(`Push ist für ${currentStaff()} aktiv.`, "active");
             return;
