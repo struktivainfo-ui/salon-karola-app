@@ -1,0 +1,14 @@
+Salon Karola CRM – v7.1 Stable Logic Final
+
+Wichtig nach dem Update:
+1. ZIP auf Render/GitHub hochladen und neu deployen.
+2. App im Browser/Handy einmal hart neu laden.
+3. Termine, Kalender, Kundensuche und Push kurz testen.
+
+Verbessert in v7.1:
+- robustere Termin-Validierung beim Speichern
+- stabilere Mitarbeiter-Zuordnung (Ute/Jessi)
+- Push-Registrierung setzt alte Fehlerstände sauber zurück
+- doppelte Push-Endpunkte werden beim Versand besser abgefangen
+- Erinnerungsmails für erledigte/stornierte oder veraltete Termine laufen nicht weiter
+- manuelle Termine werden bei internen Push-Hinweisen sauberer benannt

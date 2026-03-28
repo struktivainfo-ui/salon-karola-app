@@ -77,7 +77,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional v6.3 Push Final"
+APP_VERSION = "Salon Karola CRM v7.1 Stable Logic Final"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
@@ -904,8 +904,6 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
         return {"ok": True, "sent": 1, "skipped": 0, "errors": []}
     except WebPushException as exc:
         status_code = getattr(getattr(exc, "response", None), "status_code", None)
-        error_text = str(exc)[:500]
-        print(f"[push] delivery failed for subscription {row['id']} status={status_code} error={error_text}")
         if status_code in (404, 410):
             db.execute("DELETE FROM push_subscriptions WHERE id = ?", (row["id"],))
             db.commit()
@@ -913,11 +911,11 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
         fail_count = int(row["fail_count"] or 0) + 1
         _touch_push_subscription(
             row["id"],
-            last_error=error_text,
+            last_error=str(exc)[:500],
             fail_count=fail_count,
             updated_at=now,
         )
-        return {"ok": False, "sent": 0, "skipped": 0, "errors": [error_text]}
+        return {"ok": False, "sent": 0, "skipped": 0, "errors": [str(exc)]}
     except Exception as exc:
         fail_count = int(row["fail_count"] or 0) + 1
         _touch_push_subscription(
@@ -1176,6 +1174,23 @@ def _parse_dt_safe(value):
         return datetime.fromisoformat(str(value))
     except Exception:
         return None
+
+
+def _normalize_staff_name(value, default="Ute"):
+    value = (value or default or "Ute").strip()
+    return value if value in {"Ute", "Jessi", "Alle"} else default
+
+
+def _safe_int(value, default=0, minimum=None, maximum=None):
+    try:
+        result = int(value)
+    except Exception:
+        result = default
+    if minimum is not None:
+        result = max(minimum, result)
+    if maximum is not None:
+        result = min(maximum, result)
+    return result
 
 
 def run_automation_if_due(force=False):
@@ -1696,6 +1711,8 @@ def customer_new():
 def customer_detail(customer_id):
     db = get_db()
     if request.method == "POST":
+        manual_name = f"{manual_firstname} {manual_lastname}".strip()
+
         db.execute(
             """
             UPDATE _Customers
@@ -2118,10 +2135,10 @@ def appointments_hub():
         appointment_at = (request.form.get("appointment_at") or "").strip()
         title = (request.form.get("title") or "Salon-Termin").strip() or "Salon-Termin"
         status = (request.form.get("status") or "geplant").strip() or "geplant"
-        staff_name = (request.form.get("staff_name") or "Ute").strip() or "Ute"
-        actor_name = (request.form.get("actor_name") or "").strip() or staff_name
+        staff_name = _normalize_staff_name(request.form.get("staff_name"), default="Ute")
+        actor_name = _normalize_staff_name(request.form.get("actor_name") or staff_name, default=staff_name)
         notes = (request.form.get("notes") or "").strip()
-        reminder_hours = int(request.form.get("reminder_hours", "24") or 24)
+        reminder_hours = _safe_int(request.form.get("reminder_hours", "24") or 24, default=24, minimum=0, maximum=720)
         manual_firstname = (request.form.get("manual_firstname") or "").strip()
         manual_lastname = (request.form.get("manual_lastname") or "").strip()
         manual_phone = (request.form.get("manual_phone") or "").strip()
@@ -2129,6 +2146,9 @@ def appointments_hub():
 
         if not appointment_at:
             flash("Bitte Datum und Uhrzeit für den Termin angeben.")
+            return redirect(url_for("appointments_hub"))
+        if not _parse_dt_safe(appointment_at):
+            flash("Das Termin-Datum ist ungültig. Bitte Datum und Uhrzeit neu wählen.")
             return redirect(url_for("appointments_hub"))
 
         customer_id = None
@@ -2168,7 +2188,7 @@ def appointments_hub():
             ),
         )
         db.commit()
-        notify_result = notify_other_staff_for_appointment(notify_customer_id, title, appointment_at, staff_name, actor_name)
+        notify_result = notify_other_staff_for_appointment(notify_customer_id, title, appointment_at, staff_name, actor_name, manual_name=manual_name)
         flash_msg = "Termin wurde gespeichert."
         if not customer_id_raw.isdigit() and (manual_firstname or manual_lastname):
             flash_msg += " Manueller Kontakt wurde nicht in der Kundenliste gespeichert."
@@ -2198,8 +2218,8 @@ def appointments_hub():
     prefill_at = (request.args.get("appointment_at") or "").strip()
     if not prefill_at:
         prefill_at = datetime.now().replace(second=0, microsecond=0).isoformat(timespec="minutes")
-    prefill_staff = (request.args.get("staff") or "Ute").strip()
-    if prefill_staff not in {"Ute", "Jessi"}:
+    prefill_staff = _normalize_staff_name(request.args.get("staff"), default="Ute")
+    if prefill_staff == "Alle":
         prefill_staff = "Ute"
     prefill_source = (request.args.get("source") or "manual").strip()
 
@@ -2403,10 +2423,8 @@ def push_subscribe():
         except Exception:
             subscription = {}
     endpoint = (subscription.get("endpoint") or payload.get("endpoint") or "").strip()
-    staff_name = (payload.get("staff_name") or "Ute").strip() or "Ute"
+    staff_name = _normalize_staff_name(payload.get("staff_name"), default="Ute")
     device_name = (payload.get("device_name") or "").strip()[:80]
-    if staff_name not in ("Ute", "Jessi"):
-        staff_name = "Ute"
     if not endpoint:
         return {"ok": False, "error": "Keine Subscription empfangen."}, 400
 
@@ -2448,14 +2466,13 @@ def push_unsubscribe():
 @app.route("/api/push/ping")
 @login_required
 def push_ping():
-    staff_name = (request.args.get("staff_name") or "Ute").strip() or "Ute"
+    staff_name = _normalize_staff_name(request.args.get("staff_name"), default="Ute")
     if staff_name == "Alle":
         result = webpush_send_to_all_staff("Salon Karola Push aktiv", "Test-Push an alle registrierten Geräte.", "/calendar")
         devices = push_devices_for_staff(None)
         device_count = len(devices)
     else:
-        if staff_name not in ("Ute", "Jessi"):
-            staff_name = "Ute"
+
         devices = push_devices_for_staff(staff_name)
         device_count = len(devices)
         result = webpush_send_to_staff(staff_name, "Salon Karola Push aktiv", f"Dieses Handy ist jetzt für {staff_name} registriert.", "/calendar")
