@@ -1,14 +1,15 @@
 {% extends 'base.html' %}
 {% block title %}Termine - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card clean-hero">
-  <div class="hero-row">
-    <div>
-      <h1 class="hero-title">Termine</h1>
-    </div>
-    <div class="actions wrap-mobile">
-      <a class="btn btn-secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Zum Kalender</a>
-    </div>
+<section class="app-hero page-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Salon Karola</span>
+    <h1 class="app-hero-title">Termine</h1>
+    <p class="app-hero-text">Neue Termine sauber anlegen, Mitarbeiterinnen zuordnen und bestehende Einträge direkt im Blick behalten.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender</a>
+    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
   </div>
 </section>
 

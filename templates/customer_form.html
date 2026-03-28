@@ -1,20 +1,21 @@
 {% extends 'base.html' %}
 {% block title %}{% if customer %}Kontakt{% else %}Neuer Kontakt{% endif %} - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card">
-  <div class="hero-row">
-    <div>
-      <h1 class="hero-title">{% if customer %}{{ customer['_firstname'] }} {{ customer['_name'] }}{% else %}Kontakt{% endif %}</h1>
-    </div>
-    <div class="actions">
-      <a class="btn btn-secondary" href="{{ url_for('index') }}">Zurück</a>
-      {% if customer and (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon']) %}
-      <a class="btn btn-secondary" href="{{ (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'])|phone_href }}">📞 Anrufen</a>
-      {% endif %}
-      {% if customer %}
-      <span class="badge badge-health-{{ customer_status }}">Kundenstatus: {{ customer_status }}</span>
-      {% endif %}
-    </div>
+<section class="app-hero page-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Kunden</span>
+    <h1 class="app-hero-title">{% if customer %}{{ customer['_firstname'] }} {{ customer['_name'] }}{% else %}Kontakt{% endif %}</h1>
+    <p class="app-hero-text">Kontaktdaten, Aktionen und Terminbezug in einer klaren Kundenansicht.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
+    {% if customer and (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon']) %}
+    <a class="hero-action primary" href="{{ (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'])|phone_href }}">Anrufen</a>
+    {% elif customer %}
+    <a class="hero-action primary" href="#termin-hinzufuegen">Termin anlegen</a>
+    {% else %}
+    <a class="hero-action primary" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
+    {% endif %}
   </div>
 </section>
 

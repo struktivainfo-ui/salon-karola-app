@@ -1,8 +1,16 @@
 {% extends 'base.html' %}
 {% block title %}Datenbank - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card">
-  <h1 class="hero-title">Datenbank</h1>
+<section class="app-hero page-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Admin</span>
+    <h1 class="app-hero-title">Datenbank</h1>
+    <p class="app-hero-text">Export, Import und Backups für die App zentral verwalten.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('export_database_zip') }}">ZIP Backup</a>
+    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
+  </div>
 </section>
 <section class="grid grid-2">
   <div class="card">

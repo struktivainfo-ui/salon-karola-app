@@ -1,8 +1,16 @@
 {% extends 'base.html' %}
 {% block title %}Logs - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card">
-  <h1 class="hero-title">E-Mail-Logs</h1>
+<section class="app-hero page-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Admin</span>
+    <h1 class="app-hero-title">E-Mail-Logs</h1>
+    <p class="app-hero-text">Versendete Mails, Fehler und Zeitpunkte übersichtlich an einer Stelle prüfen.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('templates_view') }}">Vorlagen</a>
+    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
+  </div>
 </section>
 <section class="card">
   <div class="list-stack">

@@ -1,11 +1,15 @@
 {% extends 'base.html' %}
 {% block title %}Kalender - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card clean-hero">
-  <div class="hero-row">
-    <div>
-      <h1 class="hero-title">Kalender</h1>
-    </div>
+<section class="app-hero page-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Salon Karola</span>
+    <h1 class="app-hero-title">Kalender</h1>
+    <p class="app-hero-text">Tag, Woche und Monat sauber getrennt – für eine klare Terminsteuerung auf Handy und Desktop.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('appointments_hub') }}">Termin anlegen</a>
+    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
   </div>
 </section>
 

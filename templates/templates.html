@@ -1,8 +1,16 @@
 {% extends 'base.html' %}
 {% block title %}Vorlagen - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card">
-  <h1 class="hero-title">Vorlagen</h1>
+<section class="app-hero page-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Admin</span>
+    <h1 class="app-hero-title">Vorlagen</h1>
+    <p class="app-hero-text">E-Mail-Vorlagen zentral pflegen und auf allen Geräten einheitlich nutzen.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('email_logs') }}">Logs</a>
+    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
+  </div>
 </section>
 
 <section class="card">

@@ -1,11 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Push-System · Salon Karola{% endblock %}
 {% block content %}
-<section class="card hero-card page-headline-card">
-  <div class="hero-row">
-    <div>
-      <h1 class="hero-title">Push</h1>
-    </div>
+<section class="app-hero page-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Admin</span>
+    <h1 class="app-hero-title">Push</h1>
+    <p class="app-hero-text">Geräte verwalten, Push aktivieren und den Zustellstatus übersichtlich prüfen.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('index') }}">Dashboard</a>
+    <a class="hero-action" href="{{ url_for('calendar_view') }}">Kalender</a>
   </div>
 </section>
 

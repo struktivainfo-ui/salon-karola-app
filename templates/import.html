@@ -1,8 +1,16 @@
 {% extends 'base.html' %}
 {% block title %}Import - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card">
-  <h1 class="hero-title">Import</h1>
+<section class="app-hero page-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Admin</span>
+    <h1 class="app-hero-title">Import</h1>
+    <p class="app-hero-text">Kundendaten als CSV sauber einspielen und die App strukturiert befüllen.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('database_tools') }}">Datenbank</a>
+    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
+  </div>
 </section>
 <section class="card">
   <form method="post" enctype="multipart/form-data">
