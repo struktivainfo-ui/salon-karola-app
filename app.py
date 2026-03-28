@@ -1758,7 +1758,7 @@ def appointment_new(customer_id):
         ),
     )
     db.commit()
-    notify_result = notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name)
+    notify_result = notify_other_staff_for_appointment(notify_customer_id, title, appointment_at, staff_name, actor_name)
     flash_msg = "Termin wurde gespeichert."
     if vapid_ready() and notify_result.get("sent", 0) > 0:
         flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
@@ -2050,8 +2050,10 @@ def appointments_hub():
             return redirect(url_for("appointments_hub"))
 
         customer_id = None
+        notify_customer_id = None
         if customer_id_raw.isdigit():
             customer_id = int(customer_id_raw)
+            notify_customer_id = customer_id
             customer_row = db.execute("SELECT _id FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
             if not customer_row:
                 flash("Der ausgewählte Kontakt wurde nicht gefunden.")
@@ -2060,25 +2062,6 @@ def appointments_hub():
             if not (manual_firstname or manual_lastname):
                 flash("Bitte einen Kontakt aus der Datenbank wählen oder Name für den manuellen Termin eintragen.")
                 return redirect(url_for("appointments_hub"))
-            cur = db.execute(
-                """
-                INSERT INTO _Customers(_name, _firstname, _mail, _birthdate, _notes, Customer_Adresse, Customer_PersönlichesTelefon, Customer_Mobiltelefon, Customer_Postleitzahl, Customer_Stadt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    manual_lastname,
-                    manual_firstname,
-                    manual_email,
-                    None,
-                    f"Automatisch aus Termin-Schnelleingabe erstellt.\n{notes}".strip(),
-                    "",
-                    manual_phone,
-                    manual_phone,
-                    "",
-                    "",
-                ),
-            )
-            customer_id = cur.lastrowid
 
         db.execute(
             """
@@ -2103,7 +2086,7 @@ def appointments_hub():
             ),
         )
         db.commit()
-        notify_result = notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name)
+        notify_result = notify_other_staff_for_appointment(notify_customer_id, title, appointment_at, staff_name, actor_name)
         flash_msg = "Termin wurde gespeichert."
         if not customer_id_raw.isdigit() and (manual_firstname or manual_lastname):
             flash_msg += " Manueller Kontakt wurde nicht in der Kundenliste gespeichert."
@@ -2119,7 +2102,7 @@ def appointments_hub():
         SELECT _id, COALESCE(_firstname, '') AS firstname, COALESCE(_name, '') AS lastname,
                COALESCE(Customer_Mobiltelefon, Customer_PersönlichesTelefon, '') AS phone
         FROM _Customers
-        WHERE COALESCE(c._name, '') <> '__MANUELLER_TERMIN__'
+        WHERE COALESCE(_name, '') <> '__MANUELLER_TERMIN__'
         ORDER BY COALESCE(_name, '') COLLATE NOCASE ASC, COALESCE(_firstname, '') COLLATE NOCASE ASC
         LIMIT 500
         """
