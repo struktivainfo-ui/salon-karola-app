@@ -77,7 +77,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional v6.2.3 Desktop Pro"
+APP_VERSION = "Salon Karola CRM Professional v6.3 Push Final"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
@@ -904,6 +904,8 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
         return {"ok": True, "sent": 1, "skipped": 0, "errors": []}
     except WebPushException as exc:
         status_code = getattr(getattr(exc, "response", None), "status_code", None)
+        error_text = str(exc)[:500]
+        print(f"[push] delivery failed for subscription {row['id']} status={status_code} error={error_text}")
         if status_code in (404, 410):
             db.execute("DELETE FROM push_subscriptions WHERE id = ?", (row["id"],))
             db.commit()
@@ -911,11 +913,11 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
         fail_count = int(row["fail_count"] or 0) + 1
         _touch_push_subscription(
             row["id"],
-            last_error=str(exc)[:500],
+            last_error=error_text,
             fail_count=fail_count,
             updated_at=now,
         )
-        return {"ok": False, "sent": 0, "skipped": 0, "errors": [str(exc)]}
+        return {"ok": False, "sent": 0, "skipped": 0, "errors": [error_text]}
     except Exception as exc:
         fail_count = int(row["fail_count"] or 0) + 1
         _touch_push_subscription(
@@ -2420,7 +2422,9 @@ def push_subscribe():
             device_name = excluded.device_name,
             user_agent = excluded.user_agent,
             updated_at = excluded.updated_at,
-            last_seen_at = excluded.last_seen_at
+            last_seen_at = excluded.last_seen_at,
+            last_error = '',
+            fail_count = 0
         """,
         (endpoint, json.dumps(subscription), staff_name, device_name, request.headers.get("User-Agent", "")[:500], now, now, now, "", 0),
     )

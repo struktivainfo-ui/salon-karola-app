@@ -1,0 +1,22 @@
+Salon Karola CRM Professional v6.3 Push Final
+
+WICHTIG nach dem Deploy:
+1. Render neu deployen.
+2. App im Handy einmal hart neu laden.
+3. Auf der Push-Seite Push erneut aktivieren.
+4. Falls vorher andere VAPID-Keys benutzt wurden:
+   - altes Gerät in der Geräteübersicht löschen
+   - Push danach erneut aktivieren
+
+Was in v6.3 verbessert wurde:
+- Push-Version auf v6.3 angehoben
+- alte/stale Browser-Subscriptions werden bei geändertem VAPID-Key automatisch erneuert
+- Subscription wird im Browser sauber abgemeldet und neu registriert
+- gespeicherte Geräte werden beim erneuten Registrieren ohne alten Fehlerstatus aktualisiert
+- bessere Backend-Fehlerausgabe für Render-Logs
+
+Wenn weiterhin kein Test-Push ankommt:
+- prüfen, ob VAPID_PUBLIC_KEY und VAPID_PRIVATE_KEY in Render gesetzt sind
+- App als PWA/Startbildschirm-App öffnen
+- Browser-Benachrichtigungen auf Zulassen stellen
+- auf der Push-Seite erneut aktivieren
