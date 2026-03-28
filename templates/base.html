@@ -407,8 +407,17 @@
         });
       }
 
-      if (pushTargetSelect && !localStorage.getItem(STORAGE_KEY_PUSH_TARGET)) {
-        localStorage.setItem(STORAGE_KEY_PUSH_TARGET, currentPushTarget());
+      if (pushTargetSelect) {
+        pushTargetSelect.value = currentPushTarget();
+        if (!localStorage.getItem(STORAGE_KEY_PUSH_TARGET)) {
+          localStorage.setItem(STORAGE_KEY_PUSH_TARGET, pushTargetSelect.value || "Ute");
+        }
+        pushTargetSelect.addEventListener("change", () => {
+          const nextTarget = ["Ute", "Jessi", "Alle"].includes(pushTargetSelect.value) ? pushTargetSelect.value : "Ute";
+          localStorage.setItem(STORAGE_KEY_PUSH_TARGET, nextTarget);
+          pushTargetSelect.value = nextTarget;
+          setPushUi(`Push-Ziel: ${nextTarget}`);
+        });
       }
 
       if (deviceNameInput) {

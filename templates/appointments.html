@@ -169,7 +169,9 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  const deviceStaff = "{{ prefill_staff }}" || localStorage.getItem("sk_device_staff") || "Ute";
+  const storedDeviceStaff = localStorage.getItem("sk_device_staff");
+  const templatePrefillStaff = "{{ prefill_staff }}".trim();
+  const deviceStaff = (storedDeviceStaff && storedDeviceStaff.trim()) || templatePrefillStaff || "Ute";
   document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
   const newStaff = document.getElementById("newAppointmentStaff");
   if (newStaff) {
