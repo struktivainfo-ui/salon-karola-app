@@ -101,9 +101,13 @@
     });
   }
 
-  window.addEventListener('load', async () => {
+  window.refreshPushOverview = async function () {
     await loadOverview();
     await loadDevices();
+  };
+
+  window.addEventListener('load', async () => {
+    await window.refreshPushOverview();
   });
 })();
 </script>
