@@ -77,7 +77,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional v6.2 Clean UI"
+APP_VERSION = "Salon Karola CRM Professional v6.2.1 Mobile Dashboard Clean"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
@@ -1576,6 +1576,86 @@ def index():
         app_version=APP_VERSION,
         deploy_marker=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         db_path=str(DB_PATH),
+    )
+
+
+@app.route("/customers/search")
+@login_required
+def customer_search_page():
+    db = get_db()
+    q = request.args.get("q", "").strip()
+    tag = request.args.get("tag", "").strip()
+    sort = (request.args.get("sort") or "az").strip().lower()
+    if sort not in {"az", "za", "recent"}:
+        sort = "az"
+
+    base_query = """
+        SELECT c.*, MAX(a.appointment_at) AS last_appointment_at
+        FROM _Customers c
+        LEFT JOIN appointments a ON a.customer_id = c._id
+    """
+    params = []
+    conditions = [visible_customer_condition("c")]
+
+    if tag:
+        base_query += " JOIN customer_tags t ON t.customer_id = c._id"
+        conditions.append("t.tag = ?")
+        params.append(tag)
+
+    if q:
+        like = f"%{q}%"
+        customer_cols = customer_columns()
+        search_parts = []
+        for column_name in ["_name", "_firstname", "_mail", "Customer_Mobiltelefon", "Customer_PersönlichesTelefon", "Customer_Stadt"]:
+            if column_name in customer_cols:
+                search_parts.append(f"c.{column_name} LIKE ?")
+                params.append(like)
+        if search_parts:
+            conditions.append("(" + " OR ".join(search_parts) + ")")
+
+    if conditions:
+        base_query += " WHERE " + " AND ".join(conditions)
+
+    order_sql = "COALESCE(c._name, '') COLLATE NOCASE, COALESCE(c._firstname, '') COLLATE NOCASE"
+    if sort == "za":
+        order_sql = "COALESCE(c._name, '') COLLATE NOCASE DESC, COALESCE(c._firstname, '') COLLATE NOCASE DESC"
+    elif sort == "recent":
+        order_sql = "MAX(a.appointment_at) DESC, COALESCE(c._name, '') COLLATE NOCASE, COALESCE(c._firstname, '') COLLATE NOCASE"
+
+    base_query += f" GROUP BY c._id ORDER BY {order_sql} LIMIT 300"
+    customers = db.execute(base_query, params).fetchall()
+    tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
+    return render_template(
+        "customer_search.html",
+        customers=customers,
+        q=q,
+        tag=tag,
+        sort=sort,
+        tags=tags,
+        current_endpoint="customer_search_page",
+        app_version=APP_VERSION,
+    )
+
+
+@app.route("/customers/birthdays")
+@login_required
+def customer_birthdays_page():
+    return render_template(
+        "customer_birthdays.html",
+        birthdays=upcoming_birthdays(limit=60),
+        current_endpoint="customer_birthdays_page",
+        app_version=APP_VERSION,
+    )
+
+
+@app.route("/customers/inactive")
+@login_required
+def customer_inactive_page():
+    return render_template(
+        "customer_inactive.html",
+        inactive=inactive_customers(limit=80),
+        current_endpoint="customer_inactive_page",
+        app_version=APP_VERSION,
     )
 
 
