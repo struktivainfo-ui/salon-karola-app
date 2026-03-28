@@ -77,8 +77,11 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM Professional v6.1.5 Push-Ziel Fix"
+APP_VERSION = "Salon Karola CRM Professional v6.1.6 Data Safe Backup"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
+MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
+MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
+AUTO_BACKUP_KEEP = int(os.getenv("AUTO_BACKUP_KEEP", "21"))
 
 scheduler = BackgroundScheduler(timezone=APP_TIMEZONE)
 AUTOMATION_MIN_INTERVAL_SECONDS = int(os.getenv("AUTOMATION_MIN_INTERVAL_SECONDS", "300"))
@@ -127,6 +130,38 @@ def set_setting(key, value):
         )
         conn.commit()
 
+
+def visible_customer_condition(alias="c"):
+    prefix = f"{alias}." if alias else ""
+    return f"COALESCE({prefix}_name, '') <> '{MANUAL_PLACEHOLDER_LASTNAME}'"
+
+
+def ensure_manual_placeholder_customer(conn):
+    row = conn.execute(
+        "SELECT _id FROM _Customers WHERE COALESCE(_name, '') = ? LIMIT 1",
+        (MANUAL_PLACEHOLDER_LASTNAME,),
+    ).fetchone()
+    if row:
+        return row[0] if not isinstance(row, sqlite3.Row) else row["_id"]
+    cur = conn.execute(
+        """
+        INSERT INTO _Customers(_name, _firstname, _mail, _birthdate, _notes, Customer_Adresse, Customer_PersönlichesTelefon, Customer_Mobiltelefon, Customer_Postleitzahl, Customer_Stadt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            MANUAL_PLACEHOLDER_LASTNAME,
+            MANUAL_PLACEHOLDER_FIRSTNAME,
+            None,
+            None,
+            "Interner technischer Platzhalter für manuell erfasste Termine.",
+            "",
+            "",
+            "",
+            "",
+            "",
+        ),
+    )
+    return cur.lastrowid
 
 
 def acquire_automation_lock(ttl_seconds=120):
@@ -366,7 +401,12 @@ def init_db():
             "TEXT",
             fill_sql="UPDATE appointments SET updated_at = COALESCE(created_at, CURRENT_TIMESTAMP) WHERE updated_at IS NULL OR updated_at = ''",
         )
+        add_column_if_missing("appointments", "manual_firstname", "TEXT DEFAULT ''")
+        add_column_if_missing("appointments", "manual_lastname", "TEXT DEFAULT ''")
+        add_column_if_missing("appointments", "manual_phone", "TEXT DEFAULT ''")
+        add_column_if_missing("appointments", "manual_email", "TEXT DEFAULT ''")
 
+        ensure_manual_placeholder_customer(conn)
         conn.commit()
 
 
@@ -1062,11 +1102,14 @@ def run_appointment_job():
         conn.row_factory = sqlite3.Row
         appointments = conn.execute(
             """
-            SELECT a.*, c.*
+            SELECT a.*, c.*,
+                   COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
+                   COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
+                   COALESCE(NULLIF(a.manual_email, ''), c._mail) AS _mail
             FROM appointments a
             JOIN _Customers c ON c._id = a.customer_id
             WHERE a.reminder_sent_at IS NULL
-              AND c._mail IS NOT NULL AND TRIM(c._mail) <> ''
+              AND COALESCE(NULLIF(a.manual_email, ''), c._mail) IS NOT NULL AND TRIM(COALESCE(NULLIF(a.manual_email, ''), c._mail)) <> ''
             ORDER BY a.appointment_at ASC
             """
         ).fetchall()
@@ -1105,12 +1148,15 @@ def run_appointment_job():
 def scheduler_tick():
     started_at = datetime.now().isoformat(timespec="seconds")
     try:
+        auto_backup = run_auto_backup_if_due()
         birthday_result = run_birthday_job()
         appointment_result = run_appointment_job()
         summary = (
             f"Geburtstage geprüft: {birthday_result['checked']}, Mails: {birthday_result['sent']}, Push: {birthday_result.get('push_sent', 0)}, Fehler: {birthday_result['errors']} | "
             f"Termine geprüft: {appointment_result['checked']}, Mails: {appointment_result['sent']}, Push: {appointment_result.get('push_sent', 0)}, Fehler: {appointment_result['errors']}"
         )
+        if auto_backup:
+            summary += f" | Auto-Backup: {auto_backup.name}"
         set_setting("automation:last_run_at", started_at)
         set_setting("automation:last_run_summary", summary)
         set_setting("automation:last_run_error", "")
@@ -1290,7 +1336,11 @@ def today_appointments(limit=20):
     end_dt = start_dt + timedelta(days=1)
     return get_db().execute(
         """
-        SELECT a.*, c._firstname, c._name, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
+        SELECT a.*,
+               COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
+               COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
+               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
+               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
         FROM appointments a
         JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ? AND a.appointment_at < ?
@@ -1306,7 +1356,12 @@ def due_reminders(limit=20):
     upcoming_limit = now + timedelta(hours=24)
     return get_db().execute(
         """
-        SELECT a.*, c._firstname, c._name, c._mail, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
+        SELECT a.*,
+               COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
+               COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
+               COALESCE(NULLIF(a.manual_email, ''), c._mail) AS _mail,
+               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
+               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
         FROM appointments a
         JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ? AND a.appointment_at <= ?
@@ -1348,6 +1403,7 @@ def inactive_customers(limit=12):
         SELECT c.*, MAX(a.appointment_at) AS last_appointment_at
         FROM _Customers c
         LEFT JOIN appointments a ON a.customer_id = c._id
+        WHERE COALESCE(c._name, '') <> '__MANUELLER_TERMIN__'
         GROUP BY c._id
         HAVING last_appointment_at IS NULL OR last_appointment_at < ?
         ORDER BY COALESCE(last_appointment_at, '') ASC, c._name ASC, c._firstname ASC
@@ -1376,7 +1432,11 @@ def customer_activity_status(last_appointment_at):
 def next_appointments(limit=12):
     return get_db().execute(
         """
-        SELECT a.*, c._firstname, c._name, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
+        SELECT a.*,
+               COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
+               COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
+               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
+               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
         FROM appointments a
         JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ?
@@ -1441,7 +1501,7 @@ def index():
         LEFT JOIN appointments a ON a.customer_id = c._id
     """
     params = []
-    conditions = []
+    conditions = [visible_customer_condition("c")]
 
     if tag:
         base_query += " JOIN customer_tags t ON t.customer_id = c._id"
@@ -1843,7 +1903,11 @@ def _calendar_event_dict(appt):
 def _fetch_calendar_appointments(start_dt, end_dt, staff="Alle"):
     db = get_db()
     query = """
-        SELECT a.*, c._firstname, c._name, c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon
+        SELECT a.*,
+               COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
+               COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
+               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
+               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
         FROM appointments a
         JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ? AND a.appointment_at < ?
@@ -2006,8 +2070,8 @@ def appointments_hub():
 
         db.execute(
             """
-            INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at, manual_firstname, manual_lastname, manual_phone, manual_email)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 customer_id,
@@ -2020,11 +2084,17 @@ def appointments_hub():
                 staff_name,
                 actor_name,
                 datetime.now().isoformat(timespec="seconds"),
+                manual_firstname,
+                manual_lastname,
+                manual_phone,
+                manual_email,
             ),
         )
         db.commit()
         notify_result = notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name)
         flash_msg = "Termin wurde gespeichert."
+        if not customer_id_raw.isdigit() and (manual_firstname or manual_lastname):
+            flash_msg += " Manueller Kontakt wurde nicht in der Kundenliste gespeichert."
         if vapid_ready() and notify_result.get("sent", 0) > 0:
             flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
         elif not vapid_ready():
@@ -2037,6 +2107,7 @@ def appointments_hub():
         SELECT _id, COALESCE(_firstname, '') AS firstname, COALESCE(_name, '') AS lastname,
                COALESCE(Customer_Mobiltelefon, Customer_PersönlichesTelefon, '') AS phone
         FROM _Customers
+        WHERE COALESCE(c._name, '') <> '__MANUELLER_TERMIN__'
         ORDER BY COALESCE(_name, '') COLLATE NOCASE ASC, COALESCE(_firstname, '') COLLATE NOCASE ASC
         LIMIT 500
         """
@@ -2116,7 +2187,8 @@ def appointments_feed():
     query = """
         SELECT a.id, a.title, a.appointment_at, a.created_at, a.updated_at, a.staff_name, a.status,
                COALESCE(NULLIF(a.created_by, ''), COALESCE(a.staff_name, 'Ute')) AS created_by,
-               c._firstname, c._name
+               COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
+               COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name
         FROM appointments a
         JOIN _Customers c ON c._id = a.customer_id
     """
@@ -2506,6 +2578,7 @@ def inject_globals():
 
 def boot_app():
     init_db()
+    run_auto_backup_if_due()
     ensure_default_admin(force_reset=True)
     _ensure_vapid_keys()
     interval_minutes = int(os.getenv("AUTOMATION_INTERVAL_MINUTES", "5"))
@@ -2554,7 +2627,10 @@ def inspect_sqlite_database(path):
         for table in ["_Customers", "appointments", "_MailTemplates", "email_log", "customer_tags", "staff_users"]:
             if table in tables:
                 try:
-                    info["counts"][table] = conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
+                    if table == "_Customers":
+                        info["counts"][table] = conn.execute(f"SELECT COUNT(*) FROM _Customers WHERE COALESCE(_name, '') <> '{MANUAL_PLACEHOLDER_LASTNAME}'").fetchone()[0]
+                    else:
+                        info["counts"][table] = conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]
                 except Exception:
                     info["counts"][table] = "—"
     return info
@@ -2578,6 +2654,27 @@ def backup_current_database(label="manual"):
         return None
     backup_path = BACKUP_DIR / f"salon_karola_{label}_{timestamp_slug()}.sqlite"
     shutil.copy2(DB_PATH, backup_path)
+    return backup_path
+
+
+def cleanup_old_backups(keep=AUTO_BACKUP_KEEP):
+    files = sorted(BACKUP_DIR.glob("*.sqlite"), reverse=True)
+    for extra in files[keep:]:
+        extra.unlink(missing_ok=True)
+
+
+def run_auto_backup_if_due(force=False):
+    if not DB_PATH.exists():
+        return None
+    today_key = datetime.now().strftime("%Y-%m-%d")
+    last_backup_key = get_setting("backup:last_auto_date")
+    if not force and last_backup_key == today_key:
+        return None
+    backup_path = backup_current_database("auto")
+    set_setting("backup:last_auto_date", today_key)
+    if backup_path:
+        set_setting("backup:last_auto_file", backup_path.name)
+    cleanup_old_backups()
     return backup_path
 
 
@@ -2707,8 +2804,8 @@ def merge_database_from_upload(uploaded_file):
                 row_keys = row.keys()
                 dest.execute(
                     """
-                    INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, reminder_sent_at, created_at, status, staff_name, created_by, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, reminder_sent_at, created_at, status, staff_name, created_by, updated_at, manual_firstname, manual_lastname, manual_phone, manual_email)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         mapped_customer,
@@ -2722,6 +2819,10 @@ def merge_database_from_upload(uploaded_file):
                         row["staff_name"] if "staff_name" in row_keys and row["staff_name"] else "Ute",
                         row["created_by"] if "created_by" in row_keys and row["created_by"] else (row["staff_name"] if "staff_name" in row_keys and row["staff_name"] else "Ute"),
                         row["updated_at"] if "updated_at" in row_keys and row["updated_at"] else (row["created_at"] if "created_at" in row_keys else datetime.now().isoformat(timespec="seconds")),
+                        row["manual_firstname"] if "manual_firstname" in row_keys else "",
+                        row["manual_lastname"] if "manual_lastname" in row_keys else "",
+                        row["manual_phone"] if "manual_phone" in row_keys else "",
+                        row["manual_email"] if "manual_email" in row_keys else "",
                     ),
                 )
                 merged["appointments"] += 1

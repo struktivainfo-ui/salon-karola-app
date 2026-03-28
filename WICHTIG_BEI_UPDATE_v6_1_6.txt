@@ -1,0 +1,22 @@
+Salon Karola v6.1.6 Data Safe Backup
+
+WICHTIG:
+- Die Datei salon_karola.db aus deiner laufenden App NICHT überschreiben.
+- Diese ZIP ist absichtlich ohne Datenbank gedacht.
+- Dadurch bleiben deine vorhandenen Termine, Kunden und Einstellungen erhalten.
+
+Neu in v6.1.6:
+1. Manuell eingetragene Kontakte werden bei neuen Terminen nicht mehr in der Kundenliste gespeichert.
+2. Die Termine selbst bleiben gespeichert.
+3. Es wird automatisch ein tägliches Backup im Ordner backups/ erstellt.
+4. Es werden nur die neuesten Auto-Backups behalten.
+
+Zu ersetzen:
+- app.py
+- templates/
+- static/
+- wsgi.py
+- requirements.txt
+
+Nicht ersetzen:
+- salon_karola.db
