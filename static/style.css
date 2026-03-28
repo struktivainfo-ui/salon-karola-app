@@ -815,7 +815,6 @@ td {
     top: 0;
     z-index: 1000;
     backdrop-filter: blur(12px);
-    isolation: isolate;
   }
 
   .topbar-inner {
@@ -933,7 +932,7 @@ td {
     background: rgba(255,255,255,.02);
     border: 1px solid rgba(212,175,55,.18);
     position: relative;
-    z-index: 1003;
+    z-index: 1002;
     pointer-events: auto !important;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
