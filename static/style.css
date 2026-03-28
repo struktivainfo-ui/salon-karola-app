@@ -1563,3 +1563,191 @@ body {
     padding-top: 18px;
   }
 }
+
+
+/* v7.0 Stable UI Final */
+:root {
+  --radius-sm: 14px;
+  --radius-lg: 24px;
+  --focus-ring: 0 0 0 3px rgba(240,215,122,.18);
+}
+
+body.app-body {
+  background:
+    radial-gradient(circle at top left, rgba(212,175,55,.10), transparent 28%),
+    radial-gradient(circle at top right, rgba(212,175,55,.05), transparent 22%),
+    linear-gradient(180deg, #0b0b0c 0%, #121214 100%);
+}
+
+.brand-version {
+  margin-top: 4px;
+  font-size: .72rem;
+  color: rgba(240,215,122,.8);
+  letter-spacing: .04em;
+}
+
+main.container {
+  padding-top: 18px;
+  padding-bottom: 36px;
+}
+
+main.container > section + section {
+  margin-top: 18px;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus,
+.btn:focus,
+a:focus-visible,
+summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.card,
+.hero-card,
+.pro-panel,
+.stat-tile,
+.login-card,
+.mobile-card,
+.customer-preview-panel {
+  backdrop-filter: blur(8px);
+}
+
+.page-hero {
+  margin-top: 4px;
+}
+
+.page-hero .hero-actions-grid {
+  align-self: center;
+}
+
+.page-hero .hero-action {
+  min-height: 82px;
+}
+
+.table-wrap {
+  background: rgba(255,255,255,.015);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  background: #161616;
+  z-index: 1;
+}
+
+.list-item,
+.quick-action,
+.hero-action,
+.view-chip,
+.week-event,
+.month-item,
+.day-slot-link,
+.nav-links a,
+.nav-admin-summary {
+  transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+
+.list-item:hover,
+.quick-action:hover,
+.hero-action:hover,
+.view-chip:hover,
+.week-event:hover,
+.month-item:hover,
+.day-slot-link:hover,
+.nav-links a:hover,
+.nav-admin-summary:hover {
+  border-color: rgba(240,215,122,.36);
+  transform: translateY(-1px);
+}
+
+.clean-card,
+.pro-panel,
+.stat-tile,
+.app-hero {
+  border-radius: 26px;
+}
+
+.btn, button {
+  border-radius: 16px;
+}
+
+.btn-secondary:hover,
+.nav-links a:hover,
+.nav-admin-summary:hover {
+  background: rgba(212,175,55,.10);
+}
+
+@media (min-width: 769px) {
+  .topbar {
+    box-shadow: 0 12px 26px rgba(0,0,0,.18);
+  }
+
+  .topbar-inner {
+    grid-template-columns: minmax(220px, auto) 1fr;
+    gap: 24px;
+  }
+
+  .nav-links {
+    gap: 10px;
+  }
+
+  .nav-links a,
+  .nav-admin-summary {
+    min-height: 44px;
+    padding: 10px 15px;
+    border-radius: 14px;
+    font-size: .92rem;
+  }
+
+  .nav-admin-links {
+    min-width: 240px;
+  }
+}
+
+@media (max-width: 768px) {
+  .brand-version {
+    font-size: .68rem;
+  }
+
+  .app-hero,
+  .clean-card,
+  .pro-panel,
+  .stat-tile {
+    border-radius: 22px;
+  }
+
+  .app-hero-title {
+    font-size: 1.5rem;
+  }
+
+  .hero-actions-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hero-action {
+    min-height: 74px;
+    border-radius: 18px;
+    font-size: .96rem;
+  }
+
+  .quick-actions {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .hero-actions-grid,
+  .quick-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
