@@ -70,6 +70,10 @@
       jessiCount.textContent = data.jessi_devices || 0;
       activeCount.textContent = data.active_devices || 0;
       totalCount.textContent = data.total_devices || 0;
+      const mini = document.getElementById('pushStatusMini');
+      if (mini && !data.enabled) {
+        mini.textContent = 'Push-Server noch nicht bereit. Bitte Seite neu laden und Push erneut aktivieren.';
+      }
     } catch (e) {}
   }
 

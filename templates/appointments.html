@@ -125,14 +125,47 @@
       </div>
       <div class="list-stack space-top split-day-list">
         {% for appt in items %}
-        <a class="list-item appointment-card appointment-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+        <div class="list-item appointment-card appointment-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">
           <div class="row-between wrap-mobile">
             <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
             <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['appointment_at']|dt }}</span>
           </div>
           <div class="mobile-line">{{ appt['title'] }}</div>
           <div class="mobile-line">{{ appt['Customer_Mobiltelefon'] or appt['Customer_PersönlichesTelefon'] or 'Keine Nummer' }}</div>
-        </a>
+          <form method="post" action="{{ url_for('appointment_edit', appointment_id=appt['id']) }}" class="space-top">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Verschieben</label>
+                <input type="datetime-local" name="appointment_at" value="{{ appt['appointment_at']|dtlocal }}" required>
+              </div>
+              <div class="form-group">
+                <label>Mitarbeiterin</label>
+                <select name="staff_name">
+                  <option value="Ute" {% if (appt['staff_name'] or 'Ute') == 'Ute' %}selected{% endif %}>Ute</option>
+                  <option value="Jessi" {% if (appt['staff_name'] or 'Ute') == 'Jessi' %}selected{% endif %}>Jessi</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Status</label>
+                <select name="status">
+                  <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
+                  <option value="bestätigt" {% if appt['status'] == 'bestätigt' %}selected{% endif %}>bestätigt</option>
+                  <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
+                  <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
+                </select>
+              </div>
+            </div>
+            <input type="hidden" name="title" value="{{ appt['title'] }}">
+            <input type="hidden" name="reminder_hours" value="{{ appt['reminder_hours'] or 24 }}">
+            <input type="hidden" name="notes" value="{{ appt['notes'] or '' }}">
+            <div class="actions">
+              <button type="submit">Speichern</button>
+            </div>
+          </form>
+          <form method="post" action="{{ url_for('appointment_delete', appointment_id=appt['id']) }}" onsubmit="return confirm('Termin wirklich löschen?');" class="space-top">
+            <button type="submit" class="btn btn-secondary">Löschen</button>
+          </form>
+        </div>
         {% else %}
         <div class="list-item">Heute keine Termine für {{ staff_name }}.</div>
         {% endfor %}
@@ -152,7 +185,7 @@
   </div>
   <div class="list-stack space-top">
     {% for appt in upcoming %}
-    <a class="list-item appointment-card appointment-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+    <div class="list-item appointment-card appointment-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">
       <div class="row-between wrap-mobile">
         <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
         <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
@@ -160,7 +193,40 @@
       <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt['appointment_at']|dt }}</div>
       <div class="mobile-line"><span class="mobile-label">Leistung:</span> {{ appt['title'] }}</div>
       <div class="mobile-line"><span class="mobile-label">Mitarbeiterin:</span> {{ appt['staff_name'] or 'Ute' }}</div>
-    </a>
+      <form method="post" action="{{ url_for('appointment_edit', appointment_id=appt['id']) }}" class="space-top">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Verschieben</label>
+            <input type="datetime-local" name="appointment_at" value="{{ appt['appointment_at']|dtlocal }}" required>
+          </div>
+          <div class="form-group">
+            <label>Mitarbeiterin</label>
+            <select name="staff_name">
+              <option value="Ute" {% if (appt['staff_name'] or 'Ute') == 'Ute' %}selected{% endif %}>Ute</option>
+              <option value="Jessi" {% if (appt['staff_name'] or 'Ute') == 'Jessi' %}selected{% endif %}>Jessi</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select name="status">
+              <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
+              <option value="bestätigt" {% if appt['status'] == 'bestätigt' %}selected{% endif %}>bestätigt</option>
+              <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
+              <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
+            </select>
+          </div>
+        </div>
+        <input type="hidden" name="title" value="{{ appt['title'] }}">
+        <input type="hidden" name="reminder_hours" value="{{ appt['reminder_hours'] or 24 }}">
+        <input type="hidden" name="notes" value="{{ appt['notes'] or '' }}">
+        <div class="actions">
+          <button type="submit">Speichern</button>
+        </div>
+      </form>
+      <form method="post" action="{{ url_for('appointment_delete', appointment_id=appt['id']) }}" onsubmit="return confirm('Termin wirklich löschen?');" class="space-top">
+        <button type="submit" class="btn btn-secondary">Löschen</button>
+      </form>
+    </div>
     {% else %}
     <div class="list-item">Noch keine nächsten Termine vorhanden.</div>
     {% endfor %}

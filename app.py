@@ -164,6 +164,25 @@ def ensure_manual_placeholder_customer(conn):
     return cur.lastrowid
 
 
+def is_manual_placeholder_customer_id(conn, customer_id):
+    try:
+        if customer_id in (None, "", 0, "0"):
+            return True
+        row = conn.execute("SELECT COALESCE(_name, '') AS lastname FROM _Customers WHERE _id = ? LIMIT 1", (customer_id,)).fetchone()
+        if not row:
+            return False
+        lastname = row[0] if not isinstance(row, sqlite3.Row) else row["lastname"]
+        return (lastname or "") == MANUAL_PLACEHOLDER_LASTNAME
+    except Exception:
+        return False
+
+
+def appointment_redirect_target(conn, customer_id):
+    if is_manual_placeholder_customer_id(conn, customer_id):
+        return url_for("appointments_hub")
+    return url_for("customer_detail", customer_id=customer_id)
+
+
 def acquire_automation_lock(ttl_seconds=120):
     now = datetime.now()
     lock_until = (now + timedelta(seconds=ttl_seconds)).isoformat(timespec="seconds")
@@ -890,7 +909,7 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
             subscription_info=subscription,
             data=json.dumps({"title": title, "body": body, "url": url}),
             vapid_private_key=vapid_private_key(),
-            vapid_claims={"sub": os.getenv("VAPID_CLAIMS_SUBJECT", "mailto:push@salonkarola.local")},
+            vapid_claims={"sub": os.getenv("VAPID_CLAIMS_SUBJECT", "mailto:admin@example.com")},
             ttl=60 * 60 * 6,
         )
         _touch_push_subscription(
@@ -1373,7 +1392,7 @@ def today_appointments(limit=20):
                COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
                COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
         FROM appointments a
-        JOIN _Customers c ON c._id = a.customer_id
+        LEFT JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ? AND a.appointment_at < ?
         ORDER BY a.appointment_at ASC
         LIMIT ?
@@ -1394,7 +1413,7 @@ def due_reminders(limit=20):
                COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
                COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
         FROM appointments a
-        JOIN _Customers c ON c._id = a.customer_id
+        LEFT JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ? AND a.appointment_at <= ?
           AND a.reminder_sent_at IS NULL
         ORDER BY a.appointment_at ASC
@@ -1469,7 +1488,7 @@ def next_appointments(limit=12):
                COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
                COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
         FROM appointments a
-        JOIN _Customers c ON c._id = a.customer_id
+        LEFT JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ?
         ORDER BY a.appointment_at ASC
         LIMIT ?
@@ -1859,7 +1878,7 @@ def appointment_new(customer_id):
         ),
     )
     db.commit()
-    notify_result = notify_other_staff_for_appointment(notify_customer_id, title, appointment_at, staff_name, actor_name)
+    notify_result = notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name)
     flash_msg = "Termin wurde gespeichert."
     if vapid_ready() and notify_result.get("sent", 0) > 0:
         flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
@@ -1881,7 +1900,7 @@ def appointment_edit(appointment_id):
     appointment_at = request.form.get("appointment_at", "").strip()
     if not appointment_at:
         flash("Bitte ein Datum und eine Uhrzeit für den Termin angeben.")
-        return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
+        return redirect(appointment_redirect_target(db, row["customer_id"]))
 
     db.execute(
         """
@@ -1902,7 +1921,7 @@ def appointment_edit(appointment_id):
     )
     db.commit()
     flash("Termin wurde aktualisiert.")
-    return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
+    return redirect(appointment_redirect_target(db, row["customer_id"]))
 
 
 @app.route("/appointment/delete/<int:appointment_id>", methods=["POST"])
@@ -1914,7 +1933,7 @@ def appointment_delete(appointment_id):
         db.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
         db.commit()
         flash("Termin wurde gelöscht.")
-        return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
+        return redirect(appointment_redirect_target(db, row["customer_id"]))
     flash("Termin nicht gefunden.")
     return redirect(url_for("index"))
 
@@ -1931,7 +1950,7 @@ def appointment_update_status(appointment_id):
     db.execute("UPDATE appointments SET status = ? WHERE id = ?", (status, appointment_id))
     db.commit()
     flash("Terminstatus wurde aktualisiert.")
-    return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
+    return redirect(appointment_redirect_target(db, row["customer_id"]))
 
 
 
@@ -2022,7 +2041,7 @@ def _fetch_calendar_appointments(start_dt, end_dt, staff="Alle"):
                COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
                COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
         FROM appointments a
-        JOIN _Customers c ON c._id = a.customer_id
+        LEFT JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ? AND a.appointment_at < ?
     """
     params = [start_dt.isoformat(timespec="minutes"), end_dt.isoformat(timespec="minutes")]
@@ -2337,7 +2356,7 @@ def appointments_feed():
                COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
                COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name
         FROM appointments a
-        JOIN _Customers c ON c._id = a.customer_id
+        LEFT JOIN _Customers c ON c._id = a.customer_id
     """
     params = []
     if since:
@@ -2372,7 +2391,7 @@ def appointments_feed():
 @app.route("/api/push/public-key")
 @login_required
 def push_public_key():
-    return {"public_key": vapid_public_key(), "enabled": vapid_ready(), "format": "base64url", "generated": bool(_get_app_setting("push:vapid_generated_at", ""))}
+    return {"public_key": vapid_public_key(), "enabled": vapid_ready(), "format": "base64url", "generated": bool(_get_app_setting("push:vapid_generated_at", "")), "reason": "ok" if vapid_ready() else "Push-Server oder VAPID noch nicht bereit."}
 
 
 @app.route("/api/push/status")
@@ -2517,16 +2536,20 @@ def push_unsubscribe():
 @login_required
 def push_ping():
     staff_name = _normalize_staff_name(request.args.get("staff_name"), default="Ute")
+    enabled = vapid_ready()
     if staff_name == "Alle":
-        result = webpush_send_to_all_staff("Salon Karola Push aktiv", "Test-Push an alle registrierten Geräte.", "/calendar")
         devices = push_devices_for_staff(None)
         device_count = len(devices)
+        if not enabled:
+            return {"ok": False, "result": {"sent": 0, "errors": ["Push-Server noch nicht bereit."]}, "enabled": enabled, "devices": devices, "device_count": device_count}
+        result = webpush_send_to_all_staff("Salon Karola Push aktiv", "Test-Push an alle registrierten Geräte.", "/calendar")
     else:
-
         devices = push_devices_for_staff(staff_name)
         device_count = len(devices)
+        if not enabled:
+            return {"ok": False, "result": {"sent": 0, "errors": ["Push-Server noch nicht bereit."]}, "enabled": enabled, "devices": devices, "device_count": device_count}
         result = webpush_send_to_staff(staff_name, "Salon Karola Push aktiv", f"Dieses Handy ist jetzt für {staff_name} registriert.", "/calendar")
-    return {"ok": True, "result": result, "enabled": vapid_ready(), "devices": devices, "device_count": device_count}
+    return {"ok": True, "result": result, "enabled": enabled, "devices": devices, "device_count": device_count}
 
 
 @app.route("/push")
@@ -2707,6 +2730,16 @@ def format_dt(value):
         return datetime.fromisoformat(str(value)).strftime("%d.%m.%Y %H:%M")
     except Exception:
         return str(value)
+
+
+@app.template_filter("dtlocal")
+def format_dtlocal(value):
+    if not value:
+        return ""
+    try:
+        return datetime.fromisoformat(str(value)).strftime("%Y-%m-%dT%H:%M")
+    except Exception:
+        return str(value)[:16]
 
 
 @app.template_filter("birthday")
