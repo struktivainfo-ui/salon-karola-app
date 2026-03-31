@@ -2143,6 +2143,7 @@ def appointments_hub():
         manual_lastname = (request.form.get("manual_lastname") or "").strip()
         manual_phone = (request.form.get("manual_phone") or "").strip()
         manual_email = (request.form.get("manual_email") or "").strip()
+        manual_name = " ".join(part for part in [manual_firstname, manual_lastname] if part).strip()
 
         if not appointment_at:
             flash("Bitte Datum und Uhrzeit für den Termin angeben.")
@@ -2188,7 +2189,18 @@ def appointments_hub():
             ),
         )
         db.commit()
-        notify_result = notify_other_staff_for_appointment(notify_customer_id, title, appointment_at, staff_name, actor_name, manual_name=manual_name)
+        try:
+            notify_result = notify_other_staff_for_appointment(
+                notify_customer_id,
+                title,
+                appointment_at,
+                staff_name,
+                actor_name,
+                manual_name=manual_name,
+            )
+        except Exception as e:
+            app.logger.exception("Notify Fehler bei Terminanlage: %s", e)
+            notify_result = {"sent": 0, "error": str(e)}
         flash_msg = "Termin wurde gespeichert."
         if not customer_id_raw.isdigit() and (manual_firstname or manual_lastname):
             flash_msg += " Manueller Kontakt wurde nicht in der Kundenliste gespeichert."
