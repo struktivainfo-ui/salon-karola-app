@@ -990,14 +990,16 @@ def _push_appointment_reminder(appt):
     )
 
 
-def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name):
+def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name, manual_name=""):
     actor = (actor_name or staff_name or "Ute").strip() or "Ute"
     target = "Jessi" if actor == "Ute" else "Ute"
-    customer = get_db().execute(
-        "SELECT _firstname, _name FROM _Customers WHERE _id = ?",
-        (customer_id,),
-    ).fetchone()
-    customer_name = f"{customer['_firstname'] or ''} {customer['_name'] or ''}".strip() if customer else "Kundin"
+    customer = None
+    if customer_id:
+        customer = get_db().execute(
+            "SELECT _firstname, _name FROM _Customers WHERE _id = ?",
+            (customer_id,),
+        ).fetchone()
+    customer_name = f"{customer['_firstname'] or ''} {customer['_name'] or ''}".strip() if customer else (manual_name.strip() or "Kundin")
     try:
         when_label = datetime.fromisoformat(str(appointment_at)).strftime("%d.%m.%Y um %H:%M")
     except Exception:
@@ -2165,6 +2167,42 @@ def appointments_hub():
             if not (manual_firstname or manual_lastname):
                 flash("Bitte einen Kontakt aus der Datenbank wählen oder Name für den manuellen Termin eintragen.")
                 return redirect(url_for("appointments_hub"))
+            # Manueller Termin wird NICHT als Neukunde gespeichert.
+            # Stattdessen verwenden wir einen versteckten technischen Platzhalter,
+            # damit appointments.customer_id weiterhin befüllt ist.
+            customer_id = ensure_manual_placeholder_customer(db)
+            notify_customer_id = None
+
+        duplicate_since = (datetime.now() - timedelta(seconds=15)).isoformat(timespec="seconds")
+        duplicate_row = db.execute(
+            """
+            SELECT id
+            FROM appointments
+            WHERE COALESCE(customer_id, 0) = COALESCE(?, 0)
+              AND COALESCE(title, '') = COALESCE(?, '')
+              AND COALESCE(appointment_at, '') = COALESCE(?, '')
+              AND COALESCE(staff_name, '') = COALESCE(?, '')
+              AND COALESCE(manual_firstname, '') = COALESCE(?, '')
+              AND COALESCE(manual_lastname, '') = COALESCE(?, '')
+              AND COALESCE(created_by, '') = COALESCE(?, '')
+              AND COALESCE(created_at, '') >= ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (
+                customer_id,
+                title,
+                appointment_at,
+                staff_name,
+                manual_firstname,
+                manual_lastname,
+                actor_name,
+                duplicate_since,
+            ),
+        ).fetchone()
+        if duplicate_row:
+            flash("Termin wurde bereits gerade eben gespeichert – Doppel-Klick wurde blockiert.")
+            return redirect(url_for("appointments_hub"))
 
         db.execute(
             """
@@ -2198,9 +2236,9 @@ def appointments_hub():
                 actor_name,
                 manual_name=manual_name,
             )
-        except Exception as e:
-            app.logger.exception("Notify Fehler bei Terminanlage: %s", e)
-            notify_result = {"sent": 0, "error": str(e)}
+        except Exception as exc:
+            app.logger.exception("Notify Fehler bei Termin: %s", exc)
+            notify_result = {"sent": 0, "error": str(exc)}
         flash_msg = "Termin wurde gespeichert."
         if not customer_id_raw.isdigit() and (manual_firstname or manual_lastname):
             flash_msg += " Manueller Kontakt wurde nicht in der Kundenliste gespeichert."
