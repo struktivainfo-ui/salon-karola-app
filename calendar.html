@@ -1,12 +1,15 @@
 {% extends 'base.html' %}
 {% block title %}Kalender - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card clean-hero">
-  <div class="hero-row">
-    <div>
-      <h1 class="hero-title">Kalender</h1>
-      <p class="hero-text">Tages-, Wochen- und Monatsansicht mit klarer Trennung für Ute, Jessi oder beide zusammen.</p>
-    </div>
+<section class="app-hero page-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Salon Karola</span>
+    <h1 class="app-hero-title">Kalender</h1>
+    <p class="app-hero-text">Tag, Woche und Monat sauber getrennt – für eine klare Terminsteuerung auf Handy und Desktop.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('appointments_hub') }}">Termin anlegen</a>
+    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
   </div>
 </section>
 
@@ -14,10 +17,10 @@
   <div class="row-between wrap-mobile">
     <div>
       <h2>Kalendersteuerung</h2>
-      <div class="helper-text">Wähle Mitarbeiterin, Ansicht und Datum für deinen Tagesablauf.</div>
     </div>
     <span class="badge">{{ staff }} • {{ selected_date }}</span>
   </div>
+
   <form method="get" class="calendar-toolbar space-top">
     <div class="view-switch">
       <a class="view-chip {% if staff == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Alle') }}">Alle</a>
@@ -41,15 +44,16 @@
     </div>
   </form>
 </section>
+
 {% if view == 'day' and staff == 'Alle' and split_day_views %}
 <section class="split-day-section space-top">
   <div class="row-between wrap-mobile split-day-header">
     <div>
-      <h2>Zwei Tagesansichten</h2>
-      <div class="helper-text">Ute und Jessi getrennt – so siehst du beide Tagespläne direkt nebeneinander.</div>
+      <h2>Tagesansicht</h2>
     </div>
     <span class="badge">{{ selected_date }}</span>
   </div>
+
   <div class="split-day-grid space-top">
     {% for staff_name, staff_day in split_day_views.items() %}
     <section class="card split-day-card">
@@ -60,11 +64,12 @@
         </div>
         <span class="badge">{{ staff_day['items']|length }} Termine</span>
       </div>
+
       {% if staff_day['timeline']['open'] %}
       <div class="day-timeline compact-timeline space-top">
         {% for slot in staff_day['timeline']['slots'] %}
         <div class="day-slot">
-          <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff if staff != 'Alle' else 'Ute', source='slot') }}">{{ slot['time'] }}</a>
+          <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff_name, source='slot') }}">{{ slot['time'] }}</a>
           <div class="day-slot-content">
             {% for appt in slot['items'] %}
             <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
@@ -80,6 +85,7 @@
       {% else %}
       <div class="list-item space-top">Sonntag ist geschlossen.</div>
       {% endif %}
+
       <div class="list-stack space-top split-day-list">
         {% for appt in staff_day['items'] %}
         <div class="list-item">
@@ -102,8 +108,7 @@
 <section class="card space-top">
   <div class="row-between wrap-mobile">
     <div>
-      <h2>Gesamtansicht des Tages</h2>
-      <div class="helper-text">Alle Termine zusammengefasst.</div>
+      <h2>Tag</h2>
     </div>
     <span class="badge">{{ day_view['items']|length }} Termine</span>
   </div>
@@ -163,16 +168,26 @@
 {% if view == 'week' and week_view %}
 <section class="card space-top">
   <div class="row-between wrap-mobile">
-    <h2>Wochenansicht</h2>
+    <div>
+      <h2>Wochenansicht</h2>
+      <div class="helper-text">Tag antippen oder anklicken, dann Mitarbeiterin auswählen und direkt zur Tagesansicht wechseln.</div>
+    </div>
     <span class="badge">{{ week_view['label'] }}</span>
   </div>
+
   <div class="week-grid space-top">
     {% for day in week_view['days'] %}
     <div class="week-day {% if day['is_today'] %}today{% endif %}">
-      <div class="week-day-head">
+      <button
+        type="button"
+        class="week-day-head week-day-open-btn"
+        data-day-date="{{ day['date'] }}"
+        data-day-label="{{ day['name'] }} {{ day['label'] }}"
+      >
         <div class="week-day-name">{{ day['name'] }}</div>
         <div class="week-day-label">{{ day['label'] }}</div>
-      </div>
+      </button>
+
       <div class="week-events">
         {% for appt in day['items'] %}
         <a class="week-event week-event-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
@@ -184,6 +199,17 @@
         <div class="week-empty">Keine Termine</div>
         {% endfor %}
       </div>
+
+      <div class="space-top">
+        <button
+          type="button"
+          class="btn btn-secondary btn-small week-day-open-btn"
+          data-day-date="{{ day['date'] }}"
+          data-day-label="{{ day['name'] }} {{ day['label'] }}"
+        >
+          Tagesansicht öffnen
+        </button>
+      </div>
     </div>
     {% endfor %}
   </div>
@@ -193,17 +219,30 @@
 {% if view == 'month' and month_view %}
 <section class="card space-top">
   <div class="row-between wrap-mobile">
-    <h2>Monatsansicht</h2>
+    <div>
+      <h2>Monatsansicht</h2>
+      <div class="helper-text">Tag antippen oder anklicken, Mitarbeiterin auswählen und sofort in die Tagesansicht springen.</div>
+    </div>
     <span class="badge">{{ month_view['month_label'] }}</span>
   </div>
+
   <div class="month-grid space-top desktop-only">
     {% for header in month_view['weekday_headers'] %}
     <div class="month-header">{{ header }}</div>
     {% endfor %}
+
     {% for week in month_view['weeks'] %}
       {% for cell in week %}
       <div class="month-cell {% if not cell['in_month'] %}muted{% endif %} {% if cell['is_today'] %}today{% endif %}">
-        <div class="month-cell-day">{{ cell['day'] }}</div>
+        <button
+          type="button"
+          class="month-cell-day month-day-open-btn"
+          data-day-date="{{ cell['date'] }}"
+          data-day-label="{{ cell['date'] }}"
+        >
+          {{ cell['day'] }}
+        </button>
+
         <div class="month-cell-items">
           {% for appt in cell['items'][:3] %}
           <a class="month-item month-item-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
@@ -214,6 +253,17 @@
           <div class="month-more">+{{ cell['items']|length - 3 }} weitere</div>
           {% endif %}
         </div>
+
+        <div class="space-top">
+          <button
+            type="button"
+            class="btn btn-secondary btn-small month-day-open-btn"
+            data-day-date="{{ cell['date'] }}"
+            data-day-label="{{ cell['date'] }}"
+          >
+            Tag öffnen
+          </button>
+        </div>
       </div>
       {% endfor %}
     {% endfor %}
@@ -222,14 +272,27 @@
   <div class="mobile-only space-top">
     {% for week in month_view['weeks'] %}
       {% for cell in week %}
-        {% if cell['in_month'] and cell['items'] %}
-        <div class="mobile-card {% if cell['is_today'] %}today-outline{% endif %}">
-          <h3>{{ cell['date'] }}</h3>
+      <div class="mobile-card {% if cell['is_today'] %}today-outline{% endif %} {% if not cell['in_month'] %}muted{% endif %}">
+        <div class="row-between wrap-mobile">
+          <h3 style="margin:0;">{{ cell['date'] }}</h3>
+          <button
+            type="button"
+            class="btn btn-secondary btn-small month-day-open-btn"
+            data-day-date="{{ cell['date'] }}"
+            data-day-label="{{ cell['date'] }}"
+          >
+            Öffnen
+          </button>
+        </div>
+
+        {% if cell['items'] %}
           {% for appt in cell['items'] %}
           <div class="mobile-line">{{ appt['appointment_at']|dt }} — {{ appt['firstname'] }} {{ appt['lastname'] }} — {{ appt['title'] }} — {{ appt['staff_name'] }}</div>
           {% endfor %}
-        </div>
+        {% else %}
+          <div class="mobile-line">Keine Termine</div>
         {% endif %}
+      </div>
       {% endfor %}
     {% endfor %}
   </div>
@@ -238,9 +301,10 @@
 
 <section class="card space-top mobile-only">
   <div class="row-between wrap-mobile">
-    <h2>Mobile Schnellübersicht</h2>
+    <h2>Mobil</h2>
     <span class="badge">{{ staff }} • {{ selected_date }}</span>
   </div>
+
   {% if view == 'week' and week_view %}
     <div class="mobile-summary-list space-top">
       {% for day in week_view['days'] %}
@@ -249,6 +313,18 @@
             <strong>{{ day['name'] }} {{ day['label'] }}</strong>
             <span class="badge">{{ day['items']|length }} Termine</span>
           </div>
+
+          <div class="space-top">
+            <button
+              type="button"
+              class="btn btn-secondary btn-small week-day-open-btn"
+              data-day-date="{{ day['date'] }}"
+              data-day-label="{{ day['name'] }} {{ day['label'] }}"
+            >
+              Tagesansicht wählen
+            </button>
+          </div>
+
           {% for appt in day['items'] %}
             <a class="mobile-summary-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
               <strong>{{ appt['time_short'] }}</strong> — {{ appt['customer_name'] }} — {{ appt['staff_name'] }}
@@ -269,8 +345,87 @@
       <div class="week-empty">Keine Termine</div>
       {% endfor %}
     </div>
+  {% elif view == 'month' and month_view %}
+    <div class="mobile-summary-list space-top">
+      {% for week in month_view['weeks'] %}
+        {% for cell in week %}
+        {% if cell['in_month'] %}
+        <div class="mobile-day-card {% if cell['is_today'] %}today-outline{% endif %}">
+          <div class="row-between wrap-mobile">
+            <strong>{{ cell['date'] }}</strong>
+            <span class="badge">{{ cell['items']|length }} Termine</span>
+          </div>
+
+          <div class="space-top">
+            <button
+              type="button"
+              class="btn btn-secondary btn-small month-day-open-btn"
+              data-day-date="{{ cell['date'] }}"
+              data-day-label="{{ cell['date'] }}"
+            >
+              Tagesansicht wählen
+            </button>
+          </div>
+
+          {% for appt in cell['items'][:3] %}
+            <a class="mobile-summary-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+              <strong>{{ appt['time_short'] }}</strong> — {{ appt['customer_name'] }} — {{ appt['staff_name'] }}
+            </a>
+          {% else %}
+            <div class="week-empty">Keine Termine</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% endfor %}
+      {% endfor %}
+    </div>
   {% endif %}
 </section>
+
+<div id="dayViewStaffModal" class="push-modal hidden" aria-hidden="true">
+  <div class="push-modal-card">
+    <div class="row-between wrap-mobile">
+      <div>
+        <h3 style="margin-bottom:6px;">Tagesansicht öffnen</h3>
+        <div id="dayViewStaffModalText" class="helper-text">Bitte auswählen, für wen die Tagesansicht geöffnet werden soll.</div>
+      </div>
+      <button type="button" id="closeDayViewStaffModal" class="btn btn-secondary btn-small">Schließen</button>
+    </div>
+
+    <div class="quick-actions space-top">
+      <button type="button" class="btn dayview-staff-btn" data-staff="Alle">Alle</button>
+      <button type="button" class="btn dayview-staff-btn" data-staff="Ute">Ute</button>
+      <button type="button" class="btn dayview-staff-btn" data-staff="Jessi">Jessi</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .week-day-head{
+    width:100%;
+    text-align:left;
+    background:transparent;
+    border:none;
+    padding:0;
+    cursor:pointer;
+  }
+  .month-cell-day{
+    cursor:pointer;
+    background:transparent;
+    border:none;
+    color:inherit;
+    font:inherit;
+    padding:0;
+    text-align:left;
+  }
+  .dayview-staff-btn{
+    min-width:110px;
+  }
+  .push-modal.hidden{
+    display:none;
+  }
+</style>
+
 <script>
 (function(){
   function syncCalendarPushUi(){
@@ -287,6 +442,64 @@
     });
   }
 
+  function setupDayViewPicker(){
+    const modal = document.getElementById('dayViewStaffModal');
+    const modalText = document.getElementById('dayViewStaffModalText');
+    const closeBtn = document.getElementById('closeDayViewStaffModal');
+    const openButtons = document.querySelectorAll('.week-day-open-btn, .month-day-open-btn');
+    const staffButtons = document.querySelectorAll('.dayview-staff-btn');
+    let selectedDate = '';
+
+    function openModal(dateValue, labelValue){
+      if (!modal || !dateValue) return;
+      selectedDate = dateValue;
+      if (modalText) {
+        modalText.textContent = 'Tagesansicht für ' + (labelValue || dateValue) + ' öffnen. Bitte auswählen: Alle, Ute oder Jessi.';
+      }
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeModal(){
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+      selectedDate = '';
+    }
+
+    openButtons.forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const dateValue = this.dataset.dayDate || '';
+        const labelValue = this.dataset.dayLabel || dateValue;
+        if (!dateValue) return;
+        openModal(dateValue, labelValue);
+      });
+    });
+
+    staffButtons.forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const selectedStaff = this.dataset.staff || 'Alle';
+        if (!selectedDate) return;
+        const targetUrl = '/calendar?view=day&date=' + encodeURIComponent(selectedDate) + '&staff=' + encodeURIComponent(selectedStaff);
+        window.location.href = targetUrl;
+      });
+    });
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', closeModal);
+    }
+
+    if (modal) {
+      modal.addEventListener('click', function(event){
+        if (event.target === modal) closeModal();
+      });
+    }
+
+    document.addEventListener('keydown', function(event){
+      if (event.key === 'Escape') closeModal();
+    });
+  }
+
   window.addEventListener('load', function(){
     const enableMain = document.getElementById('enablePushBtn');
     const enableCalendar = document.getElementById('calendarEnablePushBtn');
@@ -297,6 +510,7 @@
 
     syncCalendarPushUi();
     setTimeout(syncCalendarPushUi, 1200);
+    setupDayViewPicker();
 
     async function loadPushDevices(){
       if (!devicesList) return;
