@@ -70,7 +70,7 @@ app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 @app.after_request
 def add_no_cache_headers(response):
     try:
-        if request.path in ["/", "/login", "/calendar", "/database-tools"] or response.mimetype in {"text/html", "application/javascript", "application/manifest+json"}:
+        if request.path in ["/", "/login", "/calendar", "/database-tools", "/templates", "/admin/reset-birthdate-template"] or response.mimetype in {"text/html", "application/javascript", "application/manifest+json"}:
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
@@ -78,7 +78,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM v7.1 Stable Logic Final - PRO SYSTEM"
+APP_VERSION = "Salon Karola CRM v7.1 Stable Logic Final - Clean Fix"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
@@ -461,36 +461,6 @@ def ensure_default_admin(force_reset=False):
                 (fallback_user, fallback_password, "Salon Karola Admin", datetime.now().isoformat(timespec="seconds")),
             )
         conn.commit()
-
-
-def enforce_template_rules(force=False):
-    default_subject = "Alles Gute zum Geburtstag, {vorname}! 🎉"
-    default_body = (
-        "Lieber {name}, alles Gute zum Geburtstag! 🎂\n\n"
-        "Alles Gute zum Geburtstag! 🎂\n"
-        "Wir vom Salon Karola möchten Ihnen an Ihrem besonderen Tag ein strahlendes Lächeln ins Gesicht zaubern.\n\n"
-        "Als kleines Geschenk und um Ihren Ehrentag gebührend zu feiern, schenken wir Ihnen 10% Rabatt auf Ihre nächste Behandlung in unserem Salon!\n\n"
-        "Herzliche Grüße\n"
-        "Ihr Team vom Salon Karola"
-    )
-
-  with sqlite3.connect(DB_PATH) as conn:
-    conn.row_factory = sqlite3.Row
-
-    row = conn.execute(
-        "SELECT subject, body FROM _MailTemplates WHERE id = ?",
-        ("birthdate",),
-    ).fetchone()
-
-    if not row:
-        conn.execute(
-            """
-            INSERT INTO _MailTemplates(id, subject, body)
-            VALUES (?, ?, ?)
-            """,
-            ("birthdate", default_subject, default_body),
-        )
-         conn.commit()
 
 
 # ---------- Mail ----------
@@ -1025,14 +995,14 @@ def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff
     actor = (actor_name or staff_name or "Ute").strip() or "Ute"
     target = "Jessi" if actor == "Ute" else "Ute"
     customer_name = (manual_name or "").strip()
-    customer = None
-    if customer_id:
+    if not customer_name and customer_id:
         customer = get_db().execute(
             "SELECT _firstname, _name FROM _Customers WHERE _id = ?",
             (customer_id,),
         ).fetchone()
-    if not customer_name:
-        customer_name = f"{customer['_firstname'] or ''} {customer['_name'] or ''}".strip() if customer else "Kundin"
+        if customer:
+            customer_name = f"{customer['_firstname'] or ''} {customer['_name'] or ''}".strip()
+    customer_name = customer_name or "Kundin"
     try:
         when_label = datetime.fromisoformat(str(appointment_at)).strftime("%d.%m.%Y um %H:%M")
     except Exception:
@@ -2578,20 +2548,15 @@ def whatsapp_hub():
 @login_required
 def templates_view():
     db = get_db()
-    blocked_names = ["matthias"]
-
     if request.method == "POST":
         for template_id in ["birthdate", "appointment"]:
             subject = request.form.get(f"{template_id}_subject", "").strip()
             body = request.form.get(f"{template_id}_body", "").strip()
 
-            lower_subject = subject.lower()
-            lower_body = body.lower()
-            for blocked in blocked_names:
-                if blocked in lower_subject or blocked in lower_body:
-                    flash(f"Vorlage '{template_id}' wurde nicht gespeichert: Fester Name '{blocked}' ist nicht erlaubt.")
-                    return redirect(url_for("templates_view"))
-
+            combined = f"{subject}\n{body}".lower()
+            if "matthias" in combined:
+                flash("Feste Namen wie 'Matthias' sind in Vorlagen nicht erlaubt. Bitte Platzhalter wie {name} verwenden.")
+                return redirect(url_for("templates_view"))
             if template_id == "birthdate" and "{name}" not in body and "{vorname}" not in body:
                 flash("Die Geburtstagsvorlage muss mindestens {name} oder {vorname} enthalten.")
                 return redirect(url_for("templates_view"))
@@ -2605,7 +2570,6 @@ def templates_view():
         flash("Vorlagen wurden gespeichert.")
         return redirect(url_for("templates_view"))
 
-    enforce_template_rules(force=False)
     templates = {
         r["id"]: r
         for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
@@ -2616,8 +2580,27 @@ def templates_view():
 @app.route("/admin/reset-birthdate-template")
 @login_required
 def reset_birthdate_template():
-    enforce_template_rules(force=True)
-    flash("Geburtstagsvorlage wurde auf die sichere Platzhalter-Version zurückgesetzt.")
+    db = get_db()
+    subject = "Alles Gute zum Geburtstag, {vorname}! 🎉"
+    body = (
+        "Lieber {name}, alles Gute zum Geburtstag! 🎂!\n\n"
+        "Alles Gute zum Geburtstag! 🎂\n"
+        "Wir vom Salon Karola wünschen Ihnen einen wunderschönen Tag.\n\n"
+        "Herzliche Grüße\n"
+        "Salon Karola"
+    )
+    db.execute(
+        """
+        INSERT INTO _MailTemplates(id, subject, body)
+        VALUES (?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            subject = excluded.subject,
+            body = excluded.body
+        """,
+        ("birthdate", subject, body),
+    )
+    db.commit()
+    flash("Geburtstagsvorlage wurde zurückgesetzt.")
     return redirect(url_for("templates_view"))
 
 
@@ -2757,7 +2740,6 @@ def inject_globals():
 
 def boot_app():
     init_db()
-    enforce_template_rules(force=False)
     run_auto_backup_if_due()
     ensure_default_admin(force_reset=True)
     _ensure_vapid_keys()

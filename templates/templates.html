@@ -14,32 +14,29 @@
 </section>
 
 <section class="card">
-  <form method="post" autocomplete="off">
+  <form method="post">
     <h2>Geburtstag</h2>
     <div class="form-group">
       <label>Betreff</label>
-      <input type="text" name="birthdate_subject" value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <input type="text" name="birthdate_subject" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}">
     </div>
     <div class="form-group">
       <label>Text</label>
-      <textarea name="birthdate_body" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}</textarea>
+      <textarea name="birthdate_body">{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}</textarea>
     </div>
 
     <h2>Termin</h2>
     <div class="form-group">
       <label>Betreff</label>
-      <input type="text" name="appointment_subject" value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <input type="text" name="appointment_subject" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}">
     </div>
     <div class="form-group">
       <label>Text</label>
-      <textarea name="appointment_body" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">{{ templates['appointment']['body'] if 'appointment' in templates else '' }}</textarea>
+      <textarea name="appointment_body">{{ templates['appointment']['body'] if 'appointment' in templates else '' }}</textarea>
     </div>
 
-    <div class="helper-text space-top">Erlaubte Platzhalter: <strong>{name}</strong>, <strong>{vorname}</strong>, <strong>{nachname}</strong>, <strong>{termin}</strong>, <strong>{telefon}</strong>, <strong>{email}</strong>, <strong>{salon}</strong>.</div>
-    <div class="form-actions space-top">
-      <button type="submit">Vorlagen speichern</button>
-      <a class="btn btn-secondary" href="{{ url_for('reset_birthdate_template') }}">Geburtstagsvorlage zurücksetzen</a>
-    </div>
+    <button type="submit">Vorlagen speichern</button>
   </form>
+<div style="margin-top:12px;"><a class="btn btn-secondary" href="{{ url_for('reset_birthdate_template') }}">Geburtstagsvorlage zurücksetzen</a></div>
 </section>
 {% endblock %}
