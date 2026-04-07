@@ -476,6 +476,7 @@ def enforce_template_rules(force=False):
 
   with sqlite3.connect(DB_PATH) as conn:
     conn.row_factory = sqlite3.Row
+
     row = conn.execute(
         "SELECT subject, body FROM _MailTemplates WHERE id = ?",
         ("birthdate",),
@@ -489,18 +490,7 @@ def enforce_template_rules(force=False):
             """,
             ("birthdate", default_subject, default_body),
         )
-        
-            conn.execute(
-                """
-                INSERT INTO _MailTemplates(id, subject, body)
-                VALUES (?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    subject = excluded.subject,
-                    body = excluded.body
-                """,
-                ("birthdate", default_subject, default_body),
-            )
-            conn.commit()
+         conn.commit()
 
 
 # ---------- Mail ----------
