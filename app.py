@@ -474,24 +474,22 @@ def enforce_template_rules(force=False):
         "Ihr Team vom Salon Karola"
     )
 
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        row = conn.execute(
-            "SELECT subject, body FROM _MailTemplates WHERE id = ?",
-            ("birthdate",),
-        ).fetchone()
+  with sqlite3.connect(DB_PATH) as conn:
+    conn.row_factory = sqlite3.Row
+    row = conn.execute(
+        "SELECT subject, body FROM _MailTemplates WHERE id = ?",
+        ("birthdate",),
+    ).fetchone()
 
-        must_fix = force or not row
-        if row and not force:
-            subject = (row["subject"] or "").strip()
-            body = (row["body"] or "").strip()
-            combined = f"{subject}\n{body}".lower()
-            if "matthias" in combined:
-                must_fix = True
-            if "{name}" not in body and "{vorname}" not in body:
-                must_fix = True
-
-        if must_fix:
+    if not row:
+        conn.execute(
+            """
+            INSERT INTO _MailTemplates(id, subject, body)
+            VALUES (?, ?, ?)
+            """,
+            ("birthdate", default_subject, default_body),
+        )
+        
             conn.execute(
                 """
                 INSERT INTO _MailTemplates(id, subject, body)
