@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 from flask import (
     Flask,
     Response,
+    jsonify,
     flash,
     g,
     redirect,
@@ -69,7 +70,7 @@ app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 @app.after_request
 def add_no_cache_headers(response):
     try:
-        if request.path in ["/", "/login", "/calendar", "/database-tools"] or response.mimetype in {"text/html", "application/javascript", "application/manifest+json"}:
+        if request.path in ["/", "/login", "/calendar", "/database-tools", "/templates", "/api/templates/live"] or response.mimetype in {"text/html", "application/javascript", "application/json", "application/manifest+json"}:
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
@@ -77,7 +78,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM v7.1 Stable Logic Final - Final Fix 2026-04-07"
+APP_VERSION = "Salon Karola CRM v7.1 Stable Logic Final - Final Fix 2 2026-04-07"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
@@ -2537,6 +2538,17 @@ def whatsapp_hub():
         current_endpoint="whatsapp_hub",
         app_version=APP_VERSION,
     )
+
+
+@app.route("/api/templates/live")
+@login_required
+def templates_live_api():
+    db = get_db()
+    templates = {
+        r["id"]: {"subject": r["subject"], "body": r["body"]}
+        for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
+    }
+    return jsonify({"ok": True, "templates": templates, "app_version": APP_VERSION, "db_path": str(DB_PATH)})
 
 
 @app.route("/templates", methods=["GET", "POST"])
