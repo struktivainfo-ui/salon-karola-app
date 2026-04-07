@@ -1,4 +1,4 @@
-const CACHE_NAME = "salon-karola-final-fix-2-live-template-sync-2026-04-07";
+const CACHE_NAME = "salon-karola-pro-system-v1";
 const STATIC_URLS = [
   "/static/style.css",
   "/static/icon-192.png",
@@ -32,10 +32,8 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
 
-  if (event.request.mode === "navigate" || url.pathname === "/" || url.pathname === "/calendar" || url.pathname === "/database-tools" || url.pathname === "/templates" || url.pathname === "/appointments" || url.pathname === "/whatsapp") {
-    event.respondWith(
-      fetch(event.request, { cache: "no-store" }).catch(() => caches.match("/login"))
-    );
+  if (event.request.mode === "navigate" || url.pathname === "/" || url.pathname === "/calendar" || url.pathname === "/database-tools") {
+    event.respondWith(fetch(event.request, { cache: "no-store" }).catch(() => caches.match("/login")));
     return;
   }
 

@@ -28,9 +28,9 @@ from dotenv import load_dotenv
 from flask import (
     Flask,
     Response,
-    jsonify,
     flash,
     g,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -70,7 +70,7 @@ app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 @app.after_request
 def add_no_cache_headers(response):
     try:
-        if request.path in ["/", "/login", "/calendar", "/database-tools", "/templates", "/api/templates/live"] or response.mimetype in {"text/html", "application/javascript", "application/json", "application/manifest+json"}:
+        if request.path in ["/", "/login", "/calendar", "/database-tools"] or response.mimetype in {"text/html", "application/javascript", "application/manifest+json"}:
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
@@ -78,7 +78,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM v7.1 Stable Logic Final - Final Fix 2 2026-04-07"
+APP_VERSION = "Salon Karola CRM v7.1 Stable Logic Final - PRO SYSTEM"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
@@ -461,6 +461,48 @@ def ensure_default_admin(force_reset=False):
                 (fallback_user, fallback_password, "Salon Karola Admin", datetime.now().isoformat(timespec="seconds")),
             )
         conn.commit()
+
+
+def enforce_template_rules(force=False):
+    default_subject = "Alles Gute zum Geburtstag, {vorname}! 🎉"
+    default_body = (
+        "Lieber {name}, alles Gute zum Geburtstag! 🎂\n\n"
+        "Alles Gute zum Geburtstag! 🎂\n"
+        "Wir vom Salon Karola möchten Ihnen an Ihrem besonderen Tag ein strahlendes Lächeln ins Gesicht zaubern.\n\n"
+        "Als kleines Geschenk und um Ihren Ehrentag gebührend zu feiern, schenken wir Ihnen 10% Rabatt auf Ihre nächste Behandlung in unserem Salon!\n\n"
+        "Herzliche Grüße\n"
+        "Ihr Team vom Salon Karola"
+    )
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT subject, body FROM _MailTemplates WHERE id = ?",
+            ("birthdate",),
+        ).fetchone()
+
+        must_fix = force or not row
+        if row and not force:
+            subject = (row["subject"] or "").strip()
+            body = (row["body"] or "").strip()
+            combined = f"{subject}\n{body}".lower()
+            if "matthias" in combined:
+                must_fix = True
+            if "{name}" not in body and "{vorname}" not in body:
+                must_fix = True
+
+        if must_fix:
+            conn.execute(
+                """
+                INSERT INTO _MailTemplates(id, subject, body)
+                VALUES (?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    subject = excluded.subject,
+                    body = excluded.body
+                """,
+                ("birthdate", default_subject, default_body),
+            )
+            conn.commit()
 
 
 # ---------- Mail ----------
@@ -991,14 +1033,18 @@ def _push_appointment_reminder(appt):
     )
 
 
-def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name):
+def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name, manual_name=""):
     actor = (actor_name or staff_name or "Ute").strip() or "Ute"
     target = "Jessi" if actor == "Ute" else "Ute"
-    customer = get_db().execute(
-        "SELECT _firstname, _name FROM _Customers WHERE _id = ?",
-        (customer_id,),
-    ).fetchone()
-    customer_name = f"{customer['_firstname'] or ''} {customer['_name'] or ''}".strip() if customer else "Kundin"
+    customer_name = (manual_name or "").strip()
+    customer = None
+    if customer_id:
+        customer = get_db().execute(
+            "SELECT _firstname, _name FROM _Customers WHERE _id = ?",
+            (customer_id,),
+        ).fetchone()
+    if not customer_name:
+        customer_name = f"{customer['_firstname'] or ''} {customer['_name'] or ''}".strip() if customer else "Kundin"
     try:
         when_label = datetime.fromisoformat(str(appointment_at)).strftime("%d.%m.%Y um %H:%M")
     except Exception:
@@ -1712,8 +1758,6 @@ def customer_new():
 def customer_detail(customer_id):
     db = get_db()
     if request.method == "POST":
-        manual_name = f"{manual_firstname} {manual_lastname}".strip()
-
         db.execute(
             """
             UPDATE _Customers
@@ -1858,7 +1902,7 @@ def appointment_new(customer_id):
         ),
     )
     db.commit()
-    notify_result = notify_other_staff_for_appointment(notify_customer_id, title, appointment_at, staff_name, actor_name)
+    notify_result = notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name)
     flash_msg = "Termin wurde gespeichert."
     if vapid_ready() and notify_result.get("sent", 0) > 0:
         flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
@@ -2166,6 +2210,8 @@ def appointments_hub():
             if not (manual_firstname or manual_lastname):
                 flash("Bitte einen Kontakt aus der Datenbank wählen oder Name für den manuellen Termin eintragen.")
                 return redirect(url_for("appointments_hub"))
+            customer_id = ensure_manual_placeholder_customer(db)
+            notify_customer_id = None
 
         db.execute(
             """
@@ -2540,25 +2586,28 @@ def whatsapp_hub():
     )
 
 
-@app.route("/api/templates/live")
-@login_required
-def templates_live_api():
-    db = get_db()
-    templates = {
-        r["id"]: {"subject": r["subject"], "body": r["body"]}
-        for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
-    }
-    return jsonify({"ok": True, "templates": templates, "app_version": APP_VERSION, "db_path": str(DB_PATH)})
-
-
 @app.route("/templates", methods=["GET", "POST"])
 @login_required
 def templates_view():
     db = get_db()
+    blocked_names = ["matthias"]
+
     if request.method == "POST":
         for template_id in ["birthdate", "appointment"]:
             subject = request.form.get(f"{template_id}_subject", "").strip()
             body = request.form.get(f"{template_id}_body", "").strip()
+
+            lower_subject = subject.lower()
+            lower_body = body.lower()
+            for blocked in blocked_names:
+                if blocked in lower_subject or blocked in lower_body:
+                    flash(f"Vorlage '{template_id}' wurde nicht gespeichert: Fester Name '{blocked}' ist nicht erlaubt.")
+                    return redirect(url_for("templates_view"))
+
+            if template_id == "birthdate" and "{name}" not in body and "{vorname}" not in body:
+                flash("Die Geburtstagsvorlage muss mindestens {name} oder {vorname} enthalten.")
+                return redirect(url_for("templates_view"))
+
             existing = db.execute("SELECT rowid FROM _MailTemplates WHERE id = ? LIMIT 1", (template_id,)).fetchone()
             if existing:
                 db.execute("UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?", (subject, body, template_id))
@@ -2568,11 +2617,20 @@ def templates_view():
         flash("Vorlagen wurden gespeichert.")
         return redirect(url_for("templates_view"))
 
+    enforce_template_rules(force=False)
     templates = {
         r["id"]: r
         for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
     }
-    return render_template("templates.html", templates=templates, current_endpoint="templates_view")
+    return render_template("templates.html", templates=templates, current_endpoint="templates_view", app_version=APP_VERSION)
+
+
+@app.route("/admin/reset-birthdate-template")
+@login_required
+def reset_birthdate_template():
+    enforce_template_rules(force=True)
+    flash("Geburtstagsvorlage wurde auf die sichere Platzhalter-Version zurückgesetzt.")
+    return redirect(url_for("templates_view"))
 
 
 @app.route("/send-test/<int:customer_id>/<template_id>")
@@ -2711,6 +2769,7 @@ def inject_globals():
 
 def boot_app():
     init_db()
+    enforce_template_rules(force=False)
     run_auto_backup_if_due()
     ensure_default_admin(force_reset=True)
     _ensure_vapid_keys()
