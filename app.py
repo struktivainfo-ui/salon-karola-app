@@ -77,7 +77,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM v7.1 Stable Logic Final"
+APP_VERSION = "Salon Karola CRM v7.1 Stable Logic Final - Final Fix 2026-04-07"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
@@ -2696,25 +2696,6 @@ def inject_globals():
         "app_version": APP_VERSION,
     }
 
-
-
-@app.route("/debug-db")
-@login_required
-def debug_db():
-    db = get_db()
-    row = db.execute(
-        "SELECT id, subject, body FROM _MailTemplates WHERE id = ?",
-        ("birthdate",),
-    ).fetchone()
-    return {
-        "db_path": str(DB_PATH),
-        "db_exists": DB_PATH.exists(),
-        "db_size": DB_PATH.stat().st_size if DB_PATH.exists() else 0,
-        "pid": os.getpid(),
-        "app_version": APP_VERSION,
-        "birthdate_subject": row["subject"] if row else None,
-        "birthdate_body_start": (row["body"][:200] if row and row["body"] else None),
-    }
 
 def boot_app():
     init_db()
