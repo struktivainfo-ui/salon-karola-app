@@ -1,0 +1,14 @@
+v7.2 Render + Mobile Menu Fix
+
+1. In Render eine Persistent Disk hinzufügen.
+   Mount Path: /opt/render/project/src/data
+
+2. Prüfen, dass DATABASE_PATH gesetzt ist auf:
+   /opt/render/project/src/data/salon_karola.db
+
+3. Nach dem Deploy in der App die Vorlagen erneut speichern.
+
+4. Dieser Build behebt zusätzlich das mobile Menü-Overlay:
+   - Menü bleibt auf dem Handy verborgen, bis es geöffnet wird
+   - Schließen-Button sitzt oben rechts
+   - Header/Logo werden nicht mehr vom Menü überlagert

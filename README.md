@@ -15,3 +15,9 @@ Diese Version enthält:
 
 
 Version: v6.1.5 Push-Ziel Fix
+
+
+## Render-Hinweis
+- Persistent Disk in Render auf `/opt/render/project/src/data` mounten.
+- Environment Variable: `DATABASE_PATH=/opt/render/project/src/data/salon_karola.db`
+- Danach Vorlagen einmal neu speichern, damit die SQLite-Datei dauerhaft auf der Disk liegt.
