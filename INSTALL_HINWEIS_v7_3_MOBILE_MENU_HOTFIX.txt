@@ -1,0 +1,6 @@
+Render Mobile-Menü Hotfix v7.3
+
+1. ZIP zu GitHub/Render hochladen
+2. DATABASE_PATH auf /opt/render/project/src/data/salon_karola.db setzen
+3. Neu deployen
+4. Am Handy einmal Cache leeren oder Inkognito testen
