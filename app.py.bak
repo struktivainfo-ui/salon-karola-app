@@ -956,22 +956,18 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
         return {"ok": True, "sent": 1, "skipped": 0, "errors": []}
     except WebPushException as exc:
         status_code = getattr(getattr(exc, "response", None), "status_code", None)
-        error_text = str(exc)
-        mismatch = status_code == 403 and ("vapid" in error_text.lower() and "credential" in error_text.lower())
-        if status_code in (404, 410) or mismatch:
+        if status_code in (404, 410):
             db.execute("DELETE FROM push_subscriptions WHERE id = ?", (row["id"],))
             db.commit()
-            if mismatch:
-                return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Gerät war mit alten Push-Schlüsseln registriert und wurde entfernt. Bitte Push auf diesem Gerät neu aktivieren."]}
             return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Gerät war nicht mehr gültig und wurde entfernt."]}
         fail_count = int(row["fail_count"] or 0) + 1
         _touch_push_subscription(
             row["id"],
-            last_error=error_text[:500],
+            last_error=str(exc)[:500],
             fail_count=fail_count,
             updated_at=now,
         )
-        return {"ok": False, "sent": 0, "skipped": 0, "errors": [error_text]}
+        return {"ok": False, "sent": 0, "skipped": 0, "errors": [str(exc)]}
     except Exception as exc:
         fail_count = int(row["fail_count"] or 0) + 1
         _touch_push_subscription(

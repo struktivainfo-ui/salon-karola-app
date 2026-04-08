@@ -259,33 +259,6 @@
         return res.json();
       }
 
-      function isVapidMismatchError(message) {
-        const text = String(message || "").toLowerCase();
-        return text.includes("vapid") && (text.includes("credential") || text.includes("403") || text.includes("alten push-schlüsseln"));
-      }
-
-      async function resetBrowserPushSubscription() {
-        if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
-        try {
-          const registration = await navigator.serviceWorker.ready;
-          const existing = await registration.pushManager.getSubscription();
-          if (!existing) return false;
-          const payload = (typeof existing.toJSON === "function") ? existing.toJSON() : JSON.parse(JSON.stringify(existing || {}));
-          try {
-            await fetch("/api/push/unsubscribe", {
-              method: "POST",
-              credentials: "same-origin",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ subscription: payload }),
-            });
-          } catch (e) {}
-          try { await existing.unsubscribe(); } catch (e) {}
-          return true;
-        } catch (e) {
-          return false;
-        }
-      }
-
       function vapidKeyToUint8Array(value) {
         const cleaned = (value || "").trim();
         if (!cleaned) throw new Error("VAPID Public Key fehlt.");
@@ -363,50 +336,6 @@
         try { pingData = await pingRes.json(); } catch (e) {}
         const sentCount = pingData && pingData.result ? Number(pingData.result.sent || 0) : 0;
         const deviceCount = pingData && typeof pingData.device_count !== "undefined" ? Number(pingData.device_count || 0) : 0;
-
-        const firstError = errors.length ? String(errors[0] || "") : "";
-        if (deviceCount > 0 && sentCount === 0 && isVapidMismatchError(firstError)) {
-          setPushUi("Alte Push-Registrierung erkannt. Gerät wird neu verbunden…", "working");
-          await resetBrowserPushSubscription();
-          const refreshedRegistration = await navigator.serviceWorker.ready;
-          const freshSubscription = await refreshedRegistration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: vapidKeyToUint8Array(config.public_key),
-          });
-          const freshPayload = (freshSubscription && typeof freshSubscription.toJSON === "function") ? freshSubscription.toJSON() : JSON.parse(JSON.stringify(freshSubscription || {}));
-          const resubscribeRes = await fetch("/api/push/subscribe", {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              staff_name: currentStaff(),
-              device_name: currentDeviceName(),
-              subscription: freshPayload,
-            }),
-          });
-          let resubscribeData = null;
-          try { resubscribeData = await resubscribeRes.json(); } catch (e) {}
-          if (!resubscribeRes.ok || !resubscribeData || resubscribeData.ok === false) {
-            throw new Error((resubscribeData && (resubscribeData.error || resubscribeData.message)) || "Push-Neuregistrierung fehlgeschlagen.");
-          }
-          const retryPingRes = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(currentStaff())}`, { cache: "no-store", credentials: "same-origin" });
-          let retryPingData = null;
-          try { retryPingData = await retryPingRes.json(); } catch (e) {}
-          const retrySent = retryPingData && retryPingData.result ? Number(retryPingData.result.sent || 0) : 0;
-          const retryErrors = (retryPingData && retryPingData.result && retryPingData.result.errors) || [];
-          if (typeof window.refreshPushOverview === "function") {
-            await window.refreshPushOverview();
-          }
-          if (retrySent > 0) {
-            setPushUi(`Push ist für ${currentStaff()} aktiv.`, "active");
-            if (showMessage) {
-              alert(`Push ist für ${currentStaff()} jetzt neu verknüpft und aktiv.`);
-              setTimeout(() => { closeAppMenuAfterPush(); closeDeviceStaffBar(); }, 150);
-            }
-            return true;
-          }
-          throw new Error(retryErrors.length ? retryErrors[0] : "Push konnte nach der Neuverknüpfung noch nicht zugestellt werden.");
-        }
 
         if (typeof window.refreshPushOverview === "function") {
           await window.refreshPushOverview();
