@@ -570,6 +570,76 @@ def customer_phone(customer):
     return customer["Customer_Mobiltelefon"] or customer["Customer_PersönlichesTelefon"] or ""
 
 
+def sync_default_mail_templates(conn):
+    defaults = {
+        "birthdate": {
+            "subject": "Salon Karola Happy Birthday",
+            "body": '''Lieber {name} alles gute zum Geburtstag 🎂!
+
+Alles gute zum Geburtstag! 🎂 Wir vom Salon Karola möchten Ihnen an Ihrem besonderen Tag ein strahlendes Lächeln ins Gesicht zaubern.
+
+Als kleines Geschenk und um Ihren Ehrentag gebührend zu feiern, schenken wir Ihnen 10% Rabatt auf Ihre nächste Behandlung in unserem Salon! 💇‍♀️✨ Zeigen Sie diese E-Mail einfach bei Ihrem nächsten Besuch vor.
+
+Wir wünschen Ihnen einen wunderschönen Tag, Gesundheit und viele schöne Momente.
+
+Herzliche Grüße
+Ihr Team vom Salon Karola''',
+        },
+        "appointment": {
+            "subject": "Terminerinnerung für {name}",
+            "body": '''Hallo {name},
+
+wir erinnern dich an deinen Termin am {termin}.
+
+Bei Fragen erreichst du uns unter 07051/6344.
+
+Herzliche Grüße
+Salon Karola''',
+        },
+    }
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS _MailTemplates (
+            id TEXT PRIMARY KEY,
+            subject TEXT NOT NULL,
+            body TEXT NOT NULL
+        )
+        """
+    )
+
+    for template_id, template in defaults.items():
+        row = conn.execute(
+            "SELECT subject, body FROM _MailTemplates WHERE id = ?",
+            (template_id,),
+        ).fetchone()
+        if not row:
+            conn.execute(
+                "INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)",
+                (template_id, template["subject"], template["body"]),
+            )
+            continue
+
+        subject = (row[0] or "").strip()
+        body = (row[1] or "").strip()
+
+        reset_needed = False
+        if not subject or not body:
+            reset_needed = True
+        if "Matthias" in subject or "Matthias" in body:
+            reset_needed = True
+        if template_id == "birthdate" and "{name}" not in body:
+            reset_needed = True
+        if template_id == "appointment" and "{termin}" not in body:
+            reset_needed = True
+
+        if reset_needed:
+            conn.execute(
+                "UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?",
+                (template["subject"], template["body"], template_id),
+            )
+
+
 def render_template_text(template_id, customer, appointment=None):
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
