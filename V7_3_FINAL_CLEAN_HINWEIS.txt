@@ -1,0 +1,11 @@
+Salon Karola CRM v7.3 Final Clean
+
+Wichtig nach dem Deploy auf Render:
+1. Browser/Handy einmal hart neu laden.
+2. Falls die alte Optik oder alte Push-Daten noch sichtbar sind:
+   - App auf dem Handy schließen
+   - Browser-Cache / Website-Daten löschen
+   - PWA einmal entfernen und neu öffnen
+3. Die Route /dashboard leitet jetzt direkt auf /calendar um.
+4. Alte Mail-Vorlagen mit "Matthias" werden beim Start automatisch auf die Standard-Vorlagen zurückgesetzt.
+5. Push-Abos werden beim erneuten Aktivieren pro Gerät bereinigt, damit nicht mehrere alte Endpunkte stören.

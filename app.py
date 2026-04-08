@@ -78,7 +78,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM v7.2 Calendar Focus + Push Sync 2026-04-08"
+APP_VERSION = "Salon Karola CRM v7.3 Final Clean Calendar Home + Push Sync 2026-04-08"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
@@ -349,26 +349,7 @@ def init_db():
                     datetime.now().isoformat(timespec="seconds"),
                 ),
             )
-
-        if not conn.execute("SELECT 1 FROM _MailTemplates WHERE id='appointment'").fetchone():
-            conn.execute(
-                "INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)",
-                (
-                    "appointment",
-                    "Terminerinnerung für {name}",
-                    "Hallo {name},\n\nwir erinnern dich an deinen Termin am {termin}.\n\nHerzliche Grüße\nSalon Karola",
-                ),
-            )
-
-        if not conn.execute("SELECT 1 FROM _MailTemplates WHERE id='birthdate'").fetchone():
-            conn.execute(
-                "INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)",
-                (
-                    "birthdate",
-                    "Alles Gute zum Geburtstag, {vorname}! 🎉",
-                    "Liebe/r {name},\n\ndas Team vom Salon Karola wünscht dir einen wunderschönen Geburtstag und freut sich auf deinen nächsten Besuch.\n\nHerzliche Grüße\nSalon Karola",
-                ),
-            )
+        sync_default_mail_templates(conn)
 
         def add_column_if_missing(table_name, column_name, column_sql, *, fill_sql=None):
             existing = [row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()]
@@ -1530,6 +1511,12 @@ def index():
 @app.route("/dashboard")
 @login_required
 def dashboard():
+    return redirect(url_for("calendar_view"))
+
+
+@app.route("/dashboard-legacy")
+@login_required
+def dashboard_legacy():
     db = get_db()
     q = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
@@ -1564,11 +1551,11 @@ def dashboard():
     if conditions:
         base_query += " WHERE " + " AND ".join(conditions)
 
-    order_sql = "COALESCE(c._name, ''), COALESCE(c._firstname, '')"
+    order_sql = "COALESCE(c._name, ), COALESCE(c._firstname, )"
     if sort == "za":
-        order_sql = "COALESCE(c._name, '') DESC, COALESCE(c._firstname, '') DESC"
+        order_sql = "COALESCE(c._name, ) DESC, COALESCE(c._firstname, ) DESC"
     elif sort == "recent":
-        order_sql = "MAX(a.appointment_at) DESC, COALESCE(c._name, ''), COALESCE(c._firstname, '')"
+        order_sql = "MAX(a.appointment_at) DESC, COALESCE(c._name, ), COALESCE(c._firstname, )"
 
     base_query += f" GROUP BY c._id ORDER BY {order_sql} LIMIT 200"
     customers = db.execute(base_query, params).fetchall()
@@ -1602,7 +1589,7 @@ def dashboard():
         due_items=due_reminders(),
         staff_counts=staff_dashboard_counts(),
         now=datetime.now(),
-        current_endpoint="dashboard",
+        current_endpoint="dashboard_legacy",
         app_version=APP_VERSION,
         deploy_marker=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         db_path=str(DB_PATH),
@@ -2461,6 +2448,17 @@ def push_subscribe():
 
     now = datetime.now().isoformat(timespec="seconds")
     db = get_db()
+    if device_name:
+        db.execute(
+            """
+            DELETE FROM push_subscriptions
+            WHERE endpoint <> ?
+              AND staff_name = ?
+              AND COALESCE(device_name, '') = ?
+              AND COALESCE(user_agent, '') = ?
+            """,
+            (endpoint, staff_name, device_name, request.headers.get("User-Agent", "")[:500]),
+        )
     db.execute(
         """
         INSERT INTO push_subscriptions(endpoint, subscription_json, staff_name, device_name, user_agent, created_at, updated_at, last_seen_at, last_error, fail_count)
@@ -2562,6 +2560,7 @@ def whatsapp_hub():
 @login_required
 def templates_live_api():
     db = get_db()
+    sync_default_mail_templates(db)
     templates = {
         r["id"]: {"subject": r["subject"], "body": r["body"]}
         for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
@@ -2573,6 +2572,7 @@ def templates_live_api():
 @login_required
 def templates_view():
     db = get_db()
+    sync_default_mail_templates(db)
     if request.method == "POST":
         for template_id in ["birthdate", "appointment"]:
             subject = request.form.get(f"{template_id}_subject", "").strip()

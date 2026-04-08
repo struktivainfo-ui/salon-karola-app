@@ -1,4 +1,4 @@
-const CACHE_NAME = "salon-karola-v7-2-calendar-push-2026-04-08";
+const CACHE_NAME = "salon-karola-v7-3-final-clean-2026-04-08";
 const STATIC_URLS = [
   "/static/style.css",
   "/static/icon-192.png",
@@ -34,7 +34,7 @@ self.addEventListener("fetch", (event) => {
 
   if (event.request.mode === "navigate" || url.pathname === "/" || url.pathname === "/calendar" || url.pathname === "/database-tools" || url.pathname === "/templates" || url.pathname === "/appointments" || url.pathname === "/whatsapp") {
     event.respondWith(
-      fetch(event.request, { cache: "no-store" }).catch(() => caches.match("/login"))
+      fetch(event.request, { cache: "no-store" }).catch(() => caches.match("/calendar") || caches.match("/login"))
     );
     return;
   }
@@ -82,8 +82,9 @@ self.addEventListener("notificationclick", (event) => {
   const targetUrl = (event.notification.data && event.notification.data.url) || "/calendar";
   event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
     for (const client of clientList) {
-      if ("focus" in client) {
-        client.navigate(targetUrl);
+      const sameOrigin = client.url && client.url.startsWith(self.location.origin);
+      if (sameOrigin && "focus" in client) {
+        try { await client.navigate(targetUrl); } catch (e) {}
         return client.focus();
       }
     }
