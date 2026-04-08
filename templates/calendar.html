@@ -8,8 +8,9 @@
     <p class="app-hero-text">Tag, Woche und Monat sauber getrennt – für eine klare Terminsteuerung auf Handy und Desktop.</p>
   </div>
   <div class="hero-actions-grid">
-    <a class="hero-action primary" href="{{ url_for('appointments_hub') }}">Termin anlegen</a>
-    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
+    <a class="hero-action primary" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else 'Ute', source='calendar_quick') }}">Termin anlegen</a>
+    <a class="hero-action" href="{{ url_for('calendar_view', view=view, date=today_date, staff=staff) }}">Heute</a>
+    <a class="hero-action" href="{{ url_for('appointments_hub') }}">Terminliste</a>
   </div>
 </section>
 
@@ -17,9 +18,13 @@
   <div class="row-between wrap-mobile">
     <div>
       <h2>Kalendersteuerung</h2>
-      
     </div>
     <span class="badge">{{ staff }} • {{ selected_date }}</span>
+  </div>
+  <div class="calendar-quick-grid space-top">
+    <a class="calendar-quick-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else 'Ute', source='calendar_quick') }}">➕ Neuer Termin</a>
+    <a class="calendar-quick-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else 'Ute', source='calendar_quick') }}#todayAppointments">🗓️ Heute bearbeiten</a>
+    <a class="calendar-quick-link" href="{{ url_for('customer_search_page') }}">🔎 Kundensuche</a>
   </div>
   <form method="get" class="calendar-toolbar space-top">
     <div class="view-switch">
@@ -172,10 +177,10 @@
   <div class="week-grid space-top">
     {% for day in week_view['days'] %}
     <div class="week-day {% if day['is_today'] %}today{% endif %}">
-      <div class="week-day-head">
+      <a class="week-day-head week-day-link" href="{{ url_for('calendar_view', view='day', date=day['date'], staff=staff) }}">
         <div class="week-day-name">{{ day['name'] }}</div>
         <div class="week-day-label">{{ day['label'] }}</div>
-      </div>
+      </a>
       <div class="week-events">
         {% for appt in day['items'] %}
         <a class="week-event week-event-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
@@ -206,7 +211,7 @@
     {% for week in month_view['weeks'] %}
       {% for cell in week %}
       <div class="month-cell {% if not cell['in_month'] %}muted{% endif %} {% if cell['is_today'] %}today{% endif %}">
-        <div class="month-cell-day">{{ cell['day'] }}</div>
+        <a class="month-cell-day month-cell-link" href="{{ url_for('calendar_view', view='day', date=cell['date'], staff=staff) }}">{{ cell['day'] }}</a>
         <div class="month-cell-items">
           {% for appt in cell['items'][:3] %}
           <a class="month-item month-item-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
@@ -249,7 +254,7 @@
       {% for day in week_view['days'] %}
         <div class="mobile-day-card {% if day['is_today'] %}today-outline{% endif %}">
           <div class="row-between wrap-mobile">
-            <strong>{{ day['name'] }} {{ day['label'] }}</strong>
+            <a class="mobile-day-link" href="{{ url_for('calendar_view', view='day', date=day['date'], staff=staff) }}"><strong>{{ day['name'] }} {{ day['label'] }}</strong></a>
             <span class="badge">{{ day['items']|length }} Termine</span>
           </div>
           {% for appt in day['items'] %}

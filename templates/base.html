@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=app_version) }}" />
 </head>
 <body class="app-body endpoint-{{ current_endpoint|default('public') }}">
-  {% if session.get('admin_logged_in') and current_endpoint == 'index' %}
+  {% if session.get('admin_logged_in') and current_endpoint in ['calendar_view', 'dashboard'] %}
   <div id="startupSplash" class="startup-splash" aria-hidden="true">
     <div class="startup-splash-inner">
       <div class="startup-splash-title">Jessi &amp; Ute</div>
@@ -41,8 +41,7 @@
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
       <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menü schließen">×</button>
       <nav class="nav-links" id="mainNavLinks" hidden>
-        <a class="{% if current_endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}" data-nav-link="dashboard">Dashboard</a>
-        <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
+        <a class="{% if current_endpoint in ['calendar_view', 'dashboard'] %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>
         <details class="nav-admin-group" id="navCustomerGroup">
           <summary class="nav-admin-summary {% if current_endpoint in ['customer_new', 'customer_detail', 'customer_search_page', 'customer_birthdays_page', 'customer_inactive_page'] %}active{% endif %}">Kunden</summary>
@@ -301,6 +300,7 @@
           return false;
         }
 
+        await registerServiceWorker();
         const registration = await navigator.serviceWorker.ready;
         let subscription = await registration.pushManager.getSubscription();
         if (!subscription) {
@@ -356,6 +356,38 @@
           setTimeout(() => { closeAppMenuAfterPush(); closeDeviceStaffBar(); }, 150);
         }
         return deviceCount > 0;
+      }
+
+      async function syncExistingPushSubscriptionSilently() {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return false;
+        if (Notification.permission !== "granted") return false;
+        try {
+          const config = await fetchPushConfig();
+          if (!config.enabled || !config.public_key) return false;
+          await registerServiceWorker();
+          const registration = await navigator.serviceWorker.ready;
+          let subscription = await registration.pushManager.getSubscription();
+          if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: vapidKeyToUint8Array(config.public_key),
+            });
+          }
+          const subscriptionPayload = (subscription && typeof subscription.toJSON === "function") ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription || {}));
+          const saveRes = await fetch("/api/push/subscribe", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              staff_name: currentStaff(),
+              device_name: currentDeviceName(),
+              subscription: subscriptionPayload,
+            }),
+          });
+          return saveRes.ok;
+        } catch (error) {
+          return false;
+        }
       }
 
       async function triggerPushTest(showMessage = true) {
@@ -620,6 +652,19 @@
         closeMobileMenu();
         closeDeviceStaffBar();
         await refreshPushStatus();
+        await syncExistingPushSubscriptionSilently();
+      });
+
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+          refreshPushStatus();
+          syncExistingPushSubscriptionSilently();
+        }
+      });
+
+      window.addEventListener("focus", () => {
+        refreshPushStatus();
+        syncExistingPushSubscriptionSilently();
       });
     })();
   </script>

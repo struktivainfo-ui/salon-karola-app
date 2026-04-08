@@ -8,7 +8,7 @@
     <p class="app-hero-text">Kontaktdaten, Aktionen und Terminbezug in einer klaren Kundenansicht.</p>
   </div>
   <div class="hero-actions-grid">
-    <a class="hero-action" href="{{ url_for('index') }}">Dashboard</a>
+    <a class="hero-action" href="{{ url_for('dashboard') }}">Dashboard</a>
     {% if customer and (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon']) %}
     <a class="hero-action primary" href="{{ (customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'])|phone_href }}">Anrufen</a>
     {% elif customer %}

@@ -28,9 +28,9 @@ from dotenv import load_dotenv
 from flask import (
     Flask,
     Response,
+    jsonify,
     flash,
     g,
-    jsonify,
     redirect,
     render_template,
     request,
@@ -70,7 +70,7 @@ app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 @app.after_request
 def add_no_cache_headers(response):
     try:
-        if request.path in ["/", "/login", "/calendar", "/database-tools", "/templates", "/admin/reset-birthdate-template"] or response.mimetype in {"text/html", "application/javascript", "application/manifest+json"}:
+        if request.path in ["/", "/login", "/calendar", "/database-tools", "/templates", "/api/templates/live"] or response.mimetype in {"text/html", "application/javascript", "application/json", "application/manifest+json"}:
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
@@ -78,7 +78,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola CRM"
+APP_VERSION = "Salon Karola CRM v7.2 Calendar Focus + Push Sync 2026-04-08"
 STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
@@ -992,17 +992,19 @@ def _push_appointment_reminder(appt):
 
 
 def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name, manual_name=""):
+
     actor = (actor_name or staff_name or "Ute").strip() or "Ute"
     target = "Jessi" if actor == "Ute" else "Ute"
     customer_name = (manual_name or "").strip()
-    if not customer_name and customer_id:
+    if customer_id:
         customer = get_db().execute(
             "SELECT _firstname, _name FROM _Customers WHERE _id = ?",
             (customer_id,),
         ).fetchone()
         if customer:
-            customer_name = f"{customer['_firstname'] or ''} {customer['_name'] or ''}".strip()
-    customer_name = customer_name or "Kundin"
+            customer_name = f"{customer['_firstname'] or ''} {customer['_name'] or ''}".strip() or customer_name
+    if not customer_name:
+        customer_name = "Kundin"
     try:
         when_label = datetime.fromisoformat(str(appointment_at)).strftime("%d.%m.%Y um %H:%M")
     except Exception:
@@ -1507,7 +1509,7 @@ def login():
             session["admin_logged_in"] = True
             session["admin_name"] = user["display_name"] or user["username"]
             flash("Login erfolgreich.")
-            return redirect(request.args.get("next") or url_for("index"))
+            return redirect(request.args.get("next") or url_for("calendar_view"))
         flash("Login fehlgeschlagen.")
     return render_template("login.html")
 
@@ -1522,6 +1524,12 @@ def logout():
 @app.route("/")
 @login_required
 def index():
+    return redirect(url_for("calendar_view"))
+
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
     db = get_db()
     q = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
@@ -1594,7 +1602,7 @@ def index():
         due_items=due_reminders(),
         staff_counts=staff_dashboard_counts(),
         now=datetime.now(),
-        current_endpoint="index",
+        current_endpoint="dashboard",
         app_version=APP_VERSION,
         deploy_marker=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         db_path=str(DB_PATH),
@@ -1716,6 +1724,8 @@ def customer_new():
 def customer_detail(customer_id):
     db = get_db()
     if request.method == "POST":
+        manual_name = f"{manual_firstname} {manual_lastname}".strip()
+
         db.execute(
             """
             UPDATE _Customers
@@ -1860,7 +1870,7 @@ def appointment_new(customer_id):
         ),
     )
     db.commit()
-    notify_result = notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name)
+    notify_result = notify_other_staff_for_appointment(notify_customer_id, title, appointment_at, staff_name, actor_name)
     flash_msg = "Termin wurde gespeichert."
     if vapid_ready() and notify_result.get("sent", 0) > 0:
         flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
@@ -2147,6 +2157,7 @@ def appointments_hub():
         manual_phone = (request.form.get("manual_phone") or "").strip()
         manual_email = (request.form.get("manual_email") or "").strip()
         manual_name = " ".join(part for part in [manual_firstname, manual_lastname] if part).strip()
+        manual_placeholder_customer_id = None
 
         if not appointment_at:
             flash("Bitte Datum und Uhrzeit für den Termin angeben.")
@@ -2168,8 +2179,8 @@ def appointments_hub():
             if not (manual_firstname or manual_lastname):
                 flash("Bitte einen Kontakt aus der Datenbank wählen oder Name für den manuellen Termin eintragen.")
                 return redirect(url_for("appointments_hub"))
-            customer_id = ensure_manual_placeholder_customer(db)
-            notify_customer_id = None
+            manual_placeholder_customer_id = ensure_manual_placeholder_customer(db)
+            customer_id = manual_placeholder_customer_id
 
         db.execute(
             """
@@ -2440,10 +2451,13 @@ def push_subscribe():
         except Exception:
             subscription = {}
     endpoint = (subscription.get("endpoint") or payload.get("endpoint") or "").strip()
+    keys = subscription.get("keys") or {}
+    auth_key = (keys.get("auth") or "").strip() if isinstance(keys, dict) else ""
+    p256dh_key = (keys.get("p256dh") or "").strip() if isinstance(keys, dict) else ""
     staff_name = _normalize_staff_name(payload.get("staff_name"), default="Ute")
     device_name = (payload.get("device_name") or "").strip()[:80]
-    if not endpoint:
-        return {"ok": False, "error": "Keine Subscription empfangen."}, 400
+    if not endpoint or not auth_key or not p256dh_key:
+        return {"ok": False, "error": "Unvollständige Push-Subscription empfangen."}, 400
 
     now = datetime.now().isoformat(timespec="seconds")
     db = get_db()
@@ -2544,6 +2558,17 @@ def whatsapp_hub():
     )
 
 
+@app.route("/api/templates/live")
+@login_required
+def templates_live_api():
+    db = get_db()
+    templates = {
+        r["id"]: {"subject": r["subject"], "body": r["body"]}
+        for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
+    }
+    return jsonify({"ok": True, "templates": templates, "app_version": APP_VERSION, "db_path": str(DB_PATH)})
+
+
 @app.route("/templates", methods=["GET", "POST"])
 @login_required
 def templates_view():
@@ -2552,15 +2577,6 @@ def templates_view():
         for template_id in ["birthdate", "appointment"]:
             subject = request.form.get(f"{template_id}_subject", "").strip()
             body = request.form.get(f"{template_id}_body", "").strip()
-
-            combined = f"{subject}\n{body}".lower()
-            if "matthias" in combined:
-                flash("Feste Namen wie 'Matthias' sind in Vorlagen nicht erlaubt. Bitte Platzhalter wie {name} verwenden.")
-                return redirect(url_for("templates_view"))
-            if template_id == "birthdate" and "{name}" not in body and "{vorname}" not in body:
-                flash("Die Geburtstagsvorlage muss mindestens {name} oder {vorname} enthalten.")
-                return redirect(url_for("templates_view"))
-
             existing = db.execute("SELECT rowid FROM _MailTemplates WHERE id = ? LIMIT 1", (template_id,)).fetchone()
             if existing:
                 db.execute("UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?", (subject, body, template_id))
@@ -2574,34 +2590,7 @@ def templates_view():
         r["id"]: r
         for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
     }
-    return render_template("templates.html", templates=templates, current_endpoint="templates_view", app_version=APP_VERSION)
-
-
-@app.route("/admin/reset-birthdate-template")
-@login_required
-def reset_birthdate_template():
-    db = get_db()
-    subject = "Alles Gute zum Geburtstag, {vorname}! 🎉"
-    body = (
-        "Lieber {name}, alles Gute zum Geburtstag! 🎂!\n\n"
-        "Alles Gute zum Geburtstag! 🎂\n"
-        "Wir vom Salon Karola wünschen Ihnen einen wunderschönen Tag.\n\n"
-        "Herzliche Grüße\n"
-        "Salon Karola"
-    )
-    db.execute(
-        """
-        INSERT INTO _MailTemplates(id, subject, body)
-        VALUES (?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-            subject = excluded.subject,
-            body = excluded.body
-        """,
-        ("birthdate", subject, body),
-    )
-    db.commit()
-    flash("Geburtstagsvorlage wurde zurückgesetzt.")
-    return redirect(url_for("templates_view"))
+    return render_template("templates.html", templates=templates, current_endpoint="templates_view")
 
 
 @app.route("/send-test/<int:customer_id>/<template_id>")

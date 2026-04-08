@@ -1,4 +1,4 @@
-const CACHE_NAME = "salon-karola-v6-2-2-push-final";
+const CACHE_NAME = "salon-karola-v7-2-calendar-push-2026-04-08";
 const STATIC_URLS = [
   "/static/style.css",
   "/static/icon-192.png",
@@ -32,8 +32,10 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
 
-  if (event.request.mode === "navigate" || url.pathname === "/" || url.pathname === "/calendar" || url.pathname === "/database-tools") {
-    event.respondWith(fetch(event.request, { cache: "no-store" }).catch(() => caches.match("/login")));
+  if (event.request.mode === "navigate" || url.pathname === "/" || url.pathname === "/calendar" || url.pathname === "/database-tools" || url.pathname === "/templates" || url.pathname === "/appointments" || url.pathname === "/whatsapp") {
+    event.respondWith(
+      fetch(event.request, { cache: "no-store" }).catch(() => caches.match("/login"))
+    );
     return;
   }
 
@@ -59,16 +61,20 @@ self.addEventListener("push", (event) => {
     if (event.data) data = Object.assign(data, event.data.json());
   } catch (e) {}
 
-  event.waitUntil(
-    self.registration.showNotification(data.title || "Salon Karola", {
+  event.waitUntil((async () => {
+    const all = await self.registration.getNotifications();
+    const targetTag = data.tag || `push-${Date.now()}`;
+    all.filter((n) => n.tag === targetTag).forEach((n) => n.close());
+    return self.registration.showNotification(data.title || "Salon Karola", {
       body: data.body || "Neue Benachrichtigung",
       icon: "/static/push-icon.png",
       badge: "/static/push-badge.png",
       data: { url: data.url || "/calendar" },
-      tag: data.tag || `push-${Date.now()}`,
+      tag: targetTag,
       renotify: true,
-    })
-  );
+      requireInteraction: false,
+    });
+  })());
 });
 
 self.addEventListener("notificationclick", (event) => {
