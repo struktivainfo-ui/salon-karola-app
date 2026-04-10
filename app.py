@@ -491,10 +491,20 @@ def ensure_default_admin(force_reset=False):
                         (account["username"], hash_password(account["password"]), account["display_name"], account["staff_name"], existing[0]),
                     )
                 elif account["display_name"]:
-                    conn.execute(
-                        "UPDATE staff_users SET username = ?, display_name = ?, staff_name = ? WHERE id = ?",
-                        (account["username"], account["display_name"], account["staff_name"], existing[0]),
-                    )
+                    duplicate_username = conn.execute(
+                        "SELECT id FROM staff_users WHERE username = ? AND id <> ? LIMIT 1",
+                        (account["username"], existing[0]),
+                    ).fetchone()
+                    if duplicate_username:
+                        conn.execute(
+                            "UPDATE staff_users SET display_name = ?, staff_name = ? WHERE id = ?",
+                            (account["display_name"], account["staff_name"], existing[0]),
+                        )
+                    else:
+                        conn.execute(
+                            "UPDATE staff_users SET username = ?, display_name = ?, staff_name = ? WHERE id = ?",
+                            (account["username"], account["display_name"], account["staff_name"], existing[0]),
+                        )
                 continue
 
             conn.execute(
