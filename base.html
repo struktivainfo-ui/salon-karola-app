@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#0f0f0f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Salon Karola" />
-  <title>{% block title %}Salon Karola{% endblock %}</title>
+  <meta name="apple-mobile-web-app-title" content="Salon Karola App" />
+  <title>{% block title %}Salon Karola App{% endblock %}</title>
   <link rel="manifest" href="{{ url_for('manifest') }}?v={{ app_version|urlencode }}" />
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}" />
   <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icon-192.png') }}" />
@@ -33,9 +33,7 @@
       <div class="brand">
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
-          <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">Salon-Organisation</div>
-          <div class="brand-version">{{ app_version }}</div>
+          <div class="brand-title">Salon Karola App</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>

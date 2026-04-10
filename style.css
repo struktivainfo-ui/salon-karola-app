@@ -1876,3 +1876,48 @@ thead th {
     margin-top: 14px;
   }
 }
+
+
+/* App style cleanup */
+.brand-subtitle,
+.brand-version,
+.eyebrow,
+.app-hero-text {
+  display: none !important;
+}
+
+.brand-title {
+  font-size: 1.18rem;
+}
+
+.login-card h1 {
+  margin-bottom: 0;
+}
+
+.compact-helper:empty {
+  display: none;
+}
+
+.compact-helper {
+  min-height: 0;
+  margin-top: 8px;
+  font-size: 0.84rem;
+}
+
+@media (max-width: 768px) {
+  .topbar-inner {
+    gap: 8px;
+  }
+
+  .brand {
+    align-items: center;
+  }
+
+  .brand-title {
+    font-size: 1rem;
+  }
+
+  .app-hero {
+    padding-top: 14px;
+  }
+}

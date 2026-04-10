@@ -4,8 +4,7 @@
 <div class="login-shell">
   <div class="login-card">
     <img class="login-logo" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
-    <h1>Salon Karola</h1>
-    <p class="helper-text">Beim ersten Start w?hlt jede Person den eigenen Namen und legt ein Passwort fest. Danach reicht normales Einloggen. Optional kann auf dem Handy zus?tzlich Fingerabdruck/Passkey aktiviert werden.</p>
+    <h1>Salon Karola App</h1>
 
     <div class="card soft-card space-top">
       <h2>Einloggen</h2>
@@ -27,7 +26,7 @@
       </form>
       <div class="space-top">
         <button type="button" class="btn btn-secondary" id="passkeyLoginBtn" {% if not passkeys_ready %}disabled{% endif %}>Mit Fingerabdruck anmelden</button>
-        <div class="helper-text" id="passkeyLoginStatus">{% if passkeys_ready %}Wenn f?r dieses Profil bereits ein Passkey eingerichtet wurde, kannst du dich damit direkt anmelden.{% else %}Passkey/Fingerabdruck ist serverseitig noch nicht aktiv.{% endif %}</div>
+        <div class="helper-text compact-helper" id="passkeyLoginStatus"></div>
       </div>
     </div>
 
