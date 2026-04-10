@@ -1,34 +1,167 @@
 {% extends 'base.html' %}
 {% block title %}Vorlagen - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card">
-  <h1 class="hero-title">Mail-Vorlagen</h1>
-  <p class="hero-text">Geburtstagsmails und Terminerinnerungen direkt bearbeiten.</p>
+<section class="app-hero page-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Admin</span>
+    <h1 class="app-hero-title">Vorlagen</h1>
+    <p class="app-hero-text">E-Mail-Vorlagen zentral pflegen und auf allen Geräten einheitlich nutzen.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('email_logs') }}">Logs</a>
+    <a class="hero-action" href="{{ url_for('calendar_view') }}">Kalender</a>
+  </div>
 </section>
 
 <section class="card">
-  <form method="post">
+  <form method="post" autocomplete="off" id="template-form" data-live-url="{{ url_for('templates_live_api') }}">
     <h2>Geburtstag</h2>
     <div class="form-group">
       <label>Betreff</label>
-      <input type="text" name="birthdate_subject" value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}">
+      <input
+        type="text"
+        name="birthdate_subject"
+        id="birthdate_subject"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}"
+        data-server-value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}"
+      >
     </div>
     <div class="form-group">
       <label>Text</label>
-      <textarea name="birthdate_body">{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}</textarea>
+      <textarea
+        name="birthdate_body"
+        id="birthdate_body"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        data-server-value="{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}"
+      >{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}</textarea>
     </div>
 
     <h2>Termin</h2>
     <div class="form-group">
       <label>Betreff</label>
-      <input type="text" name="appointment_subject" value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}">
+      <input
+        type="text"
+        name="appointment_subject"
+        id="appointment_subject"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}"
+        data-server-value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}"
+      >
     </div>
     <div class="form-group">
       <label>Text</label>
-      <textarea name="appointment_body">{{ templates['appointment']['body'] if 'appointment' in templates else '' }}</textarea>
+      <textarea
+        name="appointment_body"
+        id="appointment_body"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        data-server-value="{{ templates['appointment']['body'] if 'appointment' in templates else '' }}"
+      >{{ templates['appointment']['body'] if 'appointment' in templates else '' }}</textarea>
     </div>
 
     <button type="submit">Vorlagen speichern</button>
   </form>
 </section>
+
+
+<script>
+(function () {
+  const form = document.getElementById("template-form");
+  const liveUrl = form ? form.getAttribute("data-live-url") : "";
+  const fieldIds = [
+    "birthdate_subject",
+    "birthdate_body",
+    "appointment_subject",
+    "appointment_body"
+  ];
+
+  function setValuesFromPayload(payload) {
+    if (!payload || !payload.templates) return;
+    const mapping = {
+      birthdate_subject: (((payload.templates.birthdate || {}).subject) || ""),
+      birthdate_body: (((payload.templates.birthdate || {}).body) || ""),
+      appointment_subject: (((payload.templates.appointment || {}).subject) || ""),
+      appointment_body: (((payload.templates.appointment || {}).body) || "")
+    };
+    fieldIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const newValue = mapping[id] || "";
+      el.value = newValue;
+      el.defaultValue = newValue;
+      el.setAttribute("data-server-value", newValue);
+    });
+  }
+
+  async function forceLiveSync() {
+    if (!liveUrl) return;
+    try {
+      const res = await fetch(liveUrl + "?t=" + Date.now(), {
+        method: "GET",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "X-Requested-With": "fetch" }
+      });
+      if (!res.ok) return;
+      const payload = await res.json();
+      setValuesFromPayload(payload);
+    } catch (err) {}
+  }
+
+  function clearClientDraftCopies() {
+    try {
+      fieldIds.forEach((id) => {
+        sessionStorage.removeItem(id);
+        localStorage.removeItem(id);
+      });
+    } catch (err) {}
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    clearClientDraftCopies();
+    forceLiveSync();
+    setTimeout(forceLiveSync, 250);
+    setTimeout(forceLiveSync, 1200);
+  });
+
+  window.addEventListener("pageshow", () => {
+    clearClientDraftCopies();
+    forceLiveSync();
+    setTimeout(forceLiveSync, 250);
+  });
+
+  window.addEventListener("focus", forceLiveSync);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) forceLiveSync();
+  });
+
+  if (form) {
+    form.setAttribute("autocomplete", "off");
+    form.addEventListener("submit", () => {
+      clearClientDraftCopies();
+    });
+  }
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => {
+        registration.update().catch(() => {});
+      });
+    }).catch(() => {});
+  }
+})();
+</script>
 {% endblock %}
+
