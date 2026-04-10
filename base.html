@@ -130,10 +130,12 @@
         return (localStorage.getItem(STORAGE_KEY_STAFF) || loggedInStaff || {{ default_staff|tojson }}).trim() || loggedInStaff || {{ default_staff|tojson }};
       }
 
+      const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};
+
       function currentPushTarget() {
-        const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};
-        const value = (localStorage.getItem(STORAGE_KEY_PUSH_TARGET) || {{ default_staff|tojson }}).trim() || {{ default_staff|tojson }};
-        return allowedTargets.includes(value) ? value : {{ default_staff|tojson }};
+        const storedTarget = (localStorage.getItem(STORAGE_KEY_PUSH_TARGET) || "").trim();
+        if (!storedTarget) return currentStaff();
+        return allowedTargets.includes(storedTarget) ? storedTarget : currentStaff();
       }
 
       function deviceNameFallback() {
@@ -547,6 +549,8 @@
         staffSelect.value = currentStaff();
         staffSelect.addEventListener("change", async () => {
           localStorage.setItem(STORAGE_KEY_STAFF, staffSelect.value);
+          localStorage.setItem(STORAGE_KEY_PUSH_TARGET, staffSelect.value);
+          if (pushTargetSelect) pushTargetSelect.value = staffSelect.value;
           await refreshPushStatus();
           try {
             if (Notification.permission === "granted") {
@@ -714,8 +718,10 @@
 
       window.addEventListener("load", async () => {
         try {
-          if (loggedInStaff) localStorage.setItem(STORAGE_KEY_STAFF, loggedInStaff);
-          if (!localStorage.getItem(STORAGE_KEY_PUSH_TARGET) && loggedInStaff) localStorage.setItem(STORAGE_KEY_PUSH_TARGET, loggedInStaff);
+          if (loggedInStaff) {
+            localStorage.setItem(STORAGE_KEY_STAFF, loggedInStaff);
+            localStorage.setItem(STORAGE_KEY_PUSH_TARGET, loggedInStaff);
+          }
         } catch (e) {}
         try {
           const registration = await registerServiceWorker();
