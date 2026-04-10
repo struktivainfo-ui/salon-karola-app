@@ -1844,7 +1844,10 @@ def passkey_register_verify():
     if not user:
         return {"ok": False, "error": "Benutzer nicht gefunden."}, 404
     try:
-        credential = RegistrationCredential.parse_raw(json.dumps(payload))
+        if hasattr(RegistrationCredential, "parse_obj"):
+            credential = RegistrationCredential.parse_obj(payload)
+        else:
+            credential = RegistrationCredential.parse_raw(json.dumps(payload))
         verification = verify_registration_response(
             credential=credential,
             expected_challenge=_b64url_decode(challenge),
