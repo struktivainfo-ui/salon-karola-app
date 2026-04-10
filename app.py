@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import smtplib
+import secrets
 import sqlite3
 import tempfile
 import zipfile
@@ -40,6 +41,35 @@ from flask import (
     url_for,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
+
+try:
+    from webauthn import (
+        generate_authentication_options,
+        generate_registration_options,
+        options_to_json,
+        verify_authentication_response,
+        verify_registration_response,
+    )
+    from webauthn.helpers.structs import (
+        AuthenticationCredential,
+        AuthenticatorSelectionCriteria,
+        PublicKeyCredentialDescriptor,
+        RegistrationCredential,
+        ResidentKeyRequirement,
+        UserVerificationRequirement,
+    )
+except Exception:
+    generate_authentication_options = None
+    generate_registration_options = None
+    options_to_json = None
+    verify_authentication_response = None
+    verify_registration_response = None
+    AuthenticationCredential = None
+    AuthenticatorSelectionCriteria = None
+    PublicKeyCredentialDescriptor = None
+    RegistrationCredential = None
+    ResidentKeyRequirement = None
+    UserVerificationRequirement = None
 
 try:
     from pywebpush import WebPushException, webpush
@@ -163,6 +193,63 @@ def resolve_staff_name_for_user(user_row):
         if username == member.lower() or display_name == member.lower():
             return member
     return DEFAULT_STAFF
+
+
+def login_user(user, *, staff_name=None):
+    resolved_staff = staff_name or resolve_staff_name_for_user(user)
+    session["admin_logged_in"] = True
+    session["admin_name"] = user["display_name"] or user["username"]
+    session["staff_name"] = resolved_staff
+    session["username"] = user["username"]
+
+
+def passkeys_ready():
+    return all([
+        generate_authentication_options,
+        generate_registration_options,
+        options_to_json,
+        verify_authentication_response,
+        verify_registration_response,
+        AuthenticationCredential,
+        AuthenticatorSelectionCriteria,
+        PublicKeyCredentialDescriptor,
+        RegistrationCredential,
+        ResidentKeyRequirement,
+        UserVerificationRequirement,
+    ])
+
+
+def current_passkey_rp_id():
+    configured = (os.getenv("WEBAUTHN_RP_ID") or "").strip()
+    if configured:
+        return configured
+    host = (request.host or "").split(":", 1)[0].strip().lower()
+    return host or "localhost"
+
+
+def current_passkey_origin():
+    configured = (os.getenv("WEBAUTHN_ORIGIN") or "").strip()
+    if configured:
+        return configured.rstrip("/")
+    return request.url_root.rstrip("/")
+
+
+def current_passkey_rp_name():
+    return (os.getenv("WEBAUTHN_RP_NAME") or "Salon Karola").strip() or "Salon Karola"
+
+
+def passkey_credentials_for_user(db, user_id):
+    return db.execute(
+        "SELECT * FROM webauthn_credentials WHERE user_id = ? ORDER BY created_at ASC",
+        (user_id,),
+    ).fetchall()
+
+
+def find_passkey_by_credential_id(db, credential_id):
+    return db.execute(
+        "SELECT wc.*, su.username, su.display_name, su.staff_name FROM webauthn_credentials wc JOIN staff_users su ON su.id = wc.user_id WHERE wc.credential_id = ? LIMIT 1",
+        (credential_id,),
+    ).fetchone()
 
 
 # ---------- Database helpers ----------
@@ -396,6 +483,21 @@ def init_db():
                 id TEXT PRIMARY KEY,
                 subject TEXT NOT NULL,
                 body TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS webauthn_credentials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                credential_id TEXT NOT NULL UNIQUE,
+                public_key TEXT NOT NULL,
+                sign_count INTEGER NOT NULL DEFAULT 0,
+                transports TEXT,
+                created_at TEXT NOT NULL,
+                last_used_at TEXT,
+                FOREIGN KEY(user_id) REFERENCES staff_users(id)
             )
             """
         )
@@ -1672,10 +1774,7 @@ def login():
                     (hash_password(password), user["id"]),
                 )
                 db.commit()
-                session["admin_logged_in"] = True
-                session["admin_name"] = user["display_name"] or user["username"]
-                session["staff_name"] = selected_staff
-                session["username"] = user["username"]
+                login_user(user, staff_name=selected_staff)
                 flash(f"Passwort f?r {selected_staff} gespeichert oder ersetzt. Willkommen, {selected_staff}.")
                 return redirect(request.args.get("next") or url_for("calendar_view"))
         else:
@@ -1692,10 +1791,7 @@ def login():
                     )
                     db.commit()
                 staff_name = resolve_staff_name_for_user(user)
-                session["admin_logged_in"] = True
-                session["admin_name"] = user["display_name"] or user["username"]
-                session["staff_name"] = staff_name
-                session["username"] = user["username"]
+                login_user(user, staff_name=staff_name)
                 flash(f"Login erfolgreich: {staff_name}.")
                 return redirect(request.args.get("next") or url_for("calendar_view"))
             else:
@@ -1705,7 +1801,156 @@ def login():
     for option in login_options:
         user = fetch_user_for_staff(db, option["staff_name"])
         setup_states[option["staff_name"]] = {"has_password": user_has_password(user)}
-    return render_template("login.html", login_options=login_options, setup_states=setup_states)
+    return render_template("login.html", login_options=login_options, setup_states=setup_states, passkeys_ready=passkeys_ready())
+
+
+@app.route("/api/passkeys/register/options", methods=["POST"])
+@login_required
+def passkey_register_options():
+    if not passkeys_ready():
+        return {"ok": False, "error": "Passkeys sind serverseitig noch nicht aktiv."}, 503
+    db = get_db()
+    user = db.execute("SELECT * FROM staff_users WHERE username = ? LIMIT 1", (session.get("username"),)).fetchone()
+    if not user:
+        return {"ok": False, "error": "Benutzer nicht gefunden."}, 404
+    existing = passkey_credentials_for_user(db, user["id"])
+    options = generate_registration_options(
+        rp_id=current_passkey_rp_id(),
+        rp_name=current_passkey_rp_name(),
+        user_id=str(user["id"]).encode("utf-8"),
+        user_name=user["username"],
+        user_display_name=user["display_name"] or user["username"],
+        exclude_credentials=[PublicKeyCredentialDescriptor(id=_b64url_decode(row["credential_id"])) for row in existing],
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.PREFERRED,
+            user_verification=UserVerificationRequirement.PREFERRED,
+        ),
+    )
+    session["passkey_register_challenge"] = _b64url_encode(options.challenge)
+    return Response(options_to_json(options), mimetype="application/json")
+
+
+@app.route("/api/passkeys/register/verify", methods=["POST"])
+@login_required
+def passkey_register_verify():
+    if not passkeys_ready():
+        return {"ok": False, "error": "Passkeys sind serverseitig noch nicht aktiv."}, 503
+    challenge = session.get("passkey_register_challenge")
+    if not challenge:
+        return {"ok": False, "error": "Passkey-Registrierung muss neu gestartet werden."}, 400
+    payload = request.get_json(silent=True) or {}
+    db = get_db()
+    user = db.execute("SELECT * FROM staff_users WHERE username = ? LIMIT 1", (session.get("username"),)).fetchone()
+    if not user:
+        return {"ok": False, "error": "Benutzer nicht gefunden."}, 404
+    try:
+        credential = RegistrationCredential.parse_raw(json.dumps(payload))
+        verification = verify_registration_response(
+            credential=credential,
+            expected_challenge=_b64url_decode(challenge),
+            expected_rp_id=current_passkey_rp_id(),
+            expected_origin=current_passkey_origin(),
+            require_user_verification=True,
+        )
+    except Exception as exc:
+        return {"ok": False, "error": f"Passkey konnte nicht gespeichert werden: {exc}"}, 400
+    transports = payload.get("response", {}).get("transports") or []
+    db.execute(
+        """
+        INSERT INTO webauthn_credentials(user_id, credential_id, public_key, sign_count, transports, created_at, last_used_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(credential_id) DO UPDATE SET
+            user_id = excluded.user_id,
+            public_key = excluded.public_key,
+            sign_count = excluded.sign_count,
+            transports = excluded.transports,
+            last_used_at = excluded.last_used_at
+        """,
+        (
+            user["id"],
+            _b64url_encode(verification.credential_id),
+            _b64url_encode(verification.credential_public_key),
+            int(verification.sign_count or 0),
+            json.dumps(transports),
+            datetime.now().isoformat(timespec="seconds"),
+            datetime.now().isoformat(timespec="seconds"),
+        ),
+    )
+    db.commit()
+    session.pop("passkey_register_challenge", None)
+    return {"ok": True, "message": "Fingerabdruck/Passkey wurde f?r dieses Ger?t gespeichert."}
+
+
+@app.route("/api/passkeys/auth/options", methods=["POST"])
+def passkey_auth_options():
+    if not passkeys_ready():
+        return {"ok": False, "error": "Passkeys sind serverseitig noch nicht aktiv."}, 503
+    payload = request.get_json(silent=True) or {}
+    selected_staff = _normalize_staff_name(payload.get("staff_name"), default=DEFAULT_STAFF)
+    db = get_db()
+    user = fetch_user_for_staff(db, selected_staff)
+    if not user:
+        return {"ok": False, "error": "Benutzer nicht gefunden."}, 404
+    credentials = passkey_credentials_for_user(db, user["id"])
+    if not credentials:
+        return {"ok": False, "error": f"F?r {selected_staff} ist auf diesem Konto noch kein Fingerabdruck/Passkey eingerichtet."}, 400
+    options = generate_authentication_options(
+        rp_id=current_passkey_rp_id(),
+        allow_credentials=[PublicKeyCredentialDescriptor(id=_b64url_decode(row["credential_id"])) for row in credentials],
+        user_verification=UserVerificationRequirement.PREFERRED,
+    )
+    session["passkey_auth_challenge"] = _b64url_encode(options.challenge)
+    session["passkey_auth_staff"] = selected_staff
+    return Response(options_to_json(options), mimetype="application/json")
+
+
+@app.route("/api/passkeys/auth/verify", methods=["POST"])
+def passkey_auth_verify():
+    if not passkeys_ready():
+        return {"ok": False, "error": "Passkeys sind serverseitig noch nicht aktiv."}, 503
+    payload = request.get_json(silent=True) or {}
+    challenge = session.get("passkey_auth_challenge")
+    selected_staff = _normalize_staff_name(session.get("passkey_auth_staff"), default=DEFAULT_STAFF)
+    if not challenge:
+        return {"ok": False, "error": "Passkey-Anmeldung muss neu gestartet werden."}, 400
+    credential_id = (((payload.get("id") or "").strip()) or ((payload.get("rawId") or "").strip()))
+    if not credential_id:
+        return {"ok": False, "error": "Passkey-ID fehlt."}, 400
+    db = get_db()
+    row = find_passkey_by_credential_id(db, credential_id)
+    if not row:
+        return {"ok": False, "error": "Passkey nicht gefunden."}, 404
+    if resolve_staff_name_for_user(row) != selected_staff:
+        return {"ok": False, "error": "Passkey geh?rt nicht zum gew?hlten Namen."}, 400
+    try:
+        credential = AuthenticationCredential.parse_raw(json.dumps(payload))
+        verification = verify_authentication_response(
+            credential=credential,
+            expected_challenge=_b64url_decode(challenge),
+            expected_rp_id=current_passkey_rp_id(),
+            expected_origin=current_passkey_origin(),
+            credential_public_key=_b64url_decode(row["public_key"]),
+            credential_current_sign_count=int(row["sign_count"] or 0),
+            require_user_verification=True,
+        )
+    except Exception as exc:
+        return {"ok": False, "error": f"Passkey-Anmeldung fehlgeschlagen: {exc}"}, 400
+    db.execute(
+        "UPDATE webauthn_credentials SET sign_count = ?, last_used_at = ? WHERE id = ?",
+        (int(verification.new_sign_count or 0), datetime.now().isoformat(timespec="seconds"), row["id"]),
+    )
+    db.commit()
+    login_user(row, staff_name=selected_staff)
+    session.pop("passkey_auth_challenge", None)
+    session.pop("passkey_auth_staff", None)
+    return {"ok": True, "redirect_url": url_for("calendar_view")}
+
+
+@app.route("/api/passkeys/status")
+def passkey_status():
+    enabled = passkeys_ready()
+    configured = bool((request.is_secure or current_passkey_origin().startswith("https://")) and current_passkey_rp_id())
+    return {"ok": True, "enabled": enabled and configured, "backend_ready": enabled, "logged_in": bool(session.get("admin_logged_in")), "staff_name": session.get("staff_name") or DEFAULT_STAFF}
 
 
 @app.route("/logout")
@@ -2939,6 +3184,7 @@ def inject_globals():
         "app_version": APP_VERSION,
         "staff_members": STAFF_MEMBERS,
         "default_staff": DEFAULT_STAFF,
+        "passkeys_ready": passkeys_ready(),
     }
 
 
