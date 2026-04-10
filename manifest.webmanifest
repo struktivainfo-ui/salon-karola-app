@@ -1,10 +1,11 @@
 {
-  "name": "Salon Karola",
-  "short_name": "Karola",
-  "start_url": "/",
+  "name": "Salon Karola CRM",
+  "short_name": "Salon Karola",
+  "start_url": "/?v=final-fix-2-live-template-sync-2026-04-07",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#0f0f0f",
+  "theme_color": "#0f0f0f",
+  "description": "Salon Karola Kunden- und Terminverwaltung",
   "icons": [
     {
       "src": "/static/icon-192.png",
