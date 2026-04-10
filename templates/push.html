@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Push-System · Salon Karola{% endblock %}
+{% block title %}Push-System ? Salon Karola{% endblock %}
 {% block content %}
 <section class="app-hero page-hero">
   <div class="app-hero-copy">
     <span class="eyebrow">Admin</span>
     <h1 class="app-hero-title">Push</h1>
-    <p class="app-hero-text">Geräte verwalten, Push aktivieren und den Zustellstatus übersichtlich prüfen.</p>
+    <p class="app-hero-text">Ger?te verwalten, Push aktivieren, Fingerabdruck auf diesem Handy einrichten und den Zustellstatus ?bersichtlich pr?fen.</p>
   </div>
   <div class="hero-actions-grid">
     <a class="hero-action primary" href="{{ url_for('calendar_view') }}">Kalender</a>
@@ -21,7 +21,7 @@
       {% for member in staff_members %}<option value="{{ member }}">{{ member }}</option>{% endfor %}
     </select>
 
-    <label for="deviceNameInput">Gerätename</label>
+    <label for="deviceNameInput">Ger?tename</label>
     <input type="text" id="deviceNameInput" placeholder="z. B. Handy Ute" maxlength="80">
 
     <label for="pushTargetSelect">Push senden an</label>
@@ -35,11 +35,16 @@
       <button type="button" class="btn btn-secondary" id="testPushBtn">Push testen</button>
     </div>
 
+    <div class="space-top">
+      <button type="button" class="btn btn-secondary" id="registerPasskeyBtn" {% if not passkeys_ready %}disabled{% endif %}>Fingerabdruck f?r dieses Handy aktivieren</button>
+      <div class="helper-text push-page-status" id="passkeySetupStatus">{% if passkeys_ready %}Passkey speichert auf diesem Ger?t einen biometrischen Login f?r die aktuell angemeldete Person.{% else %}Passkey/Fingerabdruck ist serverseitig noch nicht aktiv.{% endif %}</div>
+    </div>
+
     <div class="helper-text push-page-status" id="pushStatusMini">Push ist noch nicht aktiviert.</div>
   </article>
 
   <article class="card push-page-card">
-    <h2>Geräteübersicht</h2>
+    <h2>Ger?te?bersicht</h2>
     <div class="stats-grid compact-stats">
       {% for member in staff_members %}
       <div class="stat-card"><div class="stat-label">{{ member }}</div><div class="stat-value" id="count-{{ member|lower }}">0</div></div>
@@ -47,8 +52,8 @@
       <div class="stat-card"><div class="stat-label">Aktiv</div><div class="stat-value" id="activeCount">0</div></div>
       <div class="stat-card"><div class="stat-label">Gesamt</div><div class="stat-value" id="totalCount">0</div></div>
     </div>
-    <button type="button" class="btn btn-secondary" id="reloadDevicesBtn">Geräte neu laden</button>
-    <div id="pushDevicesList" class="push-devices-list muted">Noch keine Geräte registriert.</div>
+    <button type="button" class="btn btn-secondary" id="reloadDevicesBtn">Ger?te neu laden</button>
+    <div id="pushDevicesList" class="push-devices-list muted">Noch keine Ger?te registriert.</div>
   </article>
 </section>
 
@@ -61,6 +66,86 @@
   };
   const activeCount = document.getElementById('activeCount');
   const totalCount = document.getElementById('totalCount');
+  const passkeyBtn = document.getElementById('registerPasskeyBtn');
+  const passkeyStatus = document.getElementById('passkeySetupStatus');
+
+  function setPasskeyStatus(text) {
+    if (passkeyStatus) passkeyStatus.textContent = text;
+  }
+
+  function bufferToBase64url(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    bytes.forEach((b) => binary += String.fromCharCode(b));
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
+  function base64urlToBuffer(value) {
+    const padding = '='.repeat((4 - value.length % 4) % 4);
+    const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  function normalizeCreationOptions(options) {
+    options.challenge = base64urlToBuffer(options.challenge);
+    options.user.id = base64urlToBuffer(options.user.id);
+    if (Array.isArray(options.excludeCredentials)) {
+      options.excludeCredentials = options.excludeCredentials.map((item) => ({ ...item, id: base64urlToBuffer(item.id) }));
+    }
+    return options;
+  }
+
+  function serializeCredential(credential) {
+    const response = credential.response || {};
+    return {
+      id: credential.id,
+      rawId: bufferToBase64url(credential.rawId),
+      type: credential.type,
+      response: {
+        attestationObject: response.attestationObject ? bufferToBase64url(response.attestationObject) : undefined,
+        authenticatorData: response.authenticatorData ? bufferToBase64url(response.authenticatorData) : undefined,
+        clientDataJSON: response.clientDataJSON ? bufferToBase64url(response.clientDataJSON) : undefined,
+        publicKeyAlgorithm: response.publicKeyAlgorithm,
+        transports: response.getTransports ? response.getTransports() : [],
+      },
+      clientExtensionResults: credential.getClientExtensionResults ? credential.getClientExtensionResults() : {},
+    };
+  }
+
+  async function registerPasskey() {
+    if (!window.PublicKeyCredential || !navigator.credentials) {
+      setPasskeyStatus('Dieses Ger?t unterst?tzt keinen Fingerabdruck-/Passkey-Login im Browser.');
+      return;
+    }
+    passkeyBtn.disabled = true;
+    try {
+      setPasskeyStatus('Fingerabdruck/Passkey wird vorbereitet...');
+      const optionsRes = await fetch('/api/passkeys/register/options', {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+      const raw = await optionsRes.json();
+      if (!optionsRes.ok || raw.ok === false) throw new Error(raw.error || 'Passkey-Optionen konnten nicht geladen werden.');
+      const options = normalizeCreationOptions(raw.publicKey || raw);
+      const credential = await navigator.credentials.create({ publicKey: options });
+      const verifyRes = await fetch('/api/passkeys/register/verify', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(serializeCredential(credential)),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok || verifyData.ok === false) throw new Error(verifyData.error || 'Passkey konnte nicht gespeichert werden.');
+      setPasskeyStatus(verifyData.message || 'Fingerabdruck/Passkey wurde gespeichert.');
+    } catch (error) {
+      setPasskeyStatus(error.message || 'Fingerabdruck/Passkey konnte nicht aktiviert werden.');
+    } finally {
+      passkeyBtn.disabled = false;
+    }
+  }
 
   async function loadOverview() {
     try {
@@ -75,26 +160,26 @@
 
   async function loadDevices() {
     if (!list) return;
-    list.innerHTML = 'Lade Geräte…';
+    list.innerHTML = 'Lade Ger?te...';
     try {
       const res = await fetch('/api/push/devices', { cache: 'no-store' });
       const data = await res.json();
       const items = data.items || [];
       if (!items.length) {
-        list.innerHTML = 'Noch keine Geräte registriert.';
+        list.innerHTML = 'Noch keine Ger?te registriert.';
         return;
       }
       list.innerHTML = items.map((item) => {
         const error = item.last_error ? `<div class="device-error">Fehler: ${item.last_error}</div>` : '';
         return `
           <div class="device-item">
-            <div class="device-title">${item.staff_name} · ${item.device_name}</div>
+            <div class="device-title">${item.staff_name} ? ${item.device_name}</div>
             <div class="device-meta">Zuletzt aktiv: ${item.last_seen_at || '-'} </div>
             ${error}
           </div>`;
       }).join('');
     } catch (e) {
-      list.innerHTML = 'Geräte konnten nicht geladen werden.';
+      list.innerHTML = 'Ger?te konnten nicht geladen werden.';
     }
   }
 
@@ -103,6 +188,10 @@
       await loadOverview();
       await loadDevices();
     });
+  }
+
+  if (passkeyBtn) {
+    passkeyBtn.addEventListener('click', registerPasskey);
   }
 
   window.refreshPushOverview = async function () {

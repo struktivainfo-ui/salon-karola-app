@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#0f0f0f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Salon Karola" />
-  <title>{% block title %}Salon Karola{% endblock %}</title>
+  <meta name="apple-mobile-web-app-title" content="Salon Karola App" />
+  <title>{% block title %}Salon Karola App{% endblock %}</title>
   <link rel="manifest" href="{{ url_for('manifest') }}?v={{ app_version|urlencode }}" />
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}" />
   <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icon-192.png') }}" />
@@ -33,9 +33,7 @@
       <div class="brand">
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div>
-          <div class="brand-title">Salon Karola</div>
-          <div class="brand-subtitle">Salon-Organisation</div>
-          <div class="brand-version">{{ app_version }}</div>
+          <div class="brand-title">Salon Karola App</div>
         </div>
       </div>
       <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
@@ -130,10 +128,12 @@
         return (localStorage.getItem(STORAGE_KEY_STAFF) || loggedInStaff || {{ default_staff|tojson }}).trim() || loggedInStaff || {{ default_staff|tojson }};
       }
 
+      const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};
+
       function currentPushTarget() {
-        const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};
-        const value = (localStorage.getItem(STORAGE_KEY_PUSH_TARGET) || {{ default_staff|tojson }}).trim() || {{ default_staff|tojson }};
-        return allowedTargets.includes(value) ? value : {{ default_staff|tojson }};
+        const storedTarget = (localStorage.getItem(STORAGE_KEY_PUSH_TARGET) || "").trim();
+        if (!storedTarget) return currentStaff();
+        return allowedTargets.includes(storedTarget) ? storedTarget : currentStaff();
       }
 
       function deviceNameFallback() {
@@ -366,6 +366,7 @@
         try { pingData = await pingRes.json(); } catch (e) {}
         const sentCount = pingData && pingData.result ? Number(pingData.result.sent || 0) : 0;
         const deviceCount = pingData && typeof pingData.device_count !== "undefined" ? Number(pingData.device_count || 0) : 0;
+        const errors = (pingData && pingData.result && pingData.result.errors) || [];
 
         const firstError = errors.length ? String(errors[0] || "") : "";
         if (deviceCount > 0 && sentCount === 0 && isVapidMismatchError(firstError)) {
@@ -546,6 +547,8 @@
         staffSelect.value = currentStaff();
         staffSelect.addEventListener("change", async () => {
           localStorage.setItem(STORAGE_KEY_STAFF, staffSelect.value);
+          localStorage.setItem(STORAGE_KEY_PUSH_TARGET, staffSelect.value);
+          if (pushTargetSelect) pushTargetSelect.value = staffSelect.value;
           await refreshPushStatus();
           try {
             if (Notification.permission === "granted") {
@@ -713,8 +716,10 @@
 
       window.addEventListener("load", async () => {
         try {
-          if (loggedInStaff) localStorage.setItem(STORAGE_KEY_STAFF, loggedInStaff);
-          if (!localStorage.getItem(STORAGE_KEY_PUSH_TARGET) && loggedInStaff) localStorage.setItem(STORAGE_KEY_PUSH_TARGET, loggedInStaff);
+          if (loggedInStaff) {
+            localStorage.setItem(STORAGE_KEY_STAFF, loggedInStaff);
+            localStorage.setItem(STORAGE_KEY_PUSH_TARGET, loggedInStaff);
+          }
         } catch (e) {}
         try {
           const registration = await registerServiceWorker();

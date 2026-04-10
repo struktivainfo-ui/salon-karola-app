@@ -4,8 +4,7 @@
 <div class="login-shell">
   <div class="login-card">
     <img class="login-logo" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
-    <h1>Salon Karola</h1>
-    <p class="helper-text">Beim ersten Start w?hlt jede Person den eigenen Namen und legt ein Passwort fest. Danach reicht normales Einloggen, und Push bleibt automatisch auf dieses Profil ausgerichtet.</p>
+    <h1>Salon Karola App</h1>
 
     <div class="card soft-card space-top">
       <h2>Einloggen</h2>
@@ -25,6 +24,10 @@
         </div>
         <button type="submit">Einloggen</button>
       </form>
+      <div class="space-top">
+        <button type="button" class="btn btn-secondary" id="passkeyLoginBtn" {% if not passkeys_ready %}disabled{% endif %}>Mit Fingerabdruck anmelden</button>
+        <div class="helper-text compact-helper" id="passkeyLoginStatus"></div>
+      </div>
     </div>
 
     <div class="card soft-card space-top">
@@ -52,4 +55,92 @@
     </div>
   </div>
 </div>
+<script>
+(function(){
+  const passkeyBtn = document.getElementById('passkeyLoginBtn');
+  const staffSelect = document.getElementById('staff_name_login');
+  const statusEl = document.getElementById('passkeyLoginStatus');
+
+  function setStatus(text){ if (statusEl) statusEl.textContent = text; }
+
+  function bufferToBase64url(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    bytes.forEach((b) => binary += String.fromCharCode(b));
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
+  function base64urlToBuffer(value) {
+    const padding = '='.repeat((4 - value.length % 4) % 4);
+    const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  function normalizeRequestOptions(options) {
+    options.challenge = base64urlToBuffer(options.challenge);
+    if (Array.isArray(options.allowCredentials)) {
+      options.allowCredentials = options.allowCredentials.map((item) => ({ ...item, id: base64urlToBuffer(item.id) }));
+    }
+    return options;
+  }
+
+  function serializeCredential(credential) {
+    const response = credential.response || {};
+    return {
+      id: credential.id,
+      rawId: bufferToBase64url(credential.rawId),
+      type: credential.type,
+      response: {
+        authenticatorData: response.authenticatorData ? bufferToBase64url(response.authenticatorData) : undefined,
+        clientDataJSON: response.clientDataJSON ? bufferToBase64url(response.clientDataJSON) : undefined,
+        signature: response.signature ? bufferToBase64url(response.signature) : undefined,
+        userHandle: response.userHandle ? bufferToBase64url(response.userHandle) : undefined,
+      },
+      clientExtensionResults: credential.getClientExtensionResults ? credential.getClientExtensionResults() : {},
+    };
+  }
+
+  async function loginWithPasskey() {
+    if (!window.PublicKeyCredential || !navigator.credentials) {
+      setStatus('Dieses Ger?t unterst?tzt keinen Fingerabdruck-/Passkey-Login im Browser.');
+      return;
+    }
+    passkeyBtn.disabled = true;
+    try {
+      const selectedStaff = staffSelect ? staffSelect.value : 'Sven';
+      setStatus(`Passkey-Anmeldung f?r ${selectedStaff} wird gestartet...`);
+      const optionsRes = await fetch('/api/passkeys/auth/options', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff_name: selectedStaff }),
+      });
+      const raw = await optionsRes.json();
+      if (!optionsRes.ok || raw.ok === false) throw new Error(raw.error || 'Passkey-Optionen konnten nicht geladen werden.');
+      const options = normalizeRequestOptions(raw.publicKey || raw);
+      const credential = await navigator.credentials.get({ publicKey: options });
+      const verifyRes = await fetch('/api/passkeys/auth/verify', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(serializeCredential(credential)),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok || verifyData.ok === false) throw new Error(verifyData.error || 'Passkey-Anmeldung fehlgeschlagen.');
+      window.location.href = verifyData.redirect_url || '/calendar';
+    } catch (error) {
+      setStatus(error.message || 'Passkey-Anmeldung fehlgeschlagen.');
+    } finally {
+      passkeyBtn.disabled = false;
+    }
+  }
+
+  if (passkeyBtn) {
+    passkeyBtn.addEventListener('click', loginWithPasskey);
+  }
+})();
+</script>
 {% endblock %}
