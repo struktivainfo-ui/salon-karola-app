@@ -1,20 +1,43 @@
 {% extends 'base.html' %}
-{% block title %}Login - Salon Karola{% endblock %}
+{% block title %}Salon Karola App{% endblock %}
 {% block content %}
-<div class="login-shell">
-  <div class="login-card">
-    <img class="login-logo" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
-    <h1>Salon Karola App</h1>
+<div class="auth-shell">
+  <section class="auth-landing">
+    <div class="auth-landing-copy">
+      <div class="auth-kicker">Salon Karola App</div>
+      <h1>Willkommen im Salon Karola</h1>
+      <p>Termine, Team und Kundinnen an einem Ort.</p>
+      <div class="auth-highlights">
+        <div class="auth-highlight">Kalender</div>
+        <div class="auth-highlight">Push</div>
+        <div class="auth-highlight">Team-Login</div>
+      </div>
+    </div>
+    <div class="auth-landing-panel">
+      <img class="login-logo auth-logo-large" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
+      <div class="auth-panel-label">Salon Karola App</div>
+      <div class="auth-panel-title">Sch?n, dass du da bist</div>
+    </div>
+  </section>
 
-    <div class="card soft-card space-top">
-      <h2>Einloggen</h2>
+  <section class="auth-card-wrap">
+    <div class="auth-switch" role="tablist" aria-label="Anmeldung">
+      <button type="button" class="auth-switch-btn active" data-auth-target="loginPanel">Anmelden</button>
+      <button type="button" class="auth-switch-btn" data-auth-target="registerPanel">Registrieren</button>
+    </div>
+
+    <div class="auth-panel active" id="loginPanel">
+      <div class="auth-panel-head">
+        <h2>Anmelden</h2>
+        <span>F?r Ute, Jessi und Sven</span>
+      </div>
       <form method="post" class="space-top">
         <input type="hidden" name="action" value="login">
         <div class="form-group">
           <label for="staff_name_login">Name</label>
           <select name="staff_name" id="staff_name_login" required>
             {% for option in login_options %}
-            <option value="{{ option['staff_name'] }}">{{ option['label'] }}{% if not setup_states[option['staff_name']]['has_password'] %} ? Passwort fehlt{% endif %}</option>
+            <option value="{{ option['staff_name'] }}">{{ option['label'] }}</option>
             {% endfor %}
           </select>
         </div>
@@ -24,14 +47,17 @@
         </div>
         <button type="submit">Einloggen</button>
       </form>
-      <div class="space-top">
+      <div class="space-top auth-secondary-actions">
         <button type="button" class="btn btn-secondary" id="passkeyLoginBtn" {% if not passkeys_ready %}disabled{% endif %}>Mit Fingerabdruck anmelden</button>
         <div class="helper-text compact-helper" id="passkeyLoginStatus"></div>
       </div>
     </div>
 
-    <div class="card soft-card space-top">
-      <h2>Erstes Passwort anlegen</h2>
+    <div class="auth-panel" id="registerPanel" hidden>
+      <div class="auth-panel-head">
+        <h2>Registrieren</h2>
+        <span>Eigenes Passwort festlegen</span>
+      </div>
       <form method="post" class="space-top">
         <input type="hidden" name="action" value="setup">
         <div class="form-group">
@@ -53,10 +79,30 @@
         <button type="submit">Passwort speichern</button>
       </form>
     </div>
-  </div>
+  </section>
 </div>
 <script>
 (function(){
+  const switchButtons = Array.from(document.querySelectorAll('.auth-switch-btn'));
+  const panels = {
+    loginPanel: document.getElementById('loginPanel'),
+    registerPanel: document.getElementById('registerPanel'),
+  };
+
+  function activatePanel(targetId) {
+    switchButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.authTarget === targetId));
+    Object.entries(panels).forEach(([id, panel]) => {
+      if (!panel) return;
+      const active = id === targetId;
+      panel.hidden = !active;
+      panel.classList.toggle('active', active);
+    });
+  }
+
+  switchButtons.forEach((btn) => {
+    btn.addEventListener('click', () => activatePanel(btn.dataset.authTarget));
+  });
+
   const passkeyBtn = document.getElementById('passkeyLoginBtn');
   const staffSelect = document.getElementById('staff_name_login');
   const statusEl = document.getElementById('passkeyLoginStatus');
@@ -105,13 +151,14 @@
 
   async function loginWithPasskey() {
     if (!window.PublicKeyCredential || !navigator.credentials) {
-      setStatus('Dieses Ger?t unterst?tzt keinen Fingerabdruck-/Passkey-Login im Browser.');
+      setStatus('Dieses Ger?t unterst?tzt keinen Fingerabdruck-Login im Browser.');
       return;
     }
+    if (!passkeyBtn) return;
     passkeyBtn.disabled = true;
     try {
       const selectedStaff = staffSelect ? staffSelect.value : 'Sven';
-      setStatus(`Passkey-Anmeldung f?r ${selectedStaff} wird gestartet...`);
+      setStatus(`Fingerabdruck-Anmeldung f?r ${selectedStaff} wird gestartet...`);
       const optionsRes = await fetch('/api/passkeys/auth/options', {
         method: 'POST',
         credentials: 'same-origin',
