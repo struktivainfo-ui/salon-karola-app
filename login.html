@@ -4,19 +4,20 @@
 <div class="auth-shell">
   <section class="auth-landing">
     <div class="auth-landing-copy">
-      <div class="auth-kicker">Salon Karola App</div>
-      <h1>Willkommen im Salon Karola</h1>
-      <p>Termine, Team und Kundinnen an einem Ort.</p>
+      <div class="auth-kicker">Salon Karola Calw-Wimberg</div>
+      <h1>Pers?nliche Beratung, professionelle Haarschnitte und entspannte Atmosph?re.</h1>
+      <p>Willkommen im Salon Karola in Calw-Wimberg. Jessi und Ute freuen sich auf euch. Damen-, Herren- und Kinderhaarschnitte, moderne Farb- und Str?hnentechniken sowie typgerechtes Styling.</p>
       <div class="auth-highlights">
-        <div class="auth-highlight">Kalender</div>
-        <div class="auth-highlight">Push</div>
-        <div class="auth-highlight">Team-Login</div>
+        <div class="auth-highlight">07051 / 6344</div>
+        <div class="auth-highlight">75365 Calw-Wimberg</div>
+        <div class="auth-highlight">Di?Fr 9?12 / 13:30?17:45</div>
+        <div class="auth-highlight">Sa 8:30?12:45</div>
       </div>
     </div>
     <div class="auth-landing-panel">
       <img class="login-logo auth-logo-large" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
       <div class="auth-panel-label">Salon Karola App</div>
-      <div class="auth-panel-title">Sch?n, dass du da bist</div>
+      <div class="auth-panel-title">Pers?nlich. Kompetent. Herzlich.</div>
     </div>
   </section>
 
@@ -107,7 +108,7 @@
   const staffSelect = document.getElementById('staff_name_login');
   const statusEl = document.getElementById('passkeyLoginStatus');
 
-  function setStatus(text){ if (statusEl) statusEl.textContent = text; }
+  function setStatus(text){ if (statusEl) statusEl.textContent = text || ''; }
 
   function bufferToBase64url(buffer) {
     const bytes = new Uint8Array(buffer);
@@ -149,9 +150,25 @@
     };
   }
 
+  async function refreshPasskeyStatus() {
+    try {
+      const res = await fetch('/api/passkeys/status', { cache: 'no-store', credentials: 'same-origin' });
+      const data = await res.json();
+      if (!data.ok || !data.enabled) {
+        setStatus('Fingerabdruck ist auf diesem Ger?t noch nicht aktiviert.');
+        if (passkeyBtn) passkeyBtn.disabled = true;
+        return;
+      }
+      if (passkeyBtn) passkeyBtn.disabled = false;
+      setStatus('Wenn bereits eingerichtet, kannst du dich hier direkt per Fingerabdruck anmelden.');
+    } catch (error) {
+      setStatus('Fingerabdruck-Status konnte gerade nicht geladen werden.');
+    }
+  }
+
   async function loginWithPasskey() {
-    if (!window.PublicKeyCredential || !navigator.credentials) {
-      setStatus('Dieses Ger?t unterst?tzt keinen Fingerabdruck-Login im Browser.');
+    if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) {
+      setStatus('Fingerabdruck ist in diesem Browser oder auf diesem Ger?t nicht verf?gbar.');
       return;
     }
     if (!passkeyBtn) return;
@@ -166,9 +183,10 @@
         body: JSON.stringify({ staff_name: selectedStaff }),
       });
       const raw = await optionsRes.json();
-      if (!optionsRes.ok || raw.ok === false) throw new Error(raw.error || 'Passkey-Optionen konnten nicht geladen werden.');
+      if (!optionsRes.ok || raw.ok === false) throw new Error(raw.error || 'Fingerabdruck konnte nicht vorbereitet werden.');
       const options = normalizeRequestOptions(raw.publicKey || raw);
       const credential = await navigator.credentials.get({ publicKey: options });
+      if (!credential) throw new Error('Fingerabdruck-Anmeldung wurde abgebrochen.');
       const verifyRes = await fetch('/api/passkeys/auth/verify', {
         method: 'POST',
         credentials: 'same-origin',
@@ -176,18 +194,20 @@
         body: JSON.stringify(serializeCredential(credential)),
       });
       const verifyData = await verifyRes.json();
-      if (!verifyRes.ok || verifyData.ok === false) throw new Error(verifyData.error || 'Passkey-Anmeldung fehlgeschlagen.');
+      if (!verifyRes.ok || verifyData.ok === false) throw new Error(verifyData.error || 'Fingerabdruck-Anmeldung fehlgeschlagen.');
       window.location.href = verifyData.redirect_url || '/calendar';
     } catch (error) {
-      setStatus(error.message || 'Passkey-Anmeldung fehlgeschlagen.');
+      setStatus(error.message || 'Fingerabdruck-Anmeldung fehlgeschlagen.');
     } finally {
-      passkeyBtn.disabled = false;
+      await refreshPasskeyStatus();
     }
   }
 
   if (passkeyBtn) {
     passkeyBtn.addEventListener('click', loginWithPasskey);
   }
+
+  refreshPasskeyStatus();
 })();
 </script>
 {% endblock %}

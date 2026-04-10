@@ -1926,7 +1926,10 @@ def passkey_auth_verify():
     if resolve_staff_name_for_user(row) != selected_staff:
         return {"ok": False, "error": "Passkey geh?rt nicht zum gew?hlten Namen."}, 400
     try:
-        credential = AuthenticationCredential.parse_raw(json.dumps(payload))
+        if hasattr(AuthenticationCredential, "parse_obj"):
+            credential = AuthenticationCredential.parse_obj(payload)
+        else:
+            credential = AuthenticationCredential.parse_raw(json.dumps(payload))
         verification = verify_authentication_response(
             credential=credential,
             expected_challenge=_b64url_decode(challenge),

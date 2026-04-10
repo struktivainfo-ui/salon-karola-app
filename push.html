@@ -116,21 +116,22 @@
   }
 
   async function registerPasskey() {
-    if (!window.PublicKeyCredential || !navigator.credentials) {
-      setPasskeyStatus('Dieses Ger?t unterst?tzt keinen Fingerabdruck-/Passkey-Login im Browser.');
+    if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) {
+      setPasskeyStatus('Fingerabdruck ist auf diesem Ger?t in diesem Browser nicht verf?gbar.');
       return;
     }
     passkeyBtn.disabled = true;
     try {
-      setPasskeyStatus('Fingerabdruck/Passkey wird vorbereitet...');
+      setPasskeyStatus('Fingerabdruck wird vorbereitet...');
       const optionsRes = await fetch('/api/passkeys/register/options', {
         method: 'POST',
         credentials: 'same-origin',
       });
       const raw = await optionsRes.json();
-      if (!optionsRes.ok || raw.ok === false) throw new Error(raw.error || 'Passkey-Optionen konnten nicht geladen werden.');
+      if (!optionsRes.ok || raw.ok === false) throw new Error(raw.error || 'Fingerabdruck konnte nicht vorbereitet werden.');
       const options = normalizeCreationOptions(raw.publicKey || raw);
       const credential = await navigator.credentials.create({ publicKey: options });
+      if (!credential) throw new Error('Fingerabdruck-Einrichtung wurde abgebrochen.');
       const verifyRes = await fetch('/api/passkeys/register/verify', {
         method: 'POST',
         credentials: 'same-origin',
@@ -138,10 +139,10 @@
         body: JSON.stringify(serializeCredential(credential)),
       });
       const verifyData = await verifyRes.json();
-      if (!verifyRes.ok || verifyData.ok === false) throw new Error(verifyData.error || 'Passkey konnte nicht gespeichert werden.');
-      setPasskeyStatus(verifyData.message || 'Fingerabdruck/Passkey wurde gespeichert.');
+      if (!verifyRes.ok || verifyData.ok === false) throw new Error(verifyData.error || 'Fingerabdruck konnte nicht gespeichert werden.');
+      setPasskeyStatus(verifyData.message || 'Fingerabdruck wurde f?r dieses Ger?t gespeichert.');
     } catch (error) {
-      setPasskeyStatus(error.message || 'Fingerabdruck/Passkey konnte nicht aktiviert werden.');
+      setPasskeyStatus(error.message || 'Fingerabdruck konnte nicht aktiviert werden.');
     } finally {
       passkeyBtn.disabled = false;
     }
