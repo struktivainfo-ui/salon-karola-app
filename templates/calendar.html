@@ -1,52 +1,60 @@
 {% extends 'base.html' %}
-{% block title %}Kalender - Salon Karola{% endblock %}
+{% block title %}Kalender - Salon Karola App{% endblock %}
 {% block content %}
-<section class="app-hero page-hero">
-  <div class="app-hero-copy">
-    <span class="eyebrow">Salon Karola</span>
-    <h1 class="app-hero-title">Kalender</h1>
-    <p class="app-hero-text">Tag, Woche und Monat sauber getrennt – für eine klare Terminsteuerung auf Handy und Desktop.</p>
+<section class="calendar-hero premium-calendar-hero">
+  <div class="calendar-hero-main">
+    <div class="calendar-hero-kicker">Salon Karola App</div>
+    <h1 class="calendar-hero-title">Kalender</h1>
+    <div class="calendar-hero-meta">
+      <span class="calendar-meta-pill">{{ staff }}</span>
+      <span class="calendar-meta-pill">{{ selected_date }}</span>
+      <span class="calendar-meta-pill">{{ view|capitalize }}</span>
+    </div>
   </div>
-  <div class="hero-actions-grid">
-    <a class="hero-action primary" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else default_staff, source='calendar_quick') }}">Termin anlegen</a>
-    <a class="hero-action" href="{{ url_for('calendar_view', view=view, date=today_date, staff=staff) }}">Heute</a>
-    <a class="hero-action" href="{{ url_for('appointments_hub') }}">Terminliste</a>
+  <div class="calendar-hero-actions premium-hero-actions">
+    <a class="calendar-hero-action primary" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else default_staff, source='calendar_quick') }}">Termin anlegen</a>
+    <a class="calendar-hero-action" href="{{ url_for('calendar_view', view=view, date=today_date, staff=staff) }}">Heute</a>
+    <a class="calendar-hero-action" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
+    <a class="calendar-hero-action" href="{{ url_for('appointments_hub') }}">Terminliste</a>
   </div>
 </section>
 
-<section class="card">
-  <div class="row-between wrap-mobile">
-    <div>
-      <h2>Kalendersteuerung</h2>
-    </div>
-    <span class="badge">{{ staff }} • {{ selected_date }}</span>
+<section class="card premium-calendar-panel">
+  <div class="calendar-control-head">
+    <h2>Steuerung</h2>
+    <span class="badge">{{ staff }} ? {{ selected_date }}</span>
   </div>
-  <div class="calendar-quick-grid space-top">
-    <a class="calendar-quick-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else default_staff, source='calendar_quick') }}">➕ Neuer Termin</a>
-    <a class="calendar-quick-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else default_staff, source='calendar_quick') }}#todayAppointments">🗓️ Heute bearbeiten</a>
-    <a class="calendar-quick-link" href="{{ url_for('customer_search_page') }}">🔎 Kundensuche</a>
-  </div>
-  <form method="get" class="calendar-toolbar space-top">
-    <div class="view-switch">
-      <a class="view-chip {% if staff == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Alle') }}">Alle</a>
-      {% for member in staff_members %}
-      <a class="view-chip {% if staff == member %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff=member) }}">{{ member }}</a>
-      {% endfor %}
+
+  <form method="get" class="calendar-toolbar premium-calendar-toolbar space-top">
+    <div class="calendar-control-group">
+      <div class="calendar-group-label">Team</div>
+      <div class="view-switch premium-chip-row">
+        <a class="view-chip premium-chip {% if staff == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Alle') }}">Alle</a>
+        {% for member in staff_members %}
+        <a class="view-chip premium-chip {% if staff == member %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff=member) }}">{{ member }}</a>
+        {% endfor %}
+      </div>
     </div>
 
-    <div class="view-switch">
-      <a class="view-chip {% if view == 'day' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=staff) }}">Tag</a>
-      <a class="view-chip {% if view == 'week' %}active{% endif %}" href="{{ url_for('calendar_view', view='week', date=selected_date, staff=staff) }}">Woche</a>
-      <a class="view-chip {% if view == 'month' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', date=selected_date, staff=staff) }}">Monat</a>
+    <div class="calendar-control-group">
+      <div class="calendar-group-label">Ansicht</div>
+      <div class="view-switch premium-chip-row">
+        <a class="view-chip premium-chip {% if view == 'day' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=staff) }}">Tag</a>
+        <a class="view-chip premium-chip {% if view == 'week' %}active{% endif %}" href="{{ url_for('calendar_view', view='week', date=selected_date, staff=staff) }}">Woche</a>
+        <a class="view-chip premium-chip {% if view == 'month' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', date=selected_date, staff=staff) }}">Monat</a>
+      </div>
     </div>
 
-    <div class="calendar-nav">
-      <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=prev_date, staff=staff) }}">← Zurück</a>
-      <input type="date" name="date" value="{{ selected_date }}">
-      <input type="hidden" name="view" value="{{ view }}">
-      <input type="hidden" name="staff" value="{{ staff }}">
-      <button type="submit">Anzeigen</button>
-      <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=next_date, staff=staff) }}">Weiter →</a>
+    <div class="calendar-control-group calendar-nav-group">
+      <div class="calendar-group-label">Datum</div>
+      <div class="calendar-nav premium-calendar-nav">
+        <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=prev_date, staff=staff) }}">Zur?ck</a>
+        <input type="date" name="date" value="{{ selected_date }}">
+        <input type="hidden" name="view" value="{{ view }}">
+        <input type="hidden" name="staff" value="{{ staff }}">
+        <button type="submit">Anzeigen</button>
+        <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=next_date, staff=staff) }}">Weiter</a>
+      </div>
     </div>
   </form>
 </section>
@@ -55,13 +63,12 @@
   <div class="row-between wrap-mobile split-day-header">
     <div>
       <h2>Tagesansicht</h2>
-      
     </div>
     <span class="badge">{{ selected_date }}</span>
   </div>
   <div class="split-day-grid space-top">
     {% for staff_name, staff_day in split_day_views.items() %}
-    <section class="card split-day-card">
+    <section class="card split-day-card premium-split-card">
       <div class="row-between wrap-mobile">
         <div>
           <h3>{{ staff_name }}</h3>
@@ -73,11 +80,11 @@
       <div class="day-timeline compact-timeline space-top">
         {% for slot in staff_day['timeline']['slots'] %}
         <div class="day-slot">
-          <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff if staff != 'Alle' else default_staff, source='slot') }}">{{ slot['time'] }}</a>
+          <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff_name, source='slot') }}">{{ slot['time'] }}</a>
           <div class="day-slot-content">
             {% for appt in slot['items'] %}
             <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-              <strong>{{ appt['customer_name'] }}</strong> — {{ appt['title'] }}
+              <strong>{{ appt['customer_name'] }}</strong> ? {{ appt['title'] }}
             </a>
             {% else %}
             <div class="day-slot-empty">frei</div>
@@ -89,38 +96,14 @@
       {% else %}
       <div class="list-item space-top">Sonntag ist geschlossen.</div>
       {% endif %}
-      <div class="list-stack space-top split-day-list">
-        {% for appt in staff_day['items'] %}
-        <div class="list-item">
-          <div class="row-between wrap-mobile">
-            <strong>{{ appt['firstname'] }} {{ appt['lastname'] }}</strong>
-            <span class="badge badge-status-{{ appt['status']|lower|replace(' ', '-') }}">{{ appt['appointment_at']|dt }}</span>
-          </div>
-          <div class="mobile-line">{{ appt['title'] }}</div>
-          <div class="mobile-line">Telefon: {{ appt['phone'] }}</div>
-        </div>
-        {% else %}
-        <div class="list-item">Keine Termine für {{ staff_name }}.</div>
-        {% endfor %}
-      </div>
     </section>
     {% endfor %}
-  </div>
-</section>
-
-<section class="card space-top">
-  <div class="row-between wrap-mobile">
-    <div>
-      <h2>Tag</h2>
-      
-    </div>
-    <span class="badge">{{ day_view['items']|length }} Termine</span>
   </div>
 </section>
 {% endif %}
 
 {% if view == 'day' and day_view %}
-<section class="card space-top">
+<section class="card space-top premium-calendar-panel">
   <div class="row-between wrap-mobile">
     <div>
       <h2>{{ day_view['label'] }}</h2>
@@ -137,7 +120,7 @@
       <div class="day-slot-content">
         {% for appt in slot['items'] %}
         <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-          <strong>{{ appt['customer_name'] }}</strong> — {{ appt['title'] }} — {{ appt['staff_name'] }}
+          <strong>{{ appt['customer_name'] }}</strong> ? {{ appt['title'] }} ? {{ appt['staff_name'] }}
         </a>
         {% else %}
         <div class="day-slot-empty">frei</div>
@@ -149,35 +132,18 @@
   {% else %}
   <div class="list-item space-top">Sonntag ist geschlossen.</div>
   {% endif %}
-
-  <div class="list-stack space-top">
-    {% for appt in day_view['items'] %}
-    <div class="list-item">
-      <div class="row-between wrap-mobile">
-        <strong>{{ appt['firstname'] }} {{ appt['lastname'] }}</strong>
-        <span class="badge badge-status-{{ appt['status']|lower|replace(' ', '-') }}">{{ appt['status'] }}</span>
-      </div>
-      <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt['appointment_at']|dt }}</div>
-      <div class="mobile-line"><span class="mobile-label">Leistung:</span> {{ appt['title'] }}</div>
-      <div class="mobile-line"><span class="mobile-label">Mitarbeiterin:</span> {{ appt['staff_name'] }}</div>
-      <div class="mobile-line"><span class="mobile-label">Telefon:</span> {{ appt['phone'] }}</div>
-    </div>
-    {% else %}
-    <div class="list-item">Keine Termine an diesem Tag.</div>
-    {% endfor %}
-  </div>
 </section>
 {% endif %}
 
 {% if view == 'week' and week_view %}
-<section class="card space-top">
+<section class="card space-top premium-calendar-panel">
   <div class="row-between wrap-mobile">
-    <h2>Wochenansicht</h2>
+    <h2>Woche</h2>
     <span class="badge">{{ week_view['label'] }}</span>
   </div>
-  <div class="week-grid space-top">
+  <div class="week-grid premium-week-grid space-top">
     {% for day in week_view['days'] %}
-    <div class="week-day {% if day['is_today'] %}today{% endif %}">
+    <div class="week-day premium-week-day {% if day['is_today'] %}today{% endif %}">
       <a class="week-day-head week-day-link" href="{{ url_for('calendar_view', view='day', date=day['date'], staff=staff) }}">
         <div class="week-day-name">{{ day['name'] }}</div>
         <div class="week-day-label">{{ day['label'] }}</div>
@@ -187,7 +153,7 @@
         <a class="week-event week-event-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
           <div class="week-event-time">{{ appt['appointment_at']|dt }}</div>
           <div class="week-event-title">{{ appt['firstname'] }} {{ appt['lastname'] }}</div>
-          <div class="week-event-meta">{{ appt['title'] }} • {{ appt['staff_name'] }}</div>
+          <div class="week-event-meta">{{ appt['title'] }} ? {{ appt['staff_name'] }}</div>
         </a>
         {% else %}
         <div class="week-empty">Keine Termine</div>
@@ -200,12 +166,12 @@
 {% endif %}
 
 {% if view == 'month' and month_view %}
-<section class="card space-top">
+<section class="card space-top premium-calendar-panel">
   <div class="row-between wrap-mobile">
-    <h2>Monatsansicht</h2>
+    <h2>Monat</h2>
     <span class="badge">{{ month_view['month_label'] }}</span>
   </div>
-  <div class="month-grid space-top desktop-only">
+  <div class="month-grid space-top desktop-only premium-month-grid">
     {% for header in month_view['weekday_headers'] %}
     <div class="month-header">{{ header }}</div>
     {% endfor %}
@@ -216,7 +182,7 @@
         <div class="month-cell-items">
           {% for appt in cell['items'][:3] %}
           <a class="month-item month-item-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-            {{ appt['time_short'] }} {{ appt['firstname'] }} {{ appt['lastname'] }} • {{ appt['staff_name'] }}
+            {{ appt['time_short'] }} {{ appt['firstname'] }} {{ appt['lastname'] }} ? {{ appt['staff_name'] }}
           </a>
           {% endfor %}
           {% if cell['items']|length > 3 %}
@@ -235,7 +201,7 @@
         <div class="mobile-card {% if cell['is_today'] %}today-outline{% endif %}">
           <h3>{{ cell['date'] }}</h3>
           {% for appt in cell['items'] %}
-          <div class="mobile-line">{{ appt['appointment_at']|dt }} — {{ appt['firstname'] }} {{ appt['lastname'] }} — {{ appt['title'] }} — {{ appt['staff_name'] }}</div>
+          <div class="mobile-line">{{ appt['appointment_at']|dt }} ? {{ appt['firstname'] }} {{ appt['lastname'] }} ? {{ appt['title'] }}</div>
           {% endfor %}
         </div>
         {% endif %}
@@ -244,170 +210,4 @@
   </div>
 </section>
 {% endif %}
-
-<section class="card space-top mobile-only">
-  <div class="row-between wrap-mobile">
-    <h2>Mobil</h2>
-    <span class="badge">{{ staff }} • {{ selected_date }}</span>
-  </div>
-  {% if view == 'week' and week_view %}
-    <div class="mobile-summary-list space-top">
-      {% for day in week_view['days'] %}
-        <div class="mobile-day-card {% if day['is_today'] %}today-outline{% endif %}">
-          <div class="row-between wrap-mobile">
-            <a class="mobile-day-link" href="{{ url_for('calendar_view', view='day', date=day['date'], staff=staff) }}"><strong>{{ day['name'] }} {{ day['label'] }}</strong></a>
-            <span class="badge">{{ day['items']|length }} Termine</span>
-          </div>
-          {% for appt in day['items'] %}
-            <a class="mobile-summary-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-              <strong>{{ appt['time_short'] }}</strong> — {{ appt['customer_name'] }} — {{ appt['staff_name'] }}
-            </a>
-          {% else %}
-            <div class="week-empty">Keine Termine</div>
-          {% endfor %}
-        </div>
-      {% endfor %}
-    </div>
-  {% elif view == 'day' and day_view %}
-    <div class="mobile-summary-list space-top">
-      {% for appt in day_view['items'] %}
-      <a class="mobile-summary-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-        <strong>{{ appt['time_short'] }}</strong> — {{ appt['customer_name'] }} — {{ appt['title'] }} — {{ appt['staff_name'] }}
-      </a>
-      {% else %}
-      <div class="week-empty">Keine Termine</div>
-      {% endfor %}
-    </div>
-  {% endif %}
-</section>
-<script>
-(function(){
-  function syncCalendarPushUi(){
-    const mini = document.getElementById('pushStatusMini');
-    const badge = document.getElementById('calendarPushBadge');
-    const help = document.getElementById('calendarPushHelp');
-    if (mini && badge) badge.textContent = mini.textContent || 'Push-Status unbekannt';
-    if (mini && help) help.textContent = mini.textContent || help.textContent;
-  }
-
-  function escapeHtml(value){
-    return String(value || '').replace(/[&<>"']/g, function(char){
-      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]);
-    });
-  }
-
-  window.addEventListener('load', function(){
-    const enableMain = document.getElementById('enablePushBtn');
-    const enableCalendar = document.getElementById('calendarEnablePushBtn');
-    const testBtn = document.getElementById('calendarTestPushBtn');
-    const staffSelect = document.getElementById('deviceStaffSelect');
-    const refreshDevicesBtn = document.getElementById('calendarRefreshDevicesBtn');
-    const devicesList = document.getElementById('pushDevicesList');
-
-    syncCalendarPushUi();
-    setTimeout(syncCalendarPushUi, 1200);
-
-    async function loadPushDevices(){
-      if (!devicesList) return;
-      devicesList.innerHTML = '<div class="list-item">Lade Geräte…</div>';
-      try {
-        const res = await fetch('/api/push/devices', {cache:'no-store'});
-        const data = await res.json();
-        const items = (data && data.items) || [];
-        if (!items.length) {
-          devicesList.innerHTML = '<div class="list-item">Noch keine Geräte registriert.</div>';
-          return;
-        }
-        devicesList.innerHTML = items.map(item => `
-          <div class="list-item" data-device-id="${item.id}">
-            <div class="row-between wrap-mobile">
-              <strong>${escapeHtml(item.device_name || 'Gerät')}</strong>
-              <span class="badge">${escapeHtml(item.staff_name || {{ default_staff|tojson }})}</span>
-            </div>
-            <div class="mobile-line"><span class="mobile-label">Letzter Erfolg:</span> ${escapeHtml(item.last_success_at || 'noch keiner')}</div>
-            <div class="mobile-line"><span class="mobile-label">Letzter Test:</span> ${escapeHtml(item.last_test_at || 'noch keiner')}</div>
-            <div class="mobile-line"><span class="mobile-label">Fehler:</span> ${escapeHtml(item.last_error || 'kein Fehler')}</div>
-            <div class="mobile-line"><span class="mobile-label">Fehlversuche:</span> ${escapeHtml(item.fail_count || 0)}</div>
-            <div class="quick-actions" style="margin-top:12px; grid-template-columns:repeat(2,minmax(0,1fr));">
-              <button type="button" class="btn btn-secondary btn-small js-push-device-test" data-id="${item.id}">Gerät testen</button>
-              <button type="button" class="btn btn-secondary btn-small js-push-device-delete" data-id="${item.id}" data-name="${escapeHtml(item.device_name || 'Gerät')}">Gerät löschen</button>
-            </div>
-          </div>
-        `).join('');
-      } catch (e) {
-        devicesList.innerHTML = '<div class="list-item">Geräte konnten nicht geladen werden.</div>';
-      }
-    }
-
-    if (enableCalendar && enableMain) {
-      enableCalendar.addEventListener('click', function(){
-        enableMain.click();
-        setTimeout(function(){ syncCalendarPushUi(); loadPushDevices(); }, 1500);
-      });
-    }
-
-    if (testBtn) {
-      testBtn.addEventListener('click', async function(){
-        try {
-          const staff = staffSelect ? staffSelect.value : {{ default_staff|tojson }};
-          const res = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staff)}`, {cache:'no-store'});
-          const data = await res.json();
-          syncCalendarPushUi();
-          loadPushDevices();
-          alert(`Test-Push für ${staff} wurde ausgelöst. Gesendet: ${(data.result && data.result.sent) || 0}`);
-        } catch (e) {
-          alert('Test-Push konnte nicht ausgelöst werden.');
-        }
-      });
-    }
-
-    if (refreshDevicesBtn) {
-      refreshDevicesBtn.addEventListener('click', loadPushDevices);
-    }
-
-    if (devicesList) {
-      devicesList.addEventListener('click', async function(event){
-        const testButton = event.target.closest('.js-push-device-test');
-        const deleteButton = event.target.closest('.js-push-device-delete');
-
-        if (testButton) {
-          const id = testButton.dataset.id;
-          testButton.disabled = true;
-          try {
-            const res = await fetch(`/api/push/device/${id}/test`, {cache:'no-store'});
-            const data = await res.json();
-            alert(`Geräte-Test gesendet: ${(data.device_name || 'Gerät')} | Erfolgreich: ${(data.result && data.result.sent) || 0}`);
-          } catch (e) {
-            alert('Geräte-Test konnte nicht ausgelöst werden.');
-          } finally {
-            testButton.disabled = false;
-            loadPushDevices();
-            syncCalendarPushUi();
-          }
-          return;
-        }
-
-        if (deleteButton) {
-          const id = deleteButton.dataset.id;
-          const name = deleteButton.dataset.name || 'Gerät';
-          if (!confirm(`Soll ${name} wirklich gelöscht werden?`)) return;
-          deleteButton.disabled = true;
-          try {
-            const res = await fetch(`/api/push/device/${id}`, {method:'DELETE'});
-            if (!res.ok) throw new Error('delete failed');
-            await loadPushDevices();
-          } catch (e) {
-            alert('Gerät konnte nicht gelöscht werden.');
-          } finally {
-            deleteButton.disabled = false;
-            syncCalendarPushUi();
-          }
-        }
-      });
-    }
-
-    loadPushDevices();
-  });
-})();
-</script>
 {% endblock %}

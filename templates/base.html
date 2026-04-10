@@ -330,15 +330,13 @@
           return false;
         }
 
+        await resetBrowserPushSubscription();
         await registerServiceWorker();
         const registration = await navigator.serviceWorker.ready;
-        let subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: vapidKeyToUint8Array(config.public_key),
-          });
-        }
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: vapidKeyToUint8Array(config.public_key),
+        });
 
         const subscriptionPayload = (subscription && typeof subscription.toJSON === "function") ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription || {}));
 

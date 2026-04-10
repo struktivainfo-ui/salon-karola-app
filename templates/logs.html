@@ -1,34 +1,30 @@
 {% extends 'base.html' %}
-{% block title %}Logs - Salon Karola{% endblock %}
+{% block title %}Logs ? Salon Karola App{% endblock %}
 {% block content %}
-<section class="app-hero page-hero">
-  <div class="app-hero-copy">
-    <span class="eyebrow">Admin</span>
-    <h1 class="app-hero-title">E-Mail-Logs</h1>
-    <p class="app-hero-text">Versendete Mails, Fehler und Zeitpunkte übersichtlich an einer Stelle prüfen.</p>
-  </div>
-  <div class="hero-actions-grid">
-    <a class="hero-action primary" href="{{ url_for('templates_view') }}">Vorlagen</a>
-    <a class="hero-action" href="{{ url_for('calendar_view') }}">Kalender</a>
-  </div>
-</section>
-<section class="card">
-  <div class="list-stack">
-    {% for log in logs %}
-    <div class="list-item">
-      <div class="row-between">
-        <strong>{{ log['subject'] }}</strong>
-        <span class="badge">{{ log['sent_at']|dt }}</span>
-      </div>
-      <div class="mobile-line"><span class="mobile-label">Empfänger:</span> {{ log['recipient'] or '-' }}</div>
-      <div class="mobile-line"><span class="mobile-label">Status:</span> {{ log['status'] }}</div>
-      {% if log['error_message'] %}
-      <div class="mobile-line"><span class="mobile-label">Fehler:</span> {{ log['error_message'] }}</div>
-      {% endif %}
+<section class="premium-shell">
+  <section class="premium-page-head">
+    <div>
+      <div class="premium-page-kicker">Admin</div>
+      <h1 class="premium-page-title">Logs</h1>
+      <div class="premium-page-subtitle">Versand und Fehler sauber pr?fen.</div>
     </div>
-    {% else %}
-    <div class="list-item">Keine Logs vorhanden.</div>
-    {% endfor %}
-  </div>
+    <div class="premium-top-actions">
+      <a class="premium-top-action primary" href="{{ url_for('templates_view') }}">Vorlagen</a>
+      <a class="premium-top-action" href="{{ url_for('calendar_view') }}">Kalender</a>
+    </div>
+  </section>
+  <section class="premium-panel premium-space-top">
+    <div class="premium-list">
+      {% for log in logs %}
+      <div class="premium-list-item">
+        <div class="premium-list-row"><strong>{{ log['subject'] }}</strong><span class="premium-badge">{{ log['sent_at']|dt }}</span></div>
+        <div class="premium-list-sub">{{ log['recipient'] or '-' }} ? {{ log['status'] }}</div>
+        {% if log['error_message'] %}<div class="premium-list-meta">{{ log['error_message'] }}</div>{% endif %}
+      </div>
+      {% else %}
+      <div class="premium-list-empty">Keine Logs vorhanden.</div>
+      {% endfor %}
+    </div>
+  </section>
 </section>
 {% endblock %}

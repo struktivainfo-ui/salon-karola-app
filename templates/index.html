@@ -1,127 +1,142 @@
 {% extends 'base.html' %}
-{% block title %}Salon Karola Übersicht{% endblock %}
+{% block title %}Salon Karola App{% endblock %}
 {% block content %}
-<section class="app-hero">
-  <div class="app-hero-copy">
-    <h1 class="app-hero-title">Übersicht</h1>
-  </div>
-  <div class="hero-actions-grid">
-    <a class="hero-action primary" href="{{ url_for('appointments_hub') }}">Termine</a>
-    <a class="hero-action" href="{{ url_for('calendar_view') }}">Kalender</a>
-    <a class="hero-action" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
-    <a class="hero-action" href="{{ url_for('customer_new') }}">Neuer Kontakt</a>
-    <a class="hero-action" href="{{ url_for('whatsapp_hub') }}">WhatsApp</a>
-  </div>
-</section>
-
-<section class="stats-shell">
-  <div class="stat-tile emphasis">
-    <div class="stat-head">Kunden</div>
-    <div class="stat-number">{{ stats.direct_customer_count|default(stats.total_customers, true) }}</div>
-    <div class="stat-foot">Gespeicherte Kontakte</div>
-  </div>
-  <div class="stat-tile">
-    <div class="stat-head">Heute</div>
-    <div class="stat-number">{{ stats.appointments_today }}</div>
-    <div class="stat-foot">Termine heute</div>
-  </div>
-  <div class="stat-tile">
-    <div class="stat-head">Diese Woche</div>
-    <div class="stat-number">{{ stats.appointments_week }}</div>
-    <div class="stat-foot">Geplante Termine</div>
-  </div>
-  <div class="stat-tile">
-    <div class="stat-head">Rückholung</div>
-    <div class="stat-number">{{ stats.inactive_60 }}</div>
-    <div class="stat-foot">60+ Tage ohne Termin</div>
-  </div>
-</section>
-
-<section class="grid grid-2 space-top">
-  <div class="card clean-card">
-    <div class="panel-header">
-      <div><h2>Heute im Blick</h2></div>
-      <span class="badge">{{ now|dt if now else '' }}</span>
+<section class="premium-shell">
+  <section class="premium-page-head">
+    <div>
+      <div class="premium-page-kicker">Salon Karola App</div>
+      <h1 class="premium-page-title">?bersicht</h1>
+      <div class="premium-page-subtitle">Alles Wichtige auf einen Blick.</div>
     </div>
-    <div class="dashboard-leitstand">
-      <div class="leitstand-card">
-        <div class="leitstand-label">Nächster Termin</div>
-        <div class="leitstand-value">{% if upcoming %}{{ upcoming[0]['appointment_at']|dt }}{% else %}Heute frei{% endif %}</div>
-        <div class="leitstand-sub">{% if upcoming %}{{ upcoming[0]['_firstname'] }} {{ upcoming[0]['_name'] }} · {{ upcoming[0]['staff_name'] or 'Ute' }}{% else %}Kein geplanter Termin gefunden{% endif %}</div>
+    <div class="premium-top-actions">
+      <a class="premium-top-action primary" href="{{ url_for('appointments_hub') }}">Termin anlegen</a>
+      <a class="premium-top-action" href="{{ url_for('calendar_view') }}">Kalender</a>
+      <a class="premium-top-action" href="{{ url_for('customer_search_page') }}">Kunden</a>
+      <a class="premium-top-action" href="{{ url_for('whatsapp_hub') }}">WhatsApp</a>
+    </div>
+  </section>
+
+  <section class="premium-stat-grid">
+    <article class="premium-stat-card premium-stat-card-primary">
+      <div class="premium-stat-label">Kontakte</div>
+      <div class="premium-stat-value">{{ stats.direct_customer_count|default(stats.total_customers, true) }}</div>
+      <div class="premium-stat-foot">gespeichert</div>
+    </article>
+    <article class="premium-stat-card">
+      <div class="premium-stat-label">Heute</div>
+      <div class="premium-stat-value">{{ stats.appointments_today }}</div>
+      <div class="premium-stat-foot">Termine</div>
+    </article>
+    <article class="premium-stat-card">
+      <div class="premium-stat-label">Woche</div>
+      <div class="premium-stat-value">{{ stats.appointments_week }}</div>
+      <div class="premium-stat-foot">geplant</div>
+    </article>
+    <article class="premium-stat-card">
+      <div class="premium-stat-label">R?ckholung</div>
+      <div class="premium-stat-value">{{ stats.inactive_60 }}</div>
+      <div class="premium-stat-foot">60+ Tage</div>
+    </article>
+  </section>
+
+  <section class="premium-grid-2">
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Heute</div>
+          <h2 class="premium-panel-title">Leitstand</h2>
+        </div>
+        <span class="premium-badge">{{ now|dt if now else '' }}</span>
       </div>
-      <div class="leitstand-card">
-        <div class="leitstand-label">Termine heute</div>
-        <div class="leitstand-value">{{ today_items|length }}</div>
-        <div class="leitstand-sub">Davon offen: {{ due_items|length }}</div>
-      </div>
-      <div class="leitstand-card">
-        <div class="leitstand-label">Teamverteilung</div>
-        <div class="mini-list">
-          {% for row in staff_counts %}
-          <div class="mini-list-item"><strong>{{ row['staff_name'] or 'Ute' }}</strong> · {{ row['count'] or 0 }} Termine heute</div>
-          {% else %}
-          <div class="mini-list-item">Noch keine Teamtermine eingetragen.</div>
-          {% endfor %}
+      <div class="premium-mini-grid">
+        <div class="premium-mini-card">
+          <div class="premium-mini-label">N?chster Termin</div>
+          <div class="premium-mini-value">{% if upcoming %}{{ upcoming[0]['appointment_at']|dt }}{% else %}Heute frei{% endif %}</div>
+          <div class="premium-mini-sub">{% if upcoming %}{{ upcoming[0]['_firstname'] }} {{ upcoming[0]['_name'] }} ? {{ upcoming[0]['staff_name'] or 'Ute' }}{% else %}Kein Termin geplant{% endif %}</div>
+        </div>
+        <div class="premium-mini-card">
+          <div class="premium-mini-label">Offene Punkte</div>
+          <div class="premium-mini-value">{{ due_items|length }}</div>
+          <div class="premium-mini-sub">Heute nachfassen</div>
+        </div>
+        <div class="premium-mini-card">
+          <div class="premium-mini-label">Team</div>
+          <div class="premium-mini-stack">
+            {% for row in staff_counts %}
+            <div>{{ row['staff_name'] or 'Ute' }} ? {{ row['count'] or 0 }}</div>
+            {% else %}
+            <div>Noch keine Termine</div>
+            {% endfor %}
+          </div>
         </div>
       </div>
-    </div>
-  </div>
+    </article>
 
-  <div class="card clean-card">
-    <div class="panel-header">
-      <div><h2>Offene Punkte</h2></div>
-    </div>
-    <div class="list-stack">
-      {% for item in due_items %}
-      <div class="list-item soft-item">
-        <div class="row-between">
-          <strong>{{ item['_firstname'] }} {{ item['_name'] }}</strong>
-          <span class="badge">{{ item['appointment_at']|dt }}</span>
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Heute</div>
+          <h2 class="premium-panel-title">Offene Punkte</h2>
         </div>
-        <div class="mobile-line">{{ item['title'] or 'Salon-Termin' }} · {{ item['staff_name'] or 'Ute' }}</div>
+      </div>
+      <div class="premium-list">
+        {% for item in due_items %}
+        <div class="premium-list-item">
+          <div class="premium-list-row">
+            <strong>{{ item['_firstname'] }} {{ item['_name'] }}</strong>
+            <span class="premium-badge">{{ item['appointment_at']|dt }}</span>
+          </div>
+          <div class="premium-list-sub">{{ item['title'] or 'Salon-Termin' }} ? {{ item['staff_name'] or 'Ute' }}</div>
+        </div>
+        {% else %}
+        <div class="premium-list-empty">Keine offenen Punkte.</div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Schnellzugriff</div>
+        <h2 class="premium-panel-title">Aktionen</h2>
+      </div>
+    </div>
+    <div class="premium-action-grid">
+      <a class="premium-action-card" href="{{ url_for('appointments_hub') }}">Termine</a>
+      <a class="premium-action-card" href="{{ url_for('calendar_view') }}">Kalender</a>
+      <a class="premium-action-card" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
+      <a class="premium-action-card" href="{{ url_for('customer_new') }}">Kontakt</a>
+      <a class="premium-action-card" href="{{ url_for('templates_view') }}">Vorlagen</a>
+      <a class="premium-action-card" href="{{ url_for('push_center') }}">Push</a>
+    </div>
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Planung</div>
+        <h2 class="premium-panel-title">N?chste Termine</h2>
+      </div>
+      <div class="premium-inline-actions">
+        <a class="premium-inline-link" href="{{ url_for('appointments_hub') }}">Termine</a>
+        <a class="premium-inline-link" href="{{ url_for('calendar_view') }}">Kalender</a>
+      </div>
+    </div>
+    <div class="premium-list">
+      {% for appt in upcoming %}
+      <div class="premium-list-item">
+        <div class="premium-list-row">
+          <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
+          <span class="premium-status-pill premium-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
+        </div>
+        <div class="premium-list-sub">{{ appt['appointment_at']|dt if appt['appointment_at'] else 'Kein Termin gespeichert' }}</div>
+        <div class="premium-list-meta">{{ appt['Customer_Mobiltelefon'] or appt['Customer_Pers?nlichesTelefon'] or '-' }}</div>
       </div>
       {% else %}
-      <div class="list-item soft-item">Keine offenen Erinnerungen oder Nachfasspunkte.</div>
+      <div class="premium-list-empty">Keine Termine vorhanden.</div>
       {% endfor %}
     </div>
-  </div>
-</section>
-
-<section class="pro-panel space-top">
-  <div class="panel-header">
-    <div><h2>Schnellzugriff</h2></div>
-  </div>
-  <div class="quick-actions clean-actions">
-    <a class="quick-action" href="{{ url_for('appointments_hub') }}">🗓️ Termine</a>
-    <a class="quick-action" href="{{ url_for('calendar_view') }}">📅 Kalender</a>
-    <a class="quick-action" href="{{ url_for('customer_search_page') }}">🔎 Kundensuche</a>
-    <a class="quick-action" href="{{ url_for('customer_new') }}">➕ Kontakt</a>
-    <a class="quick-action" href="{{ url_for('templates_view') }}">✉️ Vorlagen</a>
-    <a class="quick-action" href="{{ url_for('whatsapp_hub') }}">💬 WhatsApp</a>
-  </div>
-</section>
-
-<section class="card clean-card space-top">
-  <div class="panel-header">
-    <div><h2>Nächste Termine</h2></div>
-    <div class="actions wrap-mobile">
-      <a class="btn btn-secondary" href="{{ url_for('appointments_hub') }}">Termine</a>
-      <a class="btn btn-secondary" href="{{ url_for('calendar_view') }}">Kalender</a>
-    </div>
-  </div>
-  <div class="list-stack">
-    {% for appt in upcoming %}
-    <div class="list-item soft-item">
-      <div class="row-between">
-        <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
-        <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
-      </div>
-      <div class="mobile-line"><span class="mobile-label">Termin:</span> {{ appt['appointment_at']|dt if appt['appointment_at'] else 'Kein Termin gespeichert' }}</div>
-      <div class="mobile-line"><span class="mobile-label">Telefon:</span> {{ appt['Customer_Mobiltelefon'] or appt['Customer_PersönlichesTelefon'] or '-' }}</div>
-    </div>
-    {% else %}
-    <div class="list-item soft-item">Keine Termine vorhanden.</div>
-    {% endfor %}
-  </div>
+  </section>
 </section>
 {% endblock %}

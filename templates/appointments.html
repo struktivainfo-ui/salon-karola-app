@@ -1,172 +1,156 @@
 {% extends 'base.html' %}
-{% block title %}Termine - Salon Karola{% endblock %}
+{% block title %}Termine ? Salon Karola App{% endblock %}
 {% block content %}
-<section class="app-hero page-hero">
-  <div class="app-hero-copy">
-    <span class="eyebrow">Salon Karola</span>
-    <h1 class="app-hero-title">Termine</h1>
-    <p class="app-hero-text">Neue Termine sauber anlegen, Mitarbeiterinnen zuordnen und bestehende Einträge direkt im Blick behalten.</p>
-  </div>
-  <div class="hero-actions-grid">
-    <a class="hero-action primary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender</a>
-    <a class="hero-action" href="{{ url_for('calendar_view') }}">Kalender</a>
-  </div>
-</section>
-
-<section class="card">
-  <div class="row-between wrap-mobile">
+<section class="premium-shell">
+  <section class="premium-page-head">
     <div>
-      <h2>Neuen Termin anlegen</h2>
-      
+      <div class="premium-page-kicker">Termine</div>
+      <h1 class="premium-page-title">Planen</h1>
+      <div class="premium-page-subtitle">Schnell anlegen, heute pr?fen, n?chste Termine im Blick.</div>
     </div>
-    
-  </div>
-  <form method="post" class="appointment-sync-form space-top">
-    <input type="hidden" name="source" value="{{ prefill_source }}">
-    <div class="form-row">
-      <div class="form-group">
-        <label for="customer_id">Name / Kontakt</label>
-        <select name="customer_id" id="customer_id">
-          <option value="">Kontakt auswählen</option>
-          {% for customer in customers %}
-          <option value="{{ customer['_id'] }}">{{ customer['lastname'] }}{% if customer['firstname'] %}, {{ customer['firstname'] }}{% endif %}{% if customer['phone'] %} · {{ customer['phone'] }}{% endif %}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="title">Titel</label>
-        <input type="text" id="title" name="title" value="Salon-Termin">
-      </div>
-      <div class="form-group">
-        <label for="appointment_at">Termin</label>
-        <input type="datetime-local" id="appointment_at" name="appointment_at" value="{{ prefill_at }}" required>
-      </div>
-      <div class="form-group">
-        <label for="staff_name">Mitarbeiter</label>
-        <select name="staff_name" id="newAppointmentStaff">
-          {% for member in staff_members %}
-          <option value="{{ member }}" {% if prefill_staff == member %}selected{% endif %}>{{ member }}</option>
-          {% endfor %}
-        </select>
-        <div class="staff-quick-switch">
-          {% for member in staff_members %}
-          <button type="button" class="staff-pill {% if prefill_staff == member %}active{% endif %}" data-target="newAppointmentStaff" data-value="{{ member }}">{{ member }}</button>
-          {% endfor %}
+    <div class="premium-top-actions">
+      <a class="premium-top-action primary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Tageskalender</a>
+      <a class="premium-top-action" href="{{ url_for('customer_search_page') }}">Kunden</a>
+    </div>
+  </section>
+
+  <section class="premium-grid-2 premium-grid-2-wide">
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Neu</div>
+          <h2 class="premium-panel-title">Termin anlegen</h2>
         </div>
       </div>
-      <div class="form-group">
-        <label for="status">Status</label>
-        <select name="status" id="status">
-          <option value="geplant">geplant</option>
-          <option value="bestätigt">bestätigt</option>
-          <option value="erledigt">erledigt</option>
-          <option value="nicht erschienen">nicht erschienen</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="reminder_hours">Erinnerung in Stunden</label>
-        <input type="number" id="reminder_hours" name="reminder_hours" value="24">
-      </div>
-    </div>
-    <input type="hidden" name="actor_name" class="actor-name-field" value="">
-    <div class="form-group">
-      <label for="notes">Notizen</label>
-      <textarea id="notes" name="notes"></textarea>
-    </div>
-    <section class="card soft-card space-top">
-      <h3>Manuell anlegen</h3>
-      <div class="form-row">
-        <div class="form-group"><label for="manual_firstname">Vorname</label><input type="text" id="manual_firstname" name="manual_firstname"></div>
-        <div class="form-group"><label for="manual_lastname">Nachname</label><input type="text" id="manual_lastname" name="manual_lastname"></div>
-        <div class="form-group"><label for="manual_phone">Telefon</label><input type="text" id="manual_phone" name="manual_phone"></div>
-        <div class="form-group"><label for="manual_email">E-Mail</label><input type="email" id="manual_email" name="manual_email"></div>
-      </div>
-      
-    </section>
-    <div class="actions">
-      <button type="submit">Termin speichern</button>
-      <a class="btn btn-secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender öffnen</a>
-    </div>
-  </form>
-</section>
-<section class="card slot-entry-card space-top">
-  <div class="row-between wrap-mobile">
-    <div>
-      <h2>Schnelleingabe aus Uhrzeit</h2>
-      
-    </div>
-    <span class="badge">{{ prefill_at }}</span>
-  </div>
-  <div class="split-day-grid space-top">
-    <div class="card soft-card">
-      <h3>Aus Datenbank einsetzen</h3>
-      
-    </div>
-    <div class="card soft-card">
-      <h3>Manuell anlegen</h3>
-      
-    </div>
-  </div>
-</section>
-
-
-<section class="split-day-section space-top">
-  <div class="row-between wrap-mobile split-day-header">
-    <div>
-      <h2>Heute</h2>
-      
-    </div>
-    <span class="badge">Heute</span>
-  </div>
-  <div class="split-day-grid space-top">
-    {% for staff_name, items in today_split.items() %}
-    <section class="card split-day-card">
-      <div class="row-between wrap-mobile">
-        <h3>{{ staff_name }}</h3>
-        <span class="badge">{{ items|length }} Termine</span>
-      </div>
-      <div class="list-stack space-top split-day-list">
-        {% for appt in items %}
-        <a class="list-item appointment-card appointment-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-          <div class="row-between wrap-mobile">
-            <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
-            <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['appointment_at']|dt }}</span>
+      <form method="post" class="premium-form appointment-sync-form premium-space-top">
+        <input type="hidden" name="source" value="{{ prefill_source }}">
+        <input type="hidden" name="actor_name" class="actor-name-field" value="">
+        <div class="premium-form-grid premium-form-grid-2">
+          <div class="form-group premium-form-group">
+            <label for="customer_id">Kontakt</label>
+            <select name="customer_id" id="customer_id">
+              <option value="">Kontakt ausw?hlen</option>
+              {% for customer in customers %}
+              <option value="{{ customer['_id'] }}">{{ customer['lastname'] }}{% if customer['firstname'] %}, {{ customer['firstname'] }}{% endif %}{% if customer['phone'] %} ? {{ customer['phone'] }}{% endif %}</option>
+              {% endfor %}
+            </select>
           </div>
-          <div class="mobile-line">{{ appt['title'] }}</div>
-          <div class="mobile-line">{{ appt['Customer_Mobiltelefon'] or appt['Customer_PersönlichesTelefon'] or 'Keine Nummer' }}</div>
-        </a>
-        {% else %}
-        <div class="list-item">Heute keine Termine für {{ staff_name }}.</div>
+          <div class="form-group premium-form-group">
+            <label for="title">Titel</label>
+            <input type="text" id="title" name="title" value="Salon-Termin">
+          </div>
+          <div class="form-group premium-form-group">
+            <label for="appointment_at">Termin</label>
+            <input type="datetime-local" id="appointment_at" name="appointment_at" value="{{ prefill_at }}" required>
+          </div>
+          <div class="form-group premium-form-group">
+            <label for="newAppointmentStaff">Team</label>
+            <select name="staff_name" id="newAppointmentStaff">
+              {% for member in staff_members %}
+              <option value="{{ member }}" {% if prefill_staff == member %}selected{% endif %}>{{ member }}</option>
+              {% endfor %}
+            </select>
+            <div class="premium-chip-row staff-quick-switch">
+              {% for member in staff_members %}
+              <button type="button" class="premium-chip staff-pill {% if prefill_staff == member %}active{% endif %}" data-target="newAppointmentStaff" data-value="{{ member }}">{{ member }}</button>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="form-group premium-form-group">
+            <label for="status">Status</label>
+            <select name="status" id="status">
+              <option value="geplant">geplant</option>
+              <option value="best?tigt">best?tigt</option>
+              <option value="erledigt">erledigt</option>
+              <option value="nicht erschienen">nicht erschienen</option>
+            </select>
+          </div>
+          <div class="form-group premium-form-group">
+            <label for="reminder_hours">Erinnerung</label>
+            <input type="number" id="reminder_hours" name="reminder_hours" value="24">
+          </div>
+        </div>
+        <div class="form-group premium-form-group">
+          <label for="notes">Notizen</label>
+          <textarea id="notes" name="notes"></textarea>
+        </div>
+
+        <div class="premium-subpanel premium-space-top">
+          <div class="premium-subpanel-head">
+            <h3>Manuell</h3>
+            <span class="premium-badge">ohne Kontakt</span>
+          </div>
+          <div class="premium-form-grid premium-form-grid-2">
+            <div class="form-group premium-form-group"><label for="manual_firstname">Vorname</label><input type="text" id="manual_firstname" name="manual_firstname"></div>
+            <div class="form-group premium-form-group"><label for="manual_lastname">Nachname</label><input type="text" id="manual_lastname" name="manual_lastname"></div>
+            <div class="form-group premium-form-group"><label for="manual_phone">Telefon</label><input type="text" id="manual_phone" name="manual_phone"></div>
+            <div class="form-group premium-form-group"><label for="manual_email">E-Mail</label><input type="email" id="manual_email" name="manual_email"></div>
+          </div>
+        </div>
+
+        <div class="premium-button-row">
+          <button type="submit" class="premium-button">Termin speichern</button>
+          <a class="premium-button secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender ?ffnen</a>
+        </div>
+      </form>
+    </article>
+
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Heute</div>
+          <h2 class="premium-panel-title">Team</h2>
+        </div>
+      </div>
+      <div class="premium-team-columns">
+        {% for staff_name, items in today_split.items() %}
+        <section class="premium-subpanel">
+          <div class="premium-subpanel-head">
+            <h3>{{ staff_name }}</h3>
+            <span class="premium-badge">{{ items|length }}</span>
+          </div>
+          <div class="premium-list compact">
+            {% for appt in items %}
+            <a class="premium-list-item premium-link-item" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+              <div class="premium-list-row">
+                <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
+                <span class="premium-badge">{{ appt['appointment_at']|dt }}</span>
+              </div>
+              <div class="premium-list-sub">{{ appt['title'] }}</div>
+            </a>
+            {% else %}
+            <div class="premium-list-empty">Keine Termine.</div>
+            {% endfor %}
+          </div>
+        </section>
         {% endfor %}
       </div>
-    </section>
-    {% endfor %}
-  </div>
-</section>
+    </article>
+  </section>
 
-<section class="card space-top">
-  <div class="row-between wrap-mobile">
-    <div>
-      <h2>Nächste Termine</h2>
-      
-    </div>
-    <a class="btn btn-secondary" href="{{ url_for('calendar_view', view='week', staff='Alle') }}">Wochenkalender</a>
-  </div>
-  <div class="list-stack space-top">
-    {% for appt in upcoming %}
-    <a class="list-item appointment-card appointment-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-      <div class="row-between wrap-mobile">
-        <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
-        <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Ausblick</div>
+        <h2 class="premium-panel-title">N?chste Termine</h2>
       </div>
-      <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt['appointment_at']|dt }}</div>
-      <div class="mobile-line"><span class="mobile-label">Leistung:</span> {{ appt['title'] }}</div>
-      <div class="mobile-line"><span class="mobile-label">Mitarbeiter:</span> {{ appt['staff_name'] or default_staff }}</div>
-    </a>
-    {% else %}
-    <div class="list-item">Noch keine nächsten Termine vorhanden.</div>
-    {% endfor %}
-  </div>
+      <a class="premium-inline-link" href="{{ url_for('calendar_view', view='week', staff='Alle') }}">Wochenkalender</a>
+    </div>
+    <div class="premium-list">
+      {% for appt in upcoming %}
+      <a class="premium-list-item premium-link-item" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+        <div class="premium-list-row">
+          <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
+          <span class="premium-status-pill premium-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
+        </div>
+        <div class="premium-list-sub">{{ appt['appointment_at']|dt }}</div>
+        <div class="premium-list-meta">{{ appt['title'] }} ? {{ appt['staff_name'] or default_staff }}</div>
+      </a>
+      {% else %}
+      <div class="premium-list-empty">Noch keine n?chsten Termine vorhanden.</div>
+      {% endfor %}
+    </div>
+  </section>
 </section>
 
 <script>

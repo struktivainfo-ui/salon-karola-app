@@ -1,57 +1,83 @@
 {% extends 'base.html' %}
-{% block title %}Datenbank - Salon Karola{% endblock %}
+{% block title %}Datenbank ? Salon Karola App{% endblock %}
 {% block content %}
-<section class="app-hero page-hero">
-  <div class="app-hero-copy">
-    <span class="eyebrow">Admin</span>
-    <h1 class="app-hero-title">Datenbank</h1>
-    <p class="app-hero-text">Export, Import und Backups für die App zentral verwalten.</p>
-  </div>
-  <div class="hero-actions-grid">
-    <a class="hero-action primary" href="{{ url_for('export_database_zip') }}">ZIP Backup</a>
-    <a class="hero-action" href="{{ url_for('calendar_view') }}">Kalender</a>
-  </div>
-</section>
-<section class="grid grid-2">
-  <div class="card">
-    <h2>Aktuelle Datenbank</h2>
-    {% if db_info %}
-    <div class="list-stack">
-      {% for table, count in db_info.counts.items() %}
-      <div class="list-item"><strong>{{ table }}</strong>: {{ count }}</div>
+<section class="premium-shell">
+  <section class="premium-page-head">
+    <div>
+      <div class="premium-page-kicker">Admin</div>
+      <h1 class="premium-page-title">Datenbank</h1>
+      <div class="premium-page-subtitle">Export, Import und Backups sauber verwalten.</div>
+    </div>
+    <div class="premium-top-actions">
+      <a class="premium-top-action primary" href="{{ url_for('export_database_zip') }}">ZIP Backup</a>
+      <a class="premium-top-action" href="{{ url_for('calendar_view') }}">Kalender</a>
+    </div>
+  </section>
+
+  <section class="premium-grid-2 premium-space-top">
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Status</div>
+          <h2 class="premium-panel-title">Aktuelle Datenbank</h2>
+        </div>
+      </div>
+      <div class="premium-list premium-space-top">
+        {% if db_info %}
+          {% for table, count in db_info.counts.items() %}
+          <div class="premium-list-item">
+            <div class="premium-list-row"><strong>{{ table }}</strong><span class="premium-badge">{{ count }}</span></div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="premium-list-empty">Keine Datenbank gefunden.</div>
+        {% endif %}
+      </div>
+      <div class="premium-button-row premium-space-top">
+        <a class="premium-button" href="{{ url_for('export_database') }}">SQLite exportieren</a>
+        <a class="premium-button secondary" href="{{ url_for('export_database_zip') }}">ZIP Backup</a>
+      </div>
+    </article>
+
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Import</div>
+          <h2 class="premium-panel-title">Datei einspielen</h2>
+        </div>
+      </div>
+      <form method="post" enctype="multipart/form-data" class="premium-form premium-space-top">
+        <div class="form-group premium-form-group"><label>Datei</label><input type="file" name="db_file" accept=".sqlite,.db,.backup" required></div>
+        <div class="form-group premium-form-group">
+          <label>Aktion</label>
+          <select name="action">
+            <option value="replace">Komplett ersetzen</option>
+            <option value="merge">Zusammenf?hren</option>
+          </select>
+        </div>
+        <div class="premium-button-row">
+          <button type="submit" class="premium-button">Import starten</button>
+        </div>
+      </form>
+    </article>
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Backups</div>
+        <h2 class="premium-panel-title">Gespeicherte Dateien</h2>
+      </div>
+    </div>
+    <div class="premium-list premium-space-top">
+      {% for item in backup_files %}
+      <a class="premium-list-item premium-link-item" href="{{ url_for('download_backup', filename=item.name) }}">
+        <div class="premium-list-row"><strong>{{ item.name }}</strong><span class="premium-inline-link">Download</span></div>
+      </a>
+      {% else %}
+      <div class="premium-list-empty">Noch keine Backups vorhanden.</div>
       {% endfor %}
     </div>
-    {% else %}
-    <div class="list-item">Keine Datenbank gefunden.</div>
-    {% endif %}
-    <div class="actions space-top">
-      <a class="btn" href="{{ url_for('export_database') }}">SQLite exportieren</a>
-      <a class="btn btn-secondary" href="{{ url_for('export_database_zip') }}">ZIP Backup</a>
-    </div>
-  </div>
-  <div class="card">
-    <h2>Datenbank importieren</h2>
-    <form method="post" enctype="multipart/form-data">
-      <div class="form-group"><label>Datei</label><input type="file" name="db_file" accept=".sqlite,.db,.backup" required></div>
-      <div class="form-group">
-        <label>Aktion</label>
-        <select name="action">
-          <option value="replace">Komplett ersetzen</option>
-          <option value="merge">Zusammenführen</option>
-        </select>
-      </div>
-      <button type="submit">Import starten</button>
-    </form>
-  </div>
-</section>
-<section class="card space-top">
-  <h2>Backups</h2>
-  <div class="list-stack">
-    {% for item in backup_files %}
-    <a class="list-item" href="{{ url_for('download_backup', filename=item.name) }}">{{ item.name }}</a>
-    {% else %}
-    <div class="list-item">Noch keine Backups vorhanden.</div>
-    {% endfor %}
-  </div>
+  </section>
 </section>
 {% endblock %}

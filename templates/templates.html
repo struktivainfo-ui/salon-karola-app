@@ -1,80 +1,60 @@
 {% extends 'base.html' %}
-{% block title %}Vorlagen - Salon Karola{% endblock %}
+{% block title %}Vorlagen ? Salon Karola App{% endblock %}
 {% block content %}
-<section class="app-hero page-hero">
-  <div class="app-hero-copy">
-    <span class="eyebrow">Admin</span>
-    <h1 class="app-hero-title">Vorlagen</h1>
-    <p class="app-hero-text">E-Mail-Vorlagen zentral pflegen und auf allen Geräten einheitlich nutzen.</p>
-  </div>
-  <div class="hero-actions-grid">
-    <a class="hero-action primary" href="{{ url_for('email_logs') }}">Logs</a>
-    <a class="hero-action" href="{{ url_for('calendar_view') }}">Kalender</a>
-  </div>
-</section>
-
-<section class="card">
-  <form method="post" autocomplete="off" id="template-form" data-live-url="{{ url_for('templates_live_api') }}">
-    <h2>Geburtstag</h2>
-    <div class="form-group">
-      <label>Betreff</label>
-      <input
-        type="text"
-        name="birthdate_subject"
-        id="birthdate_subject"
-        autocomplete="off"
-        autocapitalize="off"
-        autocorrect="off"
-        spellcheck="false"
-        value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}"
-        data-server-value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}"
-      >
+<section class="premium-shell">
+  <section class="premium-page-head">
+    <div>
+      <div class="premium-page-kicker">Admin</div>
+      <h1 class="premium-page-title">Vorlagen</h1>
+      <div class="premium-page-subtitle">Texte ruhig, zentral und einheitlich pflegen.</div>
     </div>
-    <div class="form-group">
-      <label>Text</label>
-      <textarea
-        name="birthdate_body"
-        id="birthdate_body"
-        autocomplete="off"
-        autocapitalize="off"
-        autocorrect="off"
-        spellcheck="false"
-        data-server-value="{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}"
-      >{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}</textarea>
+    <div class="premium-top-actions">
+      <a class="premium-top-action primary" href="{{ url_for('email_logs') }}">Logs</a>
+      <a class="premium-top-action" href="{{ url_for('calendar_view') }}">Kalender</a>
     </div>
+  </section>
 
-    <h2>Termin</h2>
-    <div class="form-group">
-      <label>Betreff</label>
-      <input
-        type="text"
-        name="appointment_subject"
-        id="appointment_subject"
-        autocomplete="off"
-        autocapitalize="off"
-        autocorrect="off"
-        spellcheck="false"
-        value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}"
-        data-server-value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}"
-      >
-    </div>
-    <div class="form-group">
-      <label>Text</label>
-      <textarea
-        name="appointment_body"
-        id="appointment_body"
-        autocomplete="off"
-        autocapitalize="off"
-        autocorrect="off"
-        spellcheck="false"
-        data-server-value="{{ templates['appointment']['body'] if 'appointment' in templates else '' }}"
-      >{{ templates['appointment']['body'] if 'appointment' in templates else '' }}</textarea>
-    </div>
+  <section class="premium-panel premium-space-top">
+    <form method="post" autocomplete="off" id="template-form" data-live-url="{{ url_for('templates_live_api') }}" class="premium-form">
+      <div class="premium-form-section">
+        <div class="premium-panel-head slim">
+          <div>
+            <div class="premium-panel-kicker">Mail</div>
+            <h2 class="premium-panel-title">Geburtstag</h2>
+          </div>
+        </div>
+        <div class="form-group premium-form-group">
+          <label>Betreff</label>
+          <input type="text" name="birthdate_subject" id="birthdate_subject" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}" data-server-value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}">
+        </div>
+        <div class="form-group premium-form-group">
+          <label>Text</label>
+          <textarea name="birthdate_body" id="birthdate_body" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-server-value="{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}">{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}</textarea>
+        </div>
+      </div>
 
-    <button type="submit">Vorlagen speichern</button>
-  </form>
-</section>
+      <div class="premium-form-section premium-space-top">
+        <div class="premium-panel-head slim">
+          <div>
+            <div class="premium-panel-kicker">Mail</div>
+            <h2 class="premium-panel-title">Termin</h2>
+          </div>
+        </div>
+        <div class="form-group premium-form-group">
+          <label>Betreff</label>
+          <input type="text" name="appointment_subject" id="appointment_subject" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}" data-server-value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}">
+        </div>
+        <div class="form-group premium-form-group">
+          <label>Text</label>
+          <textarea name="appointment_body" id="appointment_body" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-server-value="{{ templates['appointment']['body'] if 'appointment' in templates else '' }}">{{ templates['appointment']['body'] if 'appointment' in templates else '' }}</textarea>
+        </div>
+      </div>
 
+      <div class="premium-button-row premium-space-top">
+        <button type="submit" class="premium-button">Vorlagen speichern</button>
+      </div>
+    </form>
+  </section>
 
 <script>
 (function () {
@@ -164,4 +144,3 @@
 })();
 </script>
 {% endblock %}
-
