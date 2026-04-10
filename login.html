@@ -1,28 +1,49 @@
 {% extends 'base.html' %}
 {% block title %}Salon Karola App{% endblock %}
 {% block content %}
-<div class="auth-shell">
-  <section class="auth-landing">
-    <div class="auth-landing-copy">
-      <div class="auth-kicker">Salon Karola Calw-Wimberg</div>
-      <h1>Pers?nliche Beratung, professionelle Haarschnitte und entspannte Atmosph?re.</h1>
-      <p>Willkommen im Salon Karola in Calw-Wimberg. Jessi und Ute freuen sich auf euch. Damen-, Herren- und Kinderhaarschnitte, moderne Farb- und Str?hnentechniken sowie typgerechtes Styling.</p>
-      <div class="auth-highlights">
-        <div class="auth-highlight">07051 / 6344</div>
-        <div class="auth-highlight">75365 Calw-Wimberg</div>
-        <div class="auth-highlight">Di?Fr 9?12 / 13:30?17:45</div>
-        <div class="auth-highlight">Sa 8:30?12:45</div>
-      </div>
+<div class="auth-shell premium-auth-shell">
+  <section class="auth-landing premium-auth-hero">
+    <div class="premium-auth-kicker">Salon Karola ? Calw-Wimberg</div>
+    <h1 class="premium-auth-title">Dein Salon. Deine Termine. Ganz entspannt.</h1>
+    <p class="premium-auth-lead">Pers?nliche Beratung, sch?nes Haar und ein schneller Start in den Tag.</p>
+
+    <div class="premium-auth-chip-row">
+      <div class="premium-auth-chip">Jessi &amp; Ute</div>
+      <div class="premium-auth-chip">Pers?nlich</div>
+      <div class="premium-auth-chip">Kompetent</div>
+      <div class="premium-auth-chip">Herzlich</div>
     </div>
-    <div class="auth-landing-panel">
-      <img class="login-logo auth-logo-large" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
-      <div class="auth-panel-label">Salon Karola App</div>
-      <div class="auth-panel-title">Pers?nlich. Kompetent. Herzlich.</div>
+
+    <div class="premium-auth-info-grid">
+      <div class="premium-auth-info-card">
+        <span>Telefon</span>
+        <strong>07051 / 6344</strong>
+      </div>
+      <div class="premium-auth-info-card">
+        <span>Ort</span>
+        <strong>Calw-Wimberg</strong>
+      </div>
+      <div class="premium-auth-info-card premium-auth-info-card-wide">
+        <span>?ffnungszeiten</span>
+        <strong>Di?Fr 9?12 ? 13:30?17:45</strong>
+      </div>
+      <div class="premium-auth-info-card premium-auth-info-card-wide">
+        <span>Samstag</span>
+        <strong>8:30?12:45</strong>
+      </div>
     </div>
   </section>
 
-  <section class="auth-card-wrap">
-    <div class="auth-switch" role="tablist" aria-label="Anmeldung">
+  <section class="auth-card-wrap premium-auth-card-wrap">
+    <div class="premium-auth-brand">
+      <img class="login-logo premium-auth-logo" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
+      <div>
+        <div class="premium-auth-brand-label">Salon Karola App</div>
+        <div class="premium-auth-brand-text">Anmelden oder Passwort anlegen</div>
+      </div>
+    </div>
+
+    <div class="auth-switch premium-auth-switch" role="tablist" aria-label="Anmeldung">
       <button type="button" class="auth-switch-btn active" data-auth-target="loginPanel">Anmelden</button>
       <button type="button" class="auth-switch-btn" data-auth-target="registerPanel">Registrieren</button>
     </div>
@@ -30,9 +51,8 @@
     <div class="auth-panel active" id="loginPanel">
       <div class="auth-panel-head">
         <h2>Anmelden</h2>
-        <span>F?r Ute, Jessi und Sven</span>
       </div>
-      <form method="post" class="space-top">
+      <form method="post" class="space-top premium-auth-form">
         <input type="hidden" name="action" value="login">
         <div class="form-group">
           <label for="staff_name_login">Name</label>
@@ -48,7 +68,7 @@
         </div>
         <button type="submit">Einloggen</button>
       </form>
-      <div class="space-top auth-secondary-actions">
+      <div class="space-top auth-secondary-actions premium-auth-secondary-actions">
         <button type="button" class="btn btn-secondary" id="passkeyLoginBtn" {% if not passkeys_ready %}disabled{% endif %}>Mit Fingerabdruck anmelden</button>
         <div class="helper-text compact-helper" id="passkeyLoginStatus"></div>
       </div>
@@ -57,9 +77,8 @@
     <div class="auth-panel" id="registerPanel" hidden>
       <div class="auth-panel-head">
         <h2>Registrieren</h2>
-        <span>Eigenes Passwort festlegen</span>
       </div>
-      <form method="post" class="space-top">
+      <form method="post" class="space-top premium-auth-form">
         <input type="hidden" name="action" value="setup">
         <div class="form-group">
           <label for="staff_name_setup">Name</label>
