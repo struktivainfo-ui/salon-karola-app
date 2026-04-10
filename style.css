@@ -3254,3 +3254,185 @@ thead th {
     height: 56px;
   }
 }
+
+
+/* Modern salon luxury auth override */
+.premium-auth-shell::before,
+.premium-auth-shell::after {
+  content: "";
+  position: fixed;
+  inset: auto;
+  pointer-events: none;
+  z-index: -1;
+  filter: blur(8px);
+}
+
+.premium-auth-shell::before {
+  width: 320px;
+  height: 320px;
+  top: 82px;
+  left: -70px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 209, 214, 0.58) 0%, rgba(255, 209, 214, 0) 70%);
+}
+
+.premium-auth-shell::after {
+  width: 360px;
+  height: 360px;
+  right: -90px;
+  bottom: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 227, 181, 0.52) 0%, rgba(255, 227, 181, 0) 72%);
+}
+
+.premium-auth-hero {
+  background:
+    linear-gradient(145deg, rgba(255,250,245,0.92) 0%, rgba(250,236,227,0.92) 52%, rgba(242,220,202,0.9) 100%);
+  border: 1px solid rgba(170, 120, 89, 0.1);
+  box-shadow: 0 28px 80px rgba(143, 100, 73, 0.16);
+}
+
+.premium-auth-kicker {
+  background: rgba(255,255,255,0.72);
+  color: #8c5d44;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+}
+
+.premium-auth-title {
+  color: #402216;
+  max-width: 10.5ch;
+  font-size: clamp(2.8rem, 5.2vw, 5.2rem);
+  line-height: 0.9;
+}
+
+.premium-auth-lead {
+  max-width: 34rem;
+  color: rgba(79, 48, 34, 0.74);
+  font-size: 1.04rem;
+}
+
+.premium-auth-chip {
+  background: rgba(255,255,255,0.68);
+  border: 1px solid rgba(182, 128, 94, 0.11);
+  color: #71412a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);
+}
+
+.premium-auth-info-grid {
+  gap: 14px;
+}
+
+.premium-auth-info-card {
+  padding: 18px 18px 20px;
+  border-radius: 24px;
+  background: rgba(255,255,255,0.66);
+  border: 1px solid rgba(182, 128, 94, 0.1);
+  box-shadow: 0 10px 24px rgba(163, 111, 74, 0.08);
+}
+
+.premium-auth-info-card span {
+  color: rgba(121, 74, 50, 0.65);
+  letter-spacing: 0.1em;
+}
+
+.premium-auth-info-card strong {
+  color: #4d2918;
+  font-size: 1.02rem;
+}
+
+.premium-auth-card-wrap {
+  background: linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(251,242,235,0.86) 100%);
+  border: 1px solid rgba(170, 120, 89, 0.1);
+  box-shadow: 0 28px 80px rgba(143, 100, 73, 0.16);
+}
+
+.premium-auth-brand {
+  background: linear-gradient(135deg, rgba(255,255,255,0.74) 0%, rgba(251,236,224,0.72) 100%);
+  border: 1px solid rgba(182, 128, 94, 0.1);
+}
+
+.premium-auth-brand-label {
+  color: #4c2818;
+}
+
+.premium-auth-brand-text {
+  color: rgba(88, 53, 36, 0.7);
+}
+
+.auth-switch-btn {
+  background: rgba(255,255,255,0.72);
+  border-color: rgba(182, 128, 94, 0.11);
+  color: #744430;
+}
+
+.auth-switch-btn.active {
+  background: linear-gradient(135deg, #f8d98c 0%, #e9b86b 100%);
+  color: #47240f;
+  box-shadow: 0 14px 34px rgba(218, 171, 84, 0.22);
+}
+
+.auth-panel {
+  background: rgba(255,255,255,0.62);
+  border: 1px solid rgba(182, 128, 94, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+}
+
+.auth-panel-head h2,
+.auth-panel label {
+  color: #60331d;
+}
+
+.auth-panel input,
+.auth-panel select {
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(182, 128, 94, 0.12);
+  color: #40220f;
+}
+
+.auth-panel button,
+.auth-panel .btn,
+.auth-secondary-actions .btn {
+  background: linear-gradient(135deg, #f7d885 0%, #dfac5f 100%);
+  color: #3f200d;
+  border: none;
+  box-shadow: 0 16px 34px rgba(218, 171, 84, 0.22);
+}
+
+.auth-secondary-actions .btn {
+  background: rgba(255,255,255,0.76);
+  color: #6f412a;
+  border: 1px solid rgba(182, 128, 94, 0.11);
+  box-shadow: none;
+}
+
+.auth-panel .helper-text,
+.auth-panel .compact-helper {
+  color: rgba(96, 51, 29, 0.72);
+}
+
+@media (max-width: 640px) {
+  .premium-auth-shell::before {
+    width: 220px;
+    height: 220px;
+    top: 68px;
+    left: -70px;
+  }
+
+  .premium-auth-shell::after {
+    width: 240px;
+    height: 240px;
+    right: -70px;
+    bottom: 70px;
+  }
+
+  .premium-auth-title {
+    font-size: 2.35rem;
+    max-width: none;
+  }
+
+  .premium-auth-hero,
+  .premium-auth-card-wrap {
+    box-shadow: 0 18px 42px rgba(143, 100, 73, 0.13);
+  }
+}
