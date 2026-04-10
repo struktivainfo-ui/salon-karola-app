@@ -1662,8 +1662,6 @@ def login():
             password_confirm = request.form.get("new_password_confirm", "")
             if not user:
                 flash("Benutzer konnte nicht vorbereitet werden.")
-            elif user_has_password(user):
-                flash(f"F?r {selected_staff} ist bereits ein Passwort gespeichert. Bitte normal einloggen.")
             elif len(password) < 4:
                 flash("Bitte ein Passwort mit mindestens 4 Zeichen w?hlen.")
             elif password != password_confirm:
@@ -1678,7 +1676,7 @@ def login():
                 session["admin_name"] = user["display_name"] or user["username"]
                 session["staff_name"] = selected_staff
                 session["username"] = user["username"]
-                flash(f"Passwort gespeichert. Willkommen, {selected_staff}.")
+                flash(f"Passwort f?r {selected_staff} gespeichert oder ersetzt. Willkommen, {selected_staff}.")
                 return redirect(request.args.get("next") or url_for("calendar_view"))
         else:
             password = request.form.get("password", "")
