@@ -5,18 +5,51 @@
   <div class="login-card">
     <img class="login-logo" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
     <h1>Salon Karola</h1>
-    
-    <form method="post" class="space-top">
-      <div class="form-group">
-        <label>Benutzername</label>
-        <input type="text" name="username" autocomplete="username" required>
-      </div>
-      <div class="form-group">
-        <label>Passwort</label>
-        <input type="password" name="password" autocomplete="current-password" required>
-      </div>
-      <button type="submit">Einloggen</button>
-    </form>
+    <p class="helper-text">Beim ersten Start w?hlt jede Person den eigenen Namen und legt ein Passwort fest. Danach reicht normales Einloggen, und Push bleibt automatisch auf dieses Profil ausgerichtet.</p>
+
+    <div class="card soft-card space-top">
+      <h2>Einloggen</h2>
+      <form method="post" class="space-top">
+        <input type="hidden" name="action" value="login">
+        <div class="form-group">
+          <label for="staff_name_login">Name</label>
+          <select name="staff_name" id="staff_name_login" required>
+            {% for option in login_options %}
+            <option value="{{ option['staff_name'] }}">{{ option['label'] }}{% if not setup_states[option['staff_name']]['has_password'] %} ? Passwort fehlt{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="password">Passwort</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit">Einloggen</button>
+      </form>
+    </div>
+
+    <div class="card soft-card space-top">
+      <h2>Erstes Passwort anlegen</h2>
+      <form method="post" class="space-top">
+        <input type="hidden" name="action" value="setup">
+        <div class="form-group">
+          <label for="staff_name_setup">Name</label>
+          <select name="staff_name" id="staff_name_setup" required>
+            {% for option in login_options %}
+            <option value="{{ option['staff_name'] }}">{{ option['label'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="new_password">Neues Passwort</label>
+          <input type="password" id="new_password" name="new_password" autocomplete="new-password" required>
+        </div>
+        <div class="form-group">
+          <label for="new_password_confirm">Passwort wiederholen</label>
+          <input type="password" id="new_password_confirm" name="new_password_confirm" autocomplete="new-password" required>
+        </div>
+        <button type="submit">Passwort speichern</button>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

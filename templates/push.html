@@ -18,8 +18,7 @@
     <h2>Dieses Handy</h2>
     <label for="deviceStaffSelect">Zuordnen zu</label>
     <select id="deviceStaffSelect">
-      <option value="Ute">Ute</option>
-      <option value="Jessi">Jessi</option>
+      {% for member in staff_members %}<option value="{{ member }}">{{ member }}</option>{% endfor %}
     </select>
 
     <label for="deviceNameInput">Gerätename</label>
@@ -27,8 +26,7 @@
 
     <label for="pushTargetSelect">Push senden an</label>
     <select id="pushTargetSelect">
-      <option value="Ute">Ute</option>
-      <option value="Jessi">Jessi</option>
+      {% for member in staff_members %}<option value="{{ member }}">{{ member }}</option>{% endfor %}
       <option value="Alle">Alle</option>
     </select>
 
@@ -43,8 +41,9 @@
   <article class="card push-page-card">
     <h2>Geräteübersicht</h2>
     <div class="stats-grid compact-stats">
-      <div class="stat-card"><div class="stat-label">Ute</div><div class="stat-value" id="uteCount">0</div></div>
-      <div class="stat-card"><div class="stat-label">Jessi</div><div class="stat-value" id="jessiCount">0</div></div>
+      {% for member in staff_members %}
+      <div class="stat-card"><div class="stat-label">{{ member }}</div><div class="stat-value" id="count-{{ member|lower }}">0</div></div>
+      {% endfor %}
       <div class="stat-card"><div class="stat-label">Aktiv</div><div class="stat-value" id="activeCount">0</div></div>
       <div class="stat-card"><div class="stat-label">Gesamt</div><div class="stat-value" id="totalCount">0</div></div>
     </div>
@@ -57,8 +56,9 @@
 (function () {
   const list = document.getElementById('pushDevicesList');
   const reloadBtn = document.getElementById('reloadDevicesBtn');
-  const uteCount = document.getElementById('uteCount');
-  const jessiCount = document.getElementById('jessiCount');
+  const countEls = {
+    {% for member in staff_members %}'{{ member }}': document.getElementById('count-{{ member|lower }}'),{% endfor %}
+  };
   const activeCount = document.getElementById('activeCount');
   const totalCount = document.getElementById('totalCount');
 
@@ -66,8 +66,8 @@
     try {
       const res = await fetch('/api/push/overview', { cache: 'no-store' });
       const data = await res.json();
-      uteCount.textContent = data.ute_devices || 0;
-      jessiCount.textContent = data.jessi_devices || 0;
+      const countsByStaff = data.counts_by_staff || {};
+      Object.keys(countEls).forEach((name) => { if (countEls[name]) countEls[name].textContent = countsByStaff[name] || 0; });
       activeCount.textContent = data.active_devices || 0;
       totalCount.textContent = data.total_devices || 0;
     } catch (e) {}

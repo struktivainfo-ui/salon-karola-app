@@ -42,14 +42,16 @@
         <input type="datetime-local" id="appointment_at" name="appointment_at" value="{{ prefill_at }}" required>
       </div>
       <div class="form-group">
-        <label for="staff_name">Mitarbeiterin</label>
+        <label for="staff_name">Mitarbeiter</label>
         <select name="staff_name" id="newAppointmentStaff">
-          <option value="Ute" {% if prefill_staff == 'Ute' %}selected{% endif %}>Ute</option>
-          <option value="Jessi" {% if prefill_staff == 'Jessi' %}selected{% endif %}>Jessi</option>
+          {% for member in staff_members %}
+          <option value="{{ member }}" {% if prefill_staff == member %}selected{% endif %}>{{ member }}</option>
+          {% endfor %}
         </select>
         <div class="staff-quick-switch">
-          <button type="button" class="staff-pill active" data-target="newAppointmentStaff" data-value="Ute">Ute</button>
-          <button type="button" class="staff-pill" data-target="newAppointmentStaff" data-value="Jessi">Jessi</button>
+          {% for member in staff_members %}
+          <button type="button" class="staff-pill {% if prefill_staff == member %}active{% endif %}" data-target="newAppointmentStaff" data-value="{{ member }}">{{ member }}</button>
+          {% endfor %}
         </div>
       </div>
       <div class="form-group">
@@ -159,7 +161,7 @@
       </div>
       <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt['appointment_at']|dt }}</div>
       <div class="mobile-line"><span class="mobile-label">Leistung:</span> {{ appt['title'] }}</div>
-      <div class="mobile-line"><span class="mobile-label">Mitarbeiterin:</span> {{ appt['staff_name'] or 'Ute' }}</div>
+      <div class="mobile-line"><span class="mobile-label">Mitarbeiter:</span> {{ appt['staff_name'] or default_staff }}</div>
     </a>
     {% else %}
     <div class="list-item">Noch keine nächsten Termine vorhanden.</div>
@@ -171,7 +173,8 @@
 document.addEventListener("DOMContentLoaded", function () {
   const storedDeviceStaff = localStorage.getItem("sk_device_staff");
   const templatePrefillStaff = "{{ prefill_staff }}".trim();
-  const deviceStaff = (storedDeviceStaff && storedDeviceStaff.trim()) || templatePrefillStaff || "Ute";
+  const defaultStaff = {{ default_staff|tojson }};
+  const deviceStaff = (storedDeviceStaff && storedDeviceStaff.trim()) || templatePrefillStaff || defaultStaff;
   document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
   const newStaff = document.getElementById("newAppointmentStaff");
   if (newStaff) {

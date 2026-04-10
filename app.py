@@ -39,6 +39,7 @@ from flask import (
     session,
     url_for,
 )
+from werkzeug.security import check_password_hash, generate_password_hash
 
 try:
     from pywebpush import WebPushException, webpush
@@ -63,7 +64,7 @@ app = Flask(
     template_folder=str(BASE_DIR / "templates"),
     static_folder=str(BASE_DIR / "static"),
 )
-app.secret_key = os.getenv("SECRET_KEY", "salon-karola-ultra-secret")
+app.secret_key = os.getenv("SECRET_KEY") or os.getenv("FLASK_SECRET_KEY") or os.urandom(32).hex()
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
 
@@ -79,7 +80,9 @@ def add_no_cache_headers(response):
     return response
 
 APP_VERSION = "Salon Karola CRM v7.3 Final Clean Calendar Home + Push Sync 2026-04-08"
-STAFF_OPTIONS = ["Alle", "Ute", "Jessi"]
+STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
+STAFF_OPTIONS = ["Alle", *STAFF_MEMBERS]
+DEFAULT_STAFF = STAFF_MEMBERS[0]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
 MANUAL_PLACEHOLDER_FIRSTNAME = "Versteckter Kontakt"
 AUTO_BACKUP_KEEP = int(os.getenv("AUTO_BACKUP_KEEP", "21"))
@@ -96,6 +99,70 @@ def login_required(view):
             return redirect(url_for("login", next=request.path))
         return view(*args, **kwargs)
     return wrapped
+
+
+def hash_password(password):
+    return generate_password_hash(password or "")
+
+
+def password_is_hashed(value):
+    value = (value or "").strip()
+    return value.startswith("pbkdf2:") or value.startswith("scrypt:")
+
+
+def verify_password(stored_password, candidate_password):
+    stored_password = stored_password or ""
+    candidate_password = candidate_password or ""
+    if password_is_hashed(stored_password):
+        try:
+            return check_password_hash(stored_password, candidate_password)
+        except Exception:
+            return False
+    return stored_password == candidate_password
+
+
+def staff_account_configs():
+    accounts = []
+    for member in STAFF_MEMBERS:
+        env_prefix = member.upper()
+        username_default = "sven" if member == "Sven" else member.lower()
+        password_fallback = os.getenv("ADMIN_PASSWORD") if member == "Sven" else ""
+        username = (os.getenv(f"{env_prefix}_USERNAME") or (os.getenv("ADMIN_USERNAME") if member == "Sven" else "") or username_default).strip() or username_default
+        password = os.getenv(f"{env_prefix}_PASSWORD") or password_fallback
+        display_name = (os.getenv(f"{env_prefix}_DISPLAY_NAME") or member).strip() or member
+        accounts.append({"staff_name": member, "username": username, "password": password, "display_name": display_name})
+    return accounts
+
+
+def default_login_options():
+    return [{"staff_name": item["staff_name"], "label": item["display_name"] or item["staff_name"]} for item in staff_account_configs()]
+
+
+def user_has_password(user_row):
+    if not user_row:
+        return False
+    return bool((user_row["password"] or "").strip())
+
+
+def fetch_user_for_staff(conn, staff_name):
+    return conn.execute(
+        "SELECT * FROM staff_users WHERE staff_name = ? LIMIT 1",
+        (staff_name,),
+    ).fetchone()
+
+
+def resolve_staff_name_for_user(user_row):
+    if not user_row:
+        return DEFAULT_STAFF
+    staff_name = (user_row["staff_name"] or "").strip() if "staff_name" in user_row.keys() else ""
+    if staff_name in STAFF_MEMBERS:
+        return staff_name
+    username = (user_row["username"] or "").strip().lower() if "username" in user_row.keys() else ""
+    display_name = (user_row["display_name"] or "").strip().lower() if "display_name" in user_row.keys() else ""
+    for member in STAFF_MEMBERS:
+        if username == member.lower() or display_name == member.lower():
+            return member
+    return DEFAULT_STAFF
 
 
 # ---------- Database helpers ----------
@@ -318,6 +385,7 @@ def init_db():
                 username TEXT NOT NULL UNIQUE,
                 password TEXT NOT NULL,
                 display_name TEXT,
+                staff_name TEXT DEFAULT '',
                 created_at TEXT NOT NULL
             )
             """
@@ -332,23 +400,6 @@ def init_db():
             """
         )
 
-        admin_user = os.getenv("ADMIN_USERNAME", "karola")
-        admin_password = os.getenv("ADMIN_PASSWORD", "Karola123!")
-
-        exists = conn.execute("SELECT 1 FROM staff_users WHERE username = ?", (admin_user,)).fetchone()
-        if not exists:
-            conn.execute(
-                """
-                INSERT INTO staff_users(username, password, display_name, created_at)
-                VALUES (?, ?, ?, ?)
-                """,
-                (
-                    admin_user,
-                    admin_password,
-                    "Salon Karola Admin",
-                    datetime.now().isoformat(timespec="seconds"),
-                ),
-            )
         sync_default_mail_templates(conn)
 
         def add_column_if_missing(table_name, column_name, column_sql, *, fill_sql=None):
@@ -387,16 +438,13 @@ def init_db():
         add_column_if_missing("appointments", "manual_lastname", "TEXT DEFAULT ''")
         add_column_if_missing("appointments", "manual_phone", "TEXT DEFAULT ''")
         add_column_if_missing("appointments", "manual_email", "TEXT DEFAULT ''")
+        add_column_if_missing("staff_users", "staff_name", "TEXT DEFAULT ''", fill_sql="UPDATE staff_users SET staff_name = CASE lower(COALESCE(display_name, username, '')) WHEN 'ute' THEN 'Ute' WHEN 'jessi' THEN 'Jessi' WHEN 'sven' THEN 'Sven' ELSE COALESCE(staff_name, '') END")
 
         ensure_manual_placeholder_customer(conn)
         conn.commit()
 
 
 def ensure_default_admin(force_reset=False):
-    admin_user = (os.getenv("ADMIN_USERNAME") or "admin").strip() or "admin"
-    admin_password = os.getenv("ADMIN_PASSWORD") or "1234"
-    display_name = os.getenv("ADMIN_DISPLAY_NAME") or "Salon Karola Admin"
-
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             """
@@ -405,41 +453,62 @@ def ensure_default_admin(force_reset=False):
                 username TEXT NOT NULL UNIQUE,
                 password TEXT NOT NULL,
                 display_name TEXT,
+                staff_name TEXT DEFAULT '',
                 created_at TEXT NOT NULL
             )
             """
         )
 
-        row = conn.execute("SELECT id FROM staff_users WHERE username = ?", (admin_user,)).fetchone()
-        if row and force_reset:
-            conn.execute(
-                "UPDATE staff_users SET password = ?, display_name = ? WHERE username = ?",
-                (admin_password, display_name, admin_user),
-            )
-        elif not row:
-            conn.execute(
-                """
-                INSERT INTO staff_users(username, password, display_name, created_at)
-                VALUES (?, ?, ?, ?)
-                """,
-                (admin_user, admin_password, display_name, datetime.now().isoformat(timespec="seconds")),
-            )
+        rows = conn.execute("SELECT id, username, password, display_name, staff_name FROM staff_users").fetchall()
+        for row in rows:
+            stored_password = row[2] or ""
+            desired_staff = row[4] or ""
+            if not desired_staff:
+                username_l = (row[1] or "").strip().lower()
+                display_l = (row[3] or "").strip().lower()
+                for member in STAFF_MEMBERS:
+                    if username_l == member.lower() or display_l == member.lower():
+                        desired_staff = member
+                        break
+            updates = []
+            params = []
+            if stored_password and not password_is_hashed(stored_password):
+                updates.append("password = ?")
+                params.append(hash_password(stored_password))
+            if desired_staff and desired_staff != (row[4] or ""):
+                updates.append("staff_name = ?")
+                params.append(desired_staff)
+            if updates:
+                params.append(row[0])
+                conn.execute(f"UPDATE staff_users SET {', '.join(updates)} WHERE id = ?", params)
 
-        fallback_user = "admin"
-        fallback_password = "1234"
-        fallback_row = conn.execute("SELECT id FROM staff_users WHERE username = ?", (fallback_user,)).fetchone()
-        if fallback_row:
-            conn.execute(
-                "UPDATE staff_users SET password = ?, display_name = ? WHERE username = ?",
-                (fallback_password, "Salon Karola Admin", fallback_user),
-            )
-        else:
+        for account in staff_account_configs():
+            existing = conn.execute("SELECT id, password FROM staff_users WHERE staff_name = ? LIMIT 1", (account["staff_name"],)).fetchone()
+            if existing:
+                if force_reset and account["password"]:
+                    conn.execute(
+                        "UPDATE staff_users SET username = ?, password = ?, display_name = ?, staff_name = ? WHERE id = ?",
+                        (account["username"], hash_password(account["password"]), account["display_name"], account["staff_name"], existing[0]),
+                    )
+                elif account["display_name"]:
+                    conn.execute(
+                        "UPDATE staff_users SET username = ?, display_name = ?, staff_name = ? WHERE id = ?",
+                        (account["username"], account["display_name"], account["staff_name"], existing[0]),
+                    )
+                continue
+
             conn.execute(
                 """
-                INSERT INTO staff_users(username, password, display_name, created_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO staff_users(username, password, display_name, staff_name, created_at)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (fallback_user, fallback_password, "Salon Karola Admin", datetime.now().isoformat(timespec="seconds")),
+                (
+                    account["username"],
+                    hash_password(account["password"]) if account["password"] else "",
+                    account["display_name"],
+                    account["staff_name"],
+                    datetime.now().isoformat(timespec="seconds"),
+                ),
             )
         conn.commit()
 
@@ -909,7 +978,7 @@ def push_devices_for_staff(staff_name=None):
     db = get_db()
     params = []
     query = "SELECT * FROM push_subscriptions"
-    if staff_name in ("Ute", "Jessi"):
+    if staff_name in STAFF_MEMBERS:
         query += " WHERE staff_name = ?"
         params.append(staff_name)
     query += " ORDER BY staff_name ASC, COALESCE(last_success_at, last_seen_at, updated_at, created_at) DESC"
@@ -918,7 +987,7 @@ def push_devices_for_staff(staff_name=None):
     for row in rows:
         items.append({
             "id": row["id"],
-            "staff_name": row["staff_name"] or "Ute",
+            "staff_name": row["staff_name"] or DEFAULT_STAFF,
             "device_name": _push_device_label(row),
             "user_agent": (row["user_agent"] or "")[:180],
             "created_at": row["created_at"] or "",
@@ -1010,7 +1079,7 @@ def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
 
 def webpush_send_to_all_staff(title, body, url="/calendar"):
     totals = {"sent": 0, "skipped": 0, "errors": []}
-    for target_staff in ("Ute", "Jessi"):
+    for target_staff in STAFF_MEMBERS:
         result = webpush_send_to_staff(target_staff, title, body, url)
         totals["sent"] += int(result.get("sent") or 0)
         totals["skipped"] += int(result.get("skipped") or 0)
@@ -1033,7 +1102,7 @@ def _push_appointment_reminder(appt):
     first_name = (appt["_firstname"] or "").strip()
     last_name = (appt["_name"] or "").strip()
     customer_name = f"{first_name} {last_name}".strip() or "Kundin"
-    staff_name = (appt["staff_name"] or "Ute").strip() or "Ute"
+    staff_name = (appt["staff_name"] or DEFAULT_STAFF).strip() or DEFAULT_STAFF
     try:
         when_label = datetime.fromisoformat(str(appt["appointment_at"])).strftime("%d.%m.%Y um %H:%M")
     except Exception:
@@ -1048,8 +1117,8 @@ def _push_appointment_reminder(appt):
 
 def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name, manual_name=""):
 
-    actor = (actor_name or staff_name or "Ute").strip() or "Ute"
-    target = "Jessi" if actor == "Ute" else "Ute"
+    actor = _normalize_staff_name(actor_name or staff_name, default=DEFAULT_STAFF)
+    targets = other_staff_members(actor)
     customer_name = (manual_name or "").strip()
     if customer_id:
         customer = get_db().execute(
@@ -1066,8 +1135,14 @@ def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff
         when_label = str(appointment_at)
 
     push_title = f"Neuer Termin von {actor}"
-    push_body = f"{customer_name} • {title} • {when_label} • zuständig: {staff_name}"
-    return webpush_send_to_staff(target, push_title, push_body, "/calendar?view=day")
+    push_body = f"{customer_name} ? {title} ? {when_label} ? zust?ndig: {staff_name}"
+    totals = {"sent": 0, "skipped": 0, "errors": []}
+    for target in targets:
+        result = webpush_send_to_staff(target, push_title, push_body, "/calendar?view=day")
+        totals["sent"] += int(result.get("sent") or 0)
+        totals["skipped"] += int(result.get("skipped") or 0)
+        totals["errors"].extend(result.get("errors") or [])
+    return totals
 
 
 def opening_hours_for_date(date_obj):
@@ -1238,9 +1313,17 @@ def _parse_dt_safe(value):
         return None
 
 
-def _normalize_staff_name(value, default="Ute"):
-    value = (value or default or "Ute").strip()
-    return value if value in {"Ute", "Jessi", "Alle"} else default
+def _normalize_staff_name(value, default=DEFAULT_STAFF):
+    default = default if default in STAFF_OPTIONS else DEFAULT_STAFF
+    value = (value or default or DEFAULT_STAFF).strip()
+    return value if value in STAFF_OPTIONS else default
+
+
+def other_staff_members(current_staff):
+    normalized = _normalize_staff_name(current_staff, default=DEFAULT_STAFF)
+    if normalized == "Alle":
+        return list(STAFF_MEMBERS)
+    return [name for name in STAFF_MEMBERS if name != normalized]
 
 
 def _safe_int(value, default=0, minimum=None, maximum=None):
@@ -1280,7 +1363,14 @@ def opportunistic_automation_runner():
         return None
     if request.method != "GET":
         return None
-    run_automation_if_due(force=False)
+    try:
+        init_db()
+        run_automation_if_due(force=False)
+    except Exception as exc:
+        try:
+            app.logger.warning("Automation runner ?bersprungen: %s", exc)
+        except Exception:
+            pass
     return None
 
 
@@ -1403,6 +1493,7 @@ def staff_dashboard_counts():
         ORDER BY CASE COALESCE(staff_name, 'Ute')
             WHEN 'Ute' THEN 1
             WHEN 'Jessi' THEN 2
+            WHEN 'Sven' THEN 3
             ELSE 99
         END,
         COALESCE(staff_name, 'Ute')
@@ -1410,16 +1501,13 @@ def staff_dashboard_counts():
         (today_start, tomorrow_start),
     ).fetchall()
 
-    data = {"Ute": 0, "Jessi": 0}
+    data = {name: 0 for name in STAFF_MEMBERS}
     for row in rows:
-        staff_name = (row["staff_name"] or "Ute").strip() if isinstance(row["staff_name"], str) else "Ute"
+        staff_name = (row["staff_name"] or DEFAULT_STAFF).strip() if isinstance(row["staff_name"], str) else DEFAULT_STAFF
         if staff_name in data:
             data[staff_name] = int(row["cnt"] or 0)
 
-    return [
-        {"staff_name": "Ute", "count": data["Ute"]},
-        {"staff_name": "Jessi", "count": data["Jessi"]},
-    ]
+    return [{"staff_name": name, "count": data.get(name, 0)} for name in STAFF_MEMBERS]
 
 
 def today_appointments(limit=20):
@@ -1552,21 +1640,64 @@ def service_worker():
 # ---------- Routes ----------
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    login_options = default_login_options()
+    db = get_db()
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        db = get_db()
-        user = db.execute(
-            "SELECT * FROM staff_users WHERE username = ? AND password = ?",
-            (username, password),
-        ).fetchone()
-        if user:
-            session["admin_logged_in"] = True
-            session["admin_name"] = user["display_name"] or user["username"]
-            flash("Login erfolgreich.")
-            return redirect(request.args.get("next") or url_for("calendar_view"))
-        flash("Login fehlgeschlagen.")
-    return render_template("login.html")
+        action = (request.form.get("action") or "login").strip().lower()
+        selected_staff = _normalize_staff_name(request.form.get("staff_name"), default=DEFAULT_STAFF)
+        user = fetch_user_for_staff(db, selected_staff)
+
+        if action == "setup":
+            password = request.form.get("new_password", "")
+            password_confirm = request.form.get("new_password_confirm", "")
+            if not user:
+                flash("Benutzer konnte nicht vorbereitet werden.")
+            elif user_has_password(user):
+                flash(f"F?r {selected_staff} ist bereits ein Passwort gespeichert. Bitte normal einloggen.")
+            elif len(password) < 4:
+                flash("Bitte ein Passwort mit mindestens 4 Zeichen w?hlen.")
+            elif password != password_confirm:
+                flash("Die beiden Passw?rter stimmen nicht ?berein.")
+            else:
+                db.execute(
+                    "UPDATE staff_users SET password = ? WHERE id = ?",
+                    (hash_password(password), user["id"]),
+                )
+                db.commit()
+                session["admin_logged_in"] = True
+                session["admin_name"] = user["display_name"] or user["username"]
+                session["staff_name"] = selected_staff
+                session["username"] = user["username"]
+                flash(f"Passwort gespeichert. Willkommen, {selected_staff}.")
+                return redirect(request.args.get("next") or url_for("calendar_view"))
+        else:
+            password = request.form.get("password", "")
+            if not user:
+                flash("Benutzer nicht gefunden.")
+            elif not user_has_password(user):
+                flash(f"F?r {selected_staff} wurde noch kein Passwort angelegt. Bitte zuerst Passwort erstellen.")
+            elif verify_password(user["password"], password):
+                if not password_is_hashed(user["password"]):
+                    db.execute(
+                        "UPDATE staff_users SET password = ? WHERE id = ?",
+                        (hash_password(password), user["id"]),
+                    )
+                    db.commit()
+                staff_name = resolve_staff_name_for_user(user)
+                session["admin_logged_in"] = True
+                session["admin_name"] = user["display_name"] or user["username"]
+                session["staff_name"] = staff_name
+                session["username"] = user["username"]
+                flash(f"Login erfolgreich: {staff_name}.")
+                return redirect(request.args.get("next") or url_for("calendar_view"))
+            else:
+                flash("Login fehlgeschlagen.")
+
+    setup_states = {}
+    for option in login_options:
+        user = fetch_user_for_staff(db, option["staff_name"])
+        setup_states[option["staff_name"]] = {"has_password": user_has_password(user)}
+    return render_template("login.html", login_options=login_options, setup_states=setup_states)
 
 
 @app.route("/logout")
@@ -1625,11 +1756,11 @@ def dashboard_legacy():
     if conditions:
         base_query += " WHERE " + " AND ".join(conditions)
 
-    order_sql = "COALESCE(c._name, ), COALESCE(c._firstname, )"
+    order_sql = "COALESCE(c._name, '') COLLATE NOCASE, COALESCE(c._firstname, '') COLLATE NOCASE"
     if sort == "za":
-        order_sql = "COALESCE(c._name, ) DESC, COALESCE(c._firstname, ) DESC"
+        order_sql = "COALESCE(c._name, '') COLLATE NOCASE DESC, COALESCE(c._firstname, '') COLLATE NOCASE DESC"
     elif sort == "recent":
-        order_sql = "MAX(a.appointment_at) DESC, COALESCE(c._name, ), COALESCE(c._firstname, )"
+        order_sql = "MAX(a.appointment_at) DESC, COALESCE(c._name, '') COLLATE NOCASE, COALESCE(c._firstname, '') COLLATE NOCASE"
 
     base_query += f" GROUP BY c._id ORDER BY {order_sql} LIMIT 200"
     customers = db.execute(base_query, params).fetchall()
@@ -1785,8 +1916,6 @@ def customer_new():
 def customer_detail(customer_id):
     db = get_db()
     if request.method == "POST":
-        manual_name = f"{manual_firstname} {manual_lastname}".strip()
-
         db.execute(
             """
             UPDATE _Customers
@@ -1908,10 +2037,13 @@ def save_tags(customer_id, tags_text):
 def appointment_new(customer_id):
     db = get_db()
     title = request.form.get("title", "Salon-Termin").strip() or "Salon-Termin"
-    appointment_at = request.form["appointment_at"]
+    appointment_at = (request.form.get("appointment_at") or "").strip()
     status = request.form.get("status", "geplant").strip() or "geplant"
-    staff_name = request.form.get("staff_name", "Ute").strip() or "Ute"
-    actor_name = request.form.get("actor_name", "").strip() or staff_name
+    staff_name = _normalize_staff_name(request.form.get("staff_name"), default="Ute")
+    actor_name = _normalize_staff_name(request.form.get("actor_name") or staff_name, default=staff_name)
+    if not appointment_at or not _parse_dt_safe(appointment_at):
+        flash("Bitte ein g?ltiges Datum und eine Uhrzeit f?r den Termin angeben.")
+        return redirect(url_for("customer_detail", customer_id=customer_id))
     db.execute(
         """
         INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at)
@@ -1931,7 +2063,7 @@ def appointment_new(customer_id):
         ),
     )
     db.commit()
-    notify_result = notify_other_staff_for_appointment(notify_customer_id, title, appointment_at, staff_name, actor_name)
+    notify_result = notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name)
     flash_msg = "Termin wurde gespeichert."
     if vapid_ready() and notify_result.get("sent", 0) > 0:
         flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
@@ -2301,15 +2433,15 @@ def appointments_hub():
     today_rows = today_appointments(limit=50)
     today_split = {"Ute": [], "Jessi": []}
     for row in today_rows:
-        staff_name = (row["staff_name"] or "Ute") if row["staff_name"] in {"Ute", "Jessi"} else "Ute"
+        staff_name = row["staff_name"] if row["staff_name"] in STAFF_MEMBERS else DEFAULT_STAFF
         today_split.setdefault(staff_name, []).append(row)
 
     prefill_at = (request.args.get("appointment_at") or "").strip()
     if not prefill_at:
         prefill_at = datetime.now().replace(second=0, microsecond=0).isoformat(timespec="minutes")
-    prefill_staff = _normalize_staff_name(request.args.get("staff"), default="Ute")
+    prefill_staff = _normalize_staff_name(request.args.get("staff"), default=DEFAULT_STAFF)
     if prefill_staff == "Alle":
-        prefill_staff = "Ute"
+        prefill_staff = DEFAULT_STAFF
     prefill_source = (request.args.get("source") or "manual").strip()
 
     return render_template(
@@ -2342,10 +2474,7 @@ def calendar_view():
     month_view = _build_month_view(selected_date, staff) if view == "month" else None
     split_day_views = None
     if view == "day" and staff == "Alle":
-        split_day_views = {
-            "Ute": _build_day_view(selected_date, "Ute"),
-            "Jessi": _build_day_view(selected_date, "Jessi"),
-        }
+        split_day_views = {name: _build_day_view(selected_date, name) for name in STAFF_MEMBERS}
 
     return render_template(
         "calendar.html",
@@ -2398,11 +2527,11 @@ def appointments_feed():
             "appointment_at": row["appointment_at"],
             "appointment_label": appointment_label,
             "customer_name": customer_name,
-            "staff_name": row["staff_name"] or "Ute",
+            "staff_name": row["staff_name"] or DEFAULT_STAFF,
             "status": row["status"] or "geplant",
             "created_at": row["created_at"] or "",
             "updated_at": row["updated_at"] or row["created_at"] or "",
-            "created_by": row["created_by"] or (row["staff_name"] or "Ute"),
+            "created_by": row["created_by"] or (row["staff_name"] or DEFAULT_STAFF),
         })
 
     return {"items": items, "server_time": datetime.now().isoformat(timespec="seconds")}
@@ -2417,9 +2546,9 @@ def push_public_key():
 @app.route("/api/push/status")
 @login_required
 def push_status():
-    staff_name = (request.args.get("staff_name") or "Ute").strip() or "Ute"
-    if staff_name not in ("Ute", "Jessi"):
-        staff_name = "Ute"
+    staff_name = _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF)
+    if staff_name == "Alle":
+        staff_name = DEFAULT_STAFF
     enabled = vapid_ready()
     permission = None
     count = 0
@@ -2453,8 +2582,7 @@ def push_overview():
         "generated_keys": bool(_get_app_setting("push:vapid_generated_at", "")),
         "total_devices": total_devices,
         "active_devices": total_active,
-        "ute_devices": len(push_devices_for_staff("Ute")),
-        "jessi_devices": len(push_devices_for_staff("Jessi")),
+        "counts_by_staff": {name: len(push_devices_for_staff(name)) for name in STAFF_MEMBERS},
         "last_run_at": get_setting("automation:last_run_at", ""),
         "last_run_summary": get_setting("automation:last_run_summary", ""),
         "last_run_error": get_setting("automation:last_run_error", ""),
@@ -2465,7 +2593,7 @@ def push_overview():
 @login_required
 def push_devices():
     staff_name = (request.args.get("staff_name") or "").strip()
-    if staff_name not in ("Ute", "Jessi"):
+    if staff_name not in STAFF_MEMBERS:
         staff_name = None
     return {"ok": True, "items": push_devices_for_staff(staff_name)}
 
@@ -2515,7 +2643,8 @@ def push_subscribe():
     keys = subscription.get("keys") or {}
     auth_key = (keys.get("auth") or "").strip() if isinstance(keys, dict) else ""
     p256dh_key = (keys.get("p256dh") or "").strip() if isinstance(keys, dict) else ""
-    staff_name = _normalize_staff_name(payload.get("staff_name"), default="Ute")
+    requested_staff = payload.get("staff_name") or session.get("staff_name")
+    staff_name = _normalize_staff_name(requested_staff, default=session.get("staff_name") or DEFAULT_STAFF)
     device_name = (payload.get("device_name") or "").strip()[:80]
     if not endpoint or not auth_key or not p256dh_key:
         return {"ok": False, "error": "Unvollständige Push-Subscription empfangen."}, 400
@@ -2569,7 +2698,7 @@ def push_unsubscribe():
 @app.route("/api/push/ping")
 @login_required
 def push_ping():
-    staff_name = _normalize_staff_name(request.args.get("staff_name"), default="Ute")
+    staff_name = _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF)
     if staff_name == "Alle":
         result = webpush_send_to_all_staff("Salon Karola Push aktiv", "Test-Push an alle registrierten Geräte.", "/calendar")
         devices = push_devices_for_staff(None)
@@ -2794,17 +2923,21 @@ def format_phone_href(value):
 def inject_globals():
     return {
         "admin_name": session.get("admin_name"),
+        "logged_in_staff": session.get("staff_name") or DEFAULT_STAFF,
+        "login_options": default_login_options(),
         "customer_activity_status": customer_activity_status,
         "whatsapp_link": whatsapp_link,
         "phone_href": phone_href,
         "app_version": APP_VERSION,
+        "staff_members": STAFF_MEMBERS,
+        "default_staff": DEFAULT_STAFF,
     }
 
 
 def boot_app():
     init_db()
     run_auto_backup_if_due()
-    ensure_default_admin(force_reset=True)
+    ensure_default_admin(force_reset=False)
     _ensure_vapid_keys()
     interval_minutes = int(os.getenv("AUTOMATION_INTERVAL_MINUTES", "5"))
     set_setting("automation:scheduler_interval_minutes", str(interval_minutes))
@@ -2921,7 +3054,7 @@ def replace_database_from_upload(uploaded_file):
     shutil.copy2(tmp_path, DB_PATH)
     tmp_path.unlink(missing_ok=True)
     init_db()
-    ensure_default_admin(force_reset=True)
+    ensure_default_admin(force_reset=False)
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("PRAGMA wal_checkpoint(FULL)")
     return backup_path, inspect_sqlite_database(DB_PATH)
@@ -3121,8 +3254,14 @@ def export_database_zip():
 @app.route("/database/backup/<path:filename>")
 @login_required
 def download_backup(filename):
-    file_path = BACKUP_DIR / filename
-    if not file_path.exists():
+    file_path = (BACKUP_DIR / filename).resolve()
+    backup_root = BACKUP_DIR.resolve()
+    try:
+        file_path.relative_to(backup_root)
+    except ValueError:
+        flash("Ung?ltiger Backup-Pfad.")
+        return redirect(url_for("database_tools"))
+    if not file_path.exists() or not file_path.is_file():
         flash("Backup-Datei wurde nicht gefunden.")
         return redirect(url_for("database_tools"))
     return send_file(file_path, as_attachment=True, download_name=file_path.name, mimetype="application/octet-stream")

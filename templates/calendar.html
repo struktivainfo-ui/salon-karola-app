@@ -8,7 +8,7 @@
     <p class="app-hero-text">Tag, Woche und Monat sauber getrennt – für eine klare Terminsteuerung auf Handy und Desktop.</p>
   </div>
   <div class="hero-actions-grid">
-    <a class="hero-action primary" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else 'Ute', source='calendar_quick') }}">Termin anlegen</a>
+    <a class="hero-action primary" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else default_staff, source='calendar_quick') }}">Termin anlegen</a>
     <a class="hero-action" href="{{ url_for('calendar_view', view=view, date=today_date, staff=staff) }}">Heute</a>
     <a class="hero-action" href="{{ url_for('appointments_hub') }}">Terminliste</a>
   </div>
@@ -22,15 +22,16 @@
     <span class="badge">{{ staff }} • {{ selected_date }}</span>
   </div>
   <div class="calendar-quick-grid space-top">
-    <a class="calendar-quick-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else 'Ute', source='calendar_quick') }}">➕ Neuer Termin</a>
-    <a class="calendar-quick-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else 'Ute', source='calendar_quick') }}#todayAppointments">🗓️ Heute bearbeiten</a>
+    <a class="calendar-quick-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else default_staff, source='calendar_quick') }}">➕ Neuer Termin</a>
+    <a class="calendar-quick-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else default_staff, source='calendar_quick') }}#todayAppointments">🗓️ Heute bearbeiten</a>
     <a class="calendar-quick-link" href="{{ url_for('customer_search_page') }}">🔎 Kundensuche</a>
   </div>
   <form method="get" class="calendar-toolbar space-top">
     <div class="view-switch">
       <a class="view-chip {% if staff == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Alle') }}">Alle</a>
-      <a class="view-chip {% if staff == 'Ute' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Ute') }}">Ute</a>
-      <a class="view-chip {% if staff == 'Jessi' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Jessi') }}">Jessi</a>
+      {% for member in staff_members %}
+      <a class="view-chip {% if staff == member %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff=member) }}">{{ member }}</a>
+      {% endfor %}
     </div>
 
     <div class="view-switch">
@@ -72,7 +73,7 @@
       <div class="day-timeline compact-timeline space-top">
         {% for slot in staff_day['timeline']['slots'] %}
         <div class="day-slot">
-          <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff if staff != 'Alle' else 'Ute', source='slot') }}">{{ slot['time'] }}</a>
+          <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff if staff != 'Alle' else default_staff, source='slot') }}">{{ slot['time'] }}</a>
           <div class="day-slot-content">
             {% for appt in slot['items'] %}
             <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
@@ -132,7 +133,7 @@
   <div class="day-timeline space-top">
     {% for slot in day_view['timeline']['slots'] %}
     <div class="day-slot">
-      <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff if staff != 'Alle' else 'Ute', source='slot') }}">{{ slot['time'] }}</a>
+      <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff if staff != 'Alle' else default_staff, source='slot') }}">{{ slot['time'] }}</a>
       <div class="day-slot-content">
         {% for appt in slot['items'] %}
         <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
@@ -321,7 +322,7 @@
           <div class="list-item" data-device-id="${item.id}">
             <div class="row-between wrap-mobile">
               <strong>${escapeHtml(item.device_name || 'Gerät')}</strong>
-              <span class="badge">${escapeHtml(item.staff_name || 'Ute')}</span>
+              <span class="badge">${escapeHtml(item.staff_name || {{ default_staff|tojson }})}</span>
             </div>
             <div class="mobile-line"><span class="mobile-label">Letzter Erfolg:</span> ${escapeHtml(item.last_success_at || 'noch keiner')}</div>
             <div class="mobile-line"><span class="mobile-label">Letzter Test:</span> ${escapeHtml(item.last_test_at || 'noch keiner')}</div>
@@ -348,7 +349,7 @@
     if (testBtn) {
       testBtn.addEventListener('click', async function(){
         try {
-          const staff = staffSelect ? staffSelect.value : 'Ute';
+          const staff = staffSelect ? staffSelect.value : {{ default_staff|tojson }};
           const res = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staff)}`, {cache:'no-store'});
           const data = await res.json();
           syncCalendarPushUi();

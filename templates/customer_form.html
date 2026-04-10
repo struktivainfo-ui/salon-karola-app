@@ -94,14 +94,16 @@
             <option value="nicht erschienen">nicht erschienen</option>
           </select>
         </div>
-        <div class="form-group"><label>Mitarbeiterin</label>
+        <div class="form-group"><label>Mitarbeiter</label>
           <select name="staff_name" id="newAppointmentStaff">
-            <option value="Ute">Ute</option>
-            <option value="Jessi">Jessi</option>
+            {% for member in staff_members %}
+            <option value="{{ member }}">{{ member }}</option>
+            {% endfor %}
           </select>
           <div class="staff-quick-switch">
-            <button type="button" class="staff-pill active" data-target="newAppointmentStaff" data-value="Ute">Ute</button>
-            <button type="button" class="staff-pill" data-target="newAppointmentStaff" data-value="Jessi">Jessi</button>
+            {% for member in staff_members %}
+            <button type="button" class="staff-pill {% if loop.first %}active{% endif %}" data-target="newAppointmentStaff" data-value="{{ member }}">{{ member }}</button>
+            {% endfor %}
           </div>
         </div>
       </div>
@@ -122,7 +124,7 @@
           <span class="badge badge-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
         </div>
         <div class="mobile-line"><span class="mobile-label">Zeit:</span> {{ appt['appointment_at']|dt }}</div>
-        <div class="mobile-line"><span class="mobile-label">Mitarbeiterin:</span> {{ appt['staff_name'] or 'Ute' }}</div>
+        <div class="mobile-line"><span class="mobile-label">Mitarbeiter:</span> {{ appt['staff_name'] or default_staff }}</div>
         <div class="mobile-line">{{ appt['notes'] or 'Keine Notiz' }}</div>
         <details class="space-top appointment-edit-box">
           <summary>Termin bearbeiten</summary>
@@ -139,14 +141,16 @@
                   <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
                 </select>
               </div>
-              <div class="form-group"><label>Mitarbeiterin</label>
+              <div class="form-group"><label>Mitarbeiter</label>
                 <select name="staff_name" id="staff_{{ appt['id'] }}">
-                  <option value="Ute" {% if (appt['staff_name'] or 'Ute') == 'Ute' %}selected{% endif %}>Ute</option>
-                  <option value="Jessi" {% if appt['staff_name'] == 'Jessi' %}selected{% endif %}>Jessi</option>
+                  {% for member in staff_members %}
+                  <option value="{{ member }}" {% if (appt['staff_name'] or default_staff) == member %}selected{% endif %}>{{ member }}</option>
+                  {% endfor %}
                 </select>
                 <div class="staff-quick-switch">
-                  <button type="button" class="staff-pill {% if (appt['staff_name'] or 'Ute') == 'Ute' %}active{% endif %}" data-target="staff_{{ appt['id'] }}" data-value="Ute">Ute</button>
-                  <button type="button" class="staff-pill {% if appt['staff_name'] == 'Jessi' %}active{% endif %}" data-target="staff_{{ appt['id'] }}" data-value="Jessi">Jessi</button>
+                  {% for member in staff_members %}
+                  <button type="button" class="staff-pill {% if (appt['staff_name'] or default_staff) == member %}active{% endif %}" data-target="staff_{{ appt['id'] }}" data-value="{{ member }}">{{ member }}</button>
+                  {% endfor %}
                 </div>
               </div>
             </div>
@@ -219,7 +223,7 @@ document.addEventListener("DOMContentLoaded", function () {
 </script>
 <script>
   document.addEventListener("DOMContentLoaded", function () {
-    const deviceStaff = localStorage.getItem("sk_device_staff") || "Ute";
+    const deviceStaff = localStorage.getItem("sk_device_staff") || {{ default_staff|tojson }};
     document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
     const newStaff = document.getElementById("newAppointmentStaff");
     if (newStaff) {

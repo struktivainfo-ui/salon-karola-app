@@ -124,13 +124,16 @@
         setPushPanelOpen(!isOpen);
       }
 
+      const loggedInStaff = {{ logged_in_staff|tojson }};
+
       function currentStaff() {
-        return (localStorage.getItem(STORAGE_KEY_STAFF) || "Ute").trim() || "Ute";
+        return (localStorage.getItem(STORAGE_KEY_STAFF) || loggedInStaff || {{ default_staff|tojson }}).trim() || loggedInStaff || {{ default_staff|tojson }};
       }
 
       function currentPushTarget() {
-        const value = (localStorage.getItem(STORAGE_KEY_PUSH_TARGET) || "Ute").trim() || "Ute";
-        return ["Ute", "Jessi", "Alle"].includes(value) ? value : "Ute";
+        const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};
+        const value = (localStorage.getItem(STORAGE_KEY_PUSH_TARGET) || {{ default_staff|tojson }}).trim() || {{ default_staff|tojson }};
+        return allowedTargets.includes(value) ? value : {{ default_staff|tojson }};
       }
 
       function deviceNameFallback() {
@@ -555,10 +558,10 @@
       if (pushTargetSelect) {
         pushTargetSelect.value = currentPushTarget();
         if (!localStorage.getItem(STORAGE_KEY_PUSH_TARGET)) {
-          localStorage.setItem(STORAGE_KEY_PUSH_TARGET, pushTargetSelect.value || "Ute");
+          localStorage.setItem(STORAGE_KEY_PUSH_TARGET, pushTargetSelect.value || {{ default_staff|tojson }});
         }
         pushTargetSelect.addEventListener("change", () => {
-          const nextTarget = ["Ute", "Jessi", "Alle"].includes(pushTargetSelect.value) ? pushTargetSelect.value : "Ute";
+          const nextTarget = allowedTargets.includes(pushTargetSelect.value) ? pushTargetSelect.value : {{ default_staff|tojson }};
           localStorage.setItem(STORAGE_KEY_PUSH_TARGET, nextTarget);
           pushTargetSelect.value = nextTarget;
           setPushUi(`Push-Ziel: ${nextTarget}`);
@@ -709,6 +712,10 @@
       }
 
       window.addEventListener("load", async () => {
+        try {
+          if (loggedInStaff) localStorage.setItem(STORAGE_KEY_STAFF, loggedInStaff);
+          if (!localStorage.getItem(STORAGE_KEY_PUSH_TARGET) && loggedInStaff) localStorage.setItem(STORAGE_KEY_PUSH_TARGET, loggedInStaff);
+        } catch (e) {}
         try {
           const registration = await registerServiceWorker();
           if (registration && registration.waiting) registration.waiting.postMessage({ type: "SKIP_WAITING" });
