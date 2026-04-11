@@ -1,55 +1,66 @@
 {% extends 'base.html' %}
 {% block title %}Salon Karola App{% endblock %}
 {% block content %}
-<div class="auth-shell">
-  <section class="auth-landing">
-    <div class="auth-landing-copy">
-      <div class="auth-kicker">Salon Karola Calw-Wimberg</div>
-      <h1>Sch?nheit beginnt mit einem Termin, der sich leicht anf?hlt.</h1>
-      <div class="auth-highlights premium-highlights">
-        <div class="auth-highlight">Jessi &amp; Ute</div>
-        <div class="auth-highlight">Pers?nlich</div>
-        <div class="auth-highlight">Kompetent</div>
-        <div class="auth-highlight">Herzlich</div>
+<div class="auth-shell premium-auth-shell compact-auth-shell">
+  <section class="auth-landing premium-auth-hero compact-auth-hero">
+    <div class="compact-auth-hero-header">
+      <div class="compact-auth-brandline">
+        <img class="compact-auth-header-logo" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
+        <div>
+          <div class="compact-auth-brandname">Salon Karola App</div>
+          <div class="compact-auth-location">Calw-Wimberg</div>
+        </div>
       </div>
-      <div class="auth-info-grid">
-        <div class="auth-info-card">
-          <span>Telefon</span>
-          <strong>07051 / 6344</strong>
-        </div>
-        <div class="auth-info-card">
-          <span>Ort</span>
-          <strong>Calw-Wimberg</strong>
-        </div>
-        <div class="auth-info-card">
-          <span>?ffnungszeiten</span>
-          <strong>Di?Fr ? 9?12 / 13:30?17:45</strong>
-        </div>
-        <div class="auth-info-card">
-          <span>Samstag</span>
-          <strong>8:30?12:45</strong>
-        </div>
+      <div class="compact-auth-nav" role="tablist" aria-label="Anmeldung">
+        <button type="button" class="auth-switch-btn compact-auth-nav-btn active" data-auth-target="loginPanel">Anmelden</button>
+        <button type="button" class="auth-switch-btn compact-auth-nav-btn" data-auth-target="registerPanel">Registrieren</button>
       </div>
     </div>
-    <div class="auth-landing-panel">
-      <img class="login-logo auth-logo-large" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
-      <div class="auth-panel-label">Salon Karola App</div>
-      <div class="auth-panel-title">Premium Haircare in entspannter Atmosph?re</div>
+
+    <div class="compact-auth-copy">
+      <div class="premium-auth-kicker">Friseursalon in Calw-Wimberg</div>
+      <h1 class="premium-auth-title compact-auth-title">Schönheit beginnt mit einem Termin, der sich leicht anfühlt.</h1>
+      <p class="premium-auth-lead">Persönliche Beratung, entspanntes Ambiente und professionelle Schnitte für deinen Alltag.</p>
+    </div>
+
+    <div class="premium-auth-chip-row compact-auth-chip-row">
+      <div class="premium-auth-chip">Jessi &amp; Ute</div>
+      <div class="premium-auth-chip">Persönlich</div>
+      <div class="premium-auth-chip">Kompetent</div>
+      <div class="premium-auth-chip">Herzlich</div>
+    </div>
+
+    <div class="premium-auth-info-grid compact-auth-info-grid">
+      <div class="premium-auth-info-card">
+        <span>Telefon</span>
+        <strong>07051 / 6344</strong>
+      </div>
+      <div class="premium-auth-info-card">
+        <span>Ort</span>
+        <strong>Calw-Wimberg</strong>
+      </div>
+      <div class="premium-auth-info-card premium-auth-info-card-wide">
+        <span>Öffnungszeiten</span>
+        <strong>Di–Fr 9–12 · 13:30–17:45</strong>
+      </div>
+      <div class="premium-auth-info-card premium-auth-info-card-wide">
+        <span>Samstag</span>
+        <strong>8:30–12:45</strong>
+      </div>
     </div>
   </section>
 
-  <section class="auth-card-wrap">
-    <div class="auth-switch" role="tablist" aria-label="Anmeldung">
-      <button type="button" class="auth-switch-btn active" data-auth-target="loginPanel">Anmelden</button>
-      <button type="button" class="auth-switch-btn" data-auth-target="registerPanel">Registrieren</button>
+  <section class="auth-card-wrap premium-auth-card-wrap compact-auth-card-wrap">
+    <div class="compact-auth-card-head">
+      <div class="premium-auth-brand-label">Willkommen</div>
+      <div class="premium-auth-brand-text">Melde dich an oder lege dein Passwort an.</div>
     </div>
 
     <div class="auth-panel active" id="loginPanel">
       <div class="auth-panel-head">
         <h2>Anmelden</h2>
-        
       </div>
-      <form method="post" class="space-top">
+      <form method="post" class="space-top premium-auth-form">
         <input type="hidden" name="action" value="login">
         <div class="form-group">
           <label for="staff_name_login">Name</label>
@@ -65,7 +76,7 @@
         </div>
         <button type="submit">Einloggen</button>
       </form>
-      <div class="space-top auth-secondary-actions">
+      <div class="space-top auth-secondary-actions premium-auth-secondary-actions">
         <button type="button" class="btn btn-secondary" id="passkeyLoginBtn" {% if not passkeys_ready %}disabled{% endif %}>Mit Fingerabdruck anmelden</button>
         <div class="helper-text compact-helper" id="passkeyLoginStatus"></div>
       </div>
@@ -74,9 +85,8 @@
     <div class="auth-panel" id="registerPanel" hidden>
       <div class="auth-panel-head">
         <h2>Registrieren</h2>
-        
       </div>
-      <form method="post" class="space-top">
+      <form method="post" class="space-top premium-auth-form">
         <input type="hidden" name="action" value="setup">
         <div class="form-group">
           <label for="staff_name_setup">Name</label>
@@ -101,7 +111,7 @@
 </div>
 <script>
 (function(){
-  const switchButtons = Array.from(document.querySelectorAll('.auth-switch-btn'));
+  const switchButtons = Array.from(document.querySelectorAll('[data-auth-target]'));
   const panels = {
     loginPanel: document.getElementById('loginPanel'),
     registerPanel: document.getElementById('registerPanel'),

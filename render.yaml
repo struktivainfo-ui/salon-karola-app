@@ -1,5 +1,24 @@
-Version 4.3 erweitert das Push-System um drei Ziele: Ute, Jessi und Alle.
-
-Dieses Handy bleibt weiterhin nur Ute oder Jessi zugeordnet. Über "Push senden an" kann jetzt aber gezielt an Ute, Jessi oder an alle registrierten Geräte gesendet werden.
-
-Nach dem Deploy die App einmal neu laden und Push testen.
+services:
+  - type: web
+    name: salon-karola-crm
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application
+    disk:
+      name: salon-karola-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: APP_TIMEZONE
+        value: Europe/Berlin
+      - key: DATABASE_PATH
+        value: /var/data/salon_karola.db
+      - key: SMTP_USE_TLS
+        value: true
+      - key: EMAIL_PROVIDER
+        value: auto
+      - key: SECRET_KEY
+        generateValue: true
