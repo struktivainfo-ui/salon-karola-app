@@ -1,7 +1,8 @@
-1. Alte Dateien im Repo durch diese Version ersetzen
-2. GitHub pushen
-3. In Render prüfen:
-   Start Command: gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application
-4. Persistent Disk unter /opt/render/project/src/data verbinden
-5. Environment-Variablen setzen
-6. Clear build cache & deploy latest commit
+Version 4.5 Final Mobile & Push Icon
+
+Neu:
+- Mobile Menü-Links vereinfacht und stabilisiert
+- Push-Icon/Bedge für Android-Benachrichtigungen ergänzt
+- Service Worker Cache auf 4.5 gesetzt
+
+Nach Deploy: Browser/Handy einmal hart neu laden oder Service Worker neu registrieren.

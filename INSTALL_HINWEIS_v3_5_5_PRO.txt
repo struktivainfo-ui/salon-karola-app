@@ -1,12 +1,24 @@
-Salon Karola – Install-Hinweis Version 3.5.5 Pro
+Salon Karola 3.4 Pro – Mail-Fix
 
-Neu in 3.5.5 Pro:
-- Push-Leiste unten ist jetzt einklappbar
-- standardmäßig kompakt statt dauerhaft offen
-- nach erfolgreicher Push-Aktivierung schließt sich die Leiste automatisch
-- auf Desktop bleibt die Bedienung breit und übersichtlich
+Neu:
+- Resend Mail-API integriert (empfohlen für Render)
+- SMTP bleibt als Fallback erhalten
+- Dashboard zeigt Mail-Modus an
 
-Nach dem Deploy:
-1. Seite/App komplett neu laden
-2. Browser- oder PWA-Cache kurz aktualisieren, falls noch alte Dateien sichtbar sind
-3. Unten die Push-Leiste antippen, Gerät prüfen und Push testen
+Empfohlene Render-Variablen fuer Resend:
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=dein_resend_api_key
+RESEND_FROM=Salon Karola <onboarding@resend.dev> oder deine verifizierte Absenderadresse
+RESEND_REPLY_TO=matzkesven7@gmail.com
+
+Optionaler SMTP-Fallback:
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=deine_mail@gmail.com
+SMTP_PASSWORD=dein_app_passwort
+SMTP_SENDER=Salon Karola <deine_mail@gmail.com>
+SMTP_USE_TLS=true
+
+Wichtig:
+- Auf Render ist SMTP haeufig unzuverlaessig. Deshalb ist Resend die bessere Loesung.
+- Nach dem Setzen der Variablen immer neu deployen.

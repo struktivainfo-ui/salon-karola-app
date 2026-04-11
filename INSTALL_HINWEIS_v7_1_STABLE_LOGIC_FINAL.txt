@@ -1,14 +1,22 @@
-Salon Karola CRM – v7.1 Stable Logic Final
+Salon Karola – Version 3.8 Push System Komplett
 
-Wichtig nach dem Update:
-1. ZIP auf Render/GitHub hochladen und neu deployen.
-2. App im Browser/Handy einmal hart neu laden.
-3. Termine, Kalender, Kundensuche und Push kurz testen.
+Neu in dieser Version:
+- echtes Push-System mit automatischer VAPID-Schlüssel-Erzeugung
+- Push-Untermenü jetzt direkt im Hauptmenü
+- automatische Pushs bei neuen Terminen
+- automatische Pushs bei Termin-Erinnerungen
+- automatische Pushs bei Geburtstagen
+- Geräteübersicht im Kalender bleibt aktiv
 
-Verbessert in v7.1:
-- robustere Termin-Validierung beim Speichern
-- stabilere Mitarbeiter-Zuordnung (Ute/Jessi)
-- Push-Registrierung setzt alte Fehlerstände sauber zurück
-- doppelte Push-Endpunkte werden beim Versand besser abgefangen
-- Erinnerungsmails für erledigte/stornierte oder veraltete Termine laufen nicht weiter
-- manuelle Termine werden bei internen Push-Hinweisen sauberer benannt
+Wichtig nach dem Deploy:
+1. In Render neu deployen
+2. Die App einmal hart neu laden
+3. Auf jedem Handy im Menü auf "Push-System"
+4. Ute oder Jessi auswählen
+5. Gerätename eintragen
+6. "Push aktivieren" drücken
+7. Danach "Push testen"
+
+Hinweis:
+- Wenn in Render keine VAPID-Keys gesetzt sind, erzeugt die App in 3.8 automatisch eigene Schlüssel.
+- Eigene VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY aus Render funktionieren weiterhin und haben Vorrang.

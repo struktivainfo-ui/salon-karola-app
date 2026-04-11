@@ -1,10 +1,23 @@
-Salon Karola 3.3.6 Pro
+SALON KAROLA VERSION 3.2 PRO
 
-Neu in dieser Version:
-- Standard-Admin wird beim Start immer angelegt bzw. zurückgesetzt
-- Nach Datenbank-Import bleibt ein Login mit admin / 1234 immer möglich
-- Versionsstand auf 3.3.6 Pro
+NEU:
+- echte Hintergrund-Push-Funktion per Web Push
+- Tagesansicht mit festen Uhrzeiten
+- Öffnungszeiten im Kalender
 
-Standard-Login:
-Benutzername: admin
-Passwort: 1234
+ÖFFNUNGSZEITEN:
+- Montag bis Freitag: 09:00 bis 17:45
+- Samstag: 08:30 bis 12:45
+
+WICHTIG FÜR ECHTE HINTERGRUND-PUSHS:
+1. In Render neu deployen
+2. Diese Env-Variablen setzen:
+   VAPID_PUBLIC_KEY
+   VAPID_PRIVATE_KEY
+   VAPID_CLAIMS_SUBJECT
+3. App auf jedem Handy öffnen
+4. Ute oder Jessi auswählen
+5. Auf "Push aktivieren" drücken
+
+OHNE VAPID-KEYS:
+Die App läuft weiter, aber Hintergrund-Push ist serverseitig noch nicht komplett aktiv.

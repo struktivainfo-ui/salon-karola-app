@@ -1,10 +1,9 @@
-Version 3.4.3 Pro
+Salon Karola 3.3.6 Pro
 
-Neu: sichtbare Push-Leiste auf Desktop und Handy, Push aktivieren, Push testen.
+Wichtig nach dem Deploy:
+1. Deploy auf Render fertig laufen lassen
+2. Browser komplett schließen
+3. Die installierte PWA einmal entfernen oder neu öffnen
+4. Dann die Webseite neu laden
 
-Wichtig:
-1. VAPID_PUBLIC_KEY und VAPID_PRIVATE_KEY in Render setzen
-2. neu deployen
-3. im Browser Benachrichtigungen erlauben
-4. in der Kalender-Seite auf Push aktivieren klicken
-5. danach Push testen
+Diese Version setzt Dashboard und Datenbank auf direkte DB-Zaehlung und deaktiviert HTML-Cache fuer Dashboard, Kalender und Datenbank-Tools.

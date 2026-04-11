@@ -1,7 +1,17 @@
-Salon Karola 3.9 Ultra Menü Perfekt
+Version 3.5 Push Professional
 
-1. ZIP entpacken und alle Dateien ins GitHub-Repo hochladen.
-2. In Render neu deployen.
-3. Auf dem Handy die App komplett schließen und neu öffnen.
-4. Wenn noch alte Ansicht kommt: Service Worker / Browser-Cache leeren.
-5. Das mobile Menü öffnet jetzt als stabiles Overlay unter dem Menü-Button.
+Neu in dieser Version:
+- Push-Version im Code auf 3.5 angehoben
+- Geräte können jetzt mit Namen registriert werden
+- Push-Geräteübersicht im Kalender
+- letzter erfolgreicher Push wird gespeichert
+- Fehlerstatus und Fehlversuche pro Gerät werden gespeichert
+- ungültige Geräte werden beim Senden automatisch entfernt
+- Push-Test direkt aus der App
+
+Nach dem Deploy:
+1. Bei Render neu deployen
+2. Auf dem Handy Seite neu laden
+3. Push einmal neu aktivieren
+4. Gerätenamen eintragen (z. B. Ute iPhone)
+5. Im Kalender prüfen, ob das Gerät in der Liste erscheint

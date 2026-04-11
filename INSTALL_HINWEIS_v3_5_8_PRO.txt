@@ -1,5 +1,12 @@
-Version 3.5.8 Pro echtes Untermenü
-- Oberes Menü auf dem Handy ist standardmäßig geschlossen
-- Erst Klick auf Menü zeigt die Punkte als echte Untermenüs in einer Spalte
-- Untere Navigation entfernt
-- Bei Navigation schließt das Menü wieder
+Version 3.5.3 Pro mit echtem Mobile-Menü Fix
+
+Neu:
+- echtes aufklappbares Mobile-Menü
+- Menü ist auf dem Handy standardmäßig geschlossen
+- nach Push-Aktivierung wird das Mobile-Menü sicher geschlossen
+- Menü schließt auch nach Klick auf einen Navigationspunkt
+
+Nach dem Deploy:
+1. Seite auf dem Handy komplett neu laden
+2. Falls als App installiert: App einmal schließen und neu öffnen
+3. Push aktivieren und prüfen, ob nur noch der kleine Menü-Button sichtbar ist

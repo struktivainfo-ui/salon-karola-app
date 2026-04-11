@@ -1,23 +1,15 @@
-SALON KAROLA VERSION 3.2 PRO
+Salon Karola Version 2.5
 
-NEU:
-- echte Hintergrund-Push-Funktion per Web Push
-- Tagesansicht mit festen Uhrzeiten
-- Öffnungszeiten im Kalender
+Neu:
+- Kalender mit Tagesansicht
+- Kalender mit Wochenansicht Montag bis Sonntag
+- Kalender mit Monatsansicht
+- Keine Umsatzlogik pro Termin
+- Punkt 4 bewusst weggelassen
 
-ÖFFNUNGSZEITEN:
-- Montag bis Freitag: 09:00 bis 17:45
-- Samstag: 08:30 bis 12:45
-
-WICHTIG FÜR ECHTE HINTERGRUND-PUSHS:
-1. In Render neu deployen
-2. Diese Env-Variablen setzen:
-   VAPID_PUBLIC_KEY
-   VAPID_PRIVATE_KEY
-   VAPID_CLAIMS_SUBJECT
-3. App auf jedem Handy öffnen
-4. Ute oder Jessi auswählen
-5. Auf "Push aktivieren" drücken
-
-OHNE VAPID-KEYS:
-Die App läuft weiter, aber Hintergrund-Push ist serverseitig noch nicht komplett aktiv.
+Deploy:
+1. ZIP komplett entpacken
+2. alles in GitHub ersetzen
+3. Render deployen
+4. Start Command unverändert lassen:
+   gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application

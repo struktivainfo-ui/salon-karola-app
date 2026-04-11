@@ -1,15 +1,10 @@
-Salon Karola – Version 2.9 Pro
+Salon Karola Version 2.2
 
-Neu in 2.9 Pro:
-- Kalender komplett repariert
-- Tages-, Wochen- und Monatsansicht aktiv
-- Mitarbeiter-Filter: Alle / Ute / Jessi
-- Mitarbeiter-Zuordnung bei Terminen bleibt erhalten
-- Keine Umsatz-pro-Mitarbeiter-Funktion enthalten
-- Versionsanzeigen in der App auf 2.9 Pro gesetzt
-
-Wichtige Hinweise:
-1. Bestehende Datenbank kann weiter verwendet werden.
-2. Die Spalte staff_name wird beim Start automatisch ergänzt, falls sie fehlt.
-3. Nach Upload auf Render am besten einmal neu deployen.
-4. Bei bestehendem Browser-Cache die App einmal hart neu laden.
+Wichtig:
+1. Diese ZIP komplett entpacken und alles in dein GitHub-Repo hochladen.
+2. Start Command in Render:
+   gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application
+3. Nach dem Deploy auf dem Handy die alte App löschen und neu zum Home-Bildschirm hinzufügen.
+4. Das App-Icon nutzt jetzt einfache Pfade:
+   /static/icon-192.png
+   /static/icon-512.png

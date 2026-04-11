@@ -1,15 +1,17 @@
-SALON KAROLA – INSTALL HINWEIS VERSION 3.5.1 PRO
+SALON KAROLA – VERSION 3.4.1 PRO
 
-Neu in 3.5.1 Pro:
-- Versionsstand im Code auf 3.5.1 Pro
-- Geräte-Liste im Kalender mit direktem Test-Button pro Gerät
-- Geräte-Liste im Kalender mit direktem Lösch-Button pro Gerät
-- Einzeltest sendet jetzt wirklich nur an das ausgewählte Gerät
-- Push-Erfolg, letzter Test, Fehler und Fehlversuche werden sauber aktualisiert
+Neu in dieser Version:
+- Resend-Mailversand von urllib auf requests umgestellt
+- RESEND_FROM wird jetzt strikt aus RESEND_FROM gelesen
+- reply_to sauber als String an Resend gesendet
+- App-Version auf 3.4.1 Pro gesetzt
 
-Nach dem Deploy:
-1. App neu starten / neu deployen
-2. Kalender öffnen
-3. Unter Push-Benachrichtigungen Geräte neu laden
-4. Gerät testen
-5. Nicht mehr genutzte Geräte direkt löschen
+Wichtige Render-Variablen:
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=DEIN_NEUER_KEY
+RESEND_FROM=onboarding@resend.dev
+RESEND_REPLY_TO=matzkesven7@gmail.com
+
+SMTP-Felder bitte leer lassen, wenn nur Resend genutzt wird.
+
+Nach Upload immer neu deployen.

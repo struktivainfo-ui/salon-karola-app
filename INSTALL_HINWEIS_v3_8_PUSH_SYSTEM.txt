@@ -1,22 +1,13 @@
-Salon Karola – Version 3.8 Push System Komplett
+Version 3.5.10 Pro App-Menü
 
-Neu in dieser Version:
-- echtes Push-System mit automatischer VAPID-Schlüssel-Erzeugung
-- Push-Untermenü jetzt direkt im Hauptmenü
-- automatische Pushs bei neuen Terminen
-- automatische Pushs bei Termin-Erinnerungen
-- automatische Pushs bei Geburtstagen
-- Geräteübersicht im Kalender bleibt aktiv
+Neu:
+- echtes App-Menü von links auf dem Handy
+- Menü öffnet erst nach Klick auf "Menü"
+- dunkles Overlay im Hintergrund
+- Menü schließt bei Klick auf Overlay oder Menüpunkt
+- untere Navigation auf dem Handy ausgeblendet
 
-Wichtig nach dem Deploy:
-1. In Render neu deployen
-2. Die App einmal hart neu laden
-3. Auf jedem Handy im Menü auf "Push-System"
-4. Ute oder Jessi auswählen
-5. Gerätename eintragen
-6. "Push aktivieren" drücken
-7. Danach "Push testen"
-
-Hinweis:
-- Wenn in Render keine VAPID-Keys gesetzt sind, erzeugt die App in 3.8 automatisch eigene Schlüssel.
-- Eigene VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY aus Render funktionieren weiterhin und haben Vorrang.
+Nach dem Deploy:
+1. Seite/App komplett neu laden
+2. Wenn installiert: App ganz schließen und neu öffnen
+3. Falls noch alt aussieht: Browser-/PWA-Cache leeren

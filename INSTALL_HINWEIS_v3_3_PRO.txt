@@ -1,25 +1,8 @@
-Salon Karola Version 3.3 Pro
+Version 3.3.2 Pro
 
-Neu in 3.3 Pro
-- Dashboard nach Datenbank-Import robuster
-- Komplett-Ersetzen der Datenbank sauberer
-- Merge übernimmt alte und neue Terminspalten besser
-- SMTP/E-Mail-Versand robuster mit klareren Fehlermeldungen
-- Letzter Automatik-Fehler direkt im Dashboard sichtbar
+Fixes:
+- Dashboard liest Kundenzahl auch dann korrekt, wenn importierte SQLite-Dateien einzelne Kunden-Spalten nicht enthalten.
+- Fehlende _Customers-Spalten werden beim Start automatisch ergänzt.
+- Suche im Dashboard passt sich an die vorhandenen Kunden-Spalten an.
 
-Wichtig für automatische E-Mails
-1. In Render Environment Variablen setzen:
-   SMTP_HOST
-   SMTP_PORT
-   SMTP_USERNAME
-   SMTP_PASSWORD
-   SMTP_SENDER
-2. Optional:
-   SMTP_USE_TLS=true
-   SMTP_USE_SSL=false
-3. Danach neu deployen
-4. Im Dashboard 'Automatik prüfen' klicken
-5. Bei Fehlern wird der letzte SMTP-Fehler jetzt direkt im Dashboard angezeigt
-
-Hinweis
-Ganz fehlerfrei kann die Automatik nur laufen, wenn SMTP-Daten korrekt gesetzt sind. Der Code ist in 3.3 robuster, aber ohne korrekte Mail-Zugangsdaten kann kein Versand erfolgen.
+Nach dem Upload auf Render bitte neu deployen und danach einmal die Startseite hart neu laden (Strg+F5).

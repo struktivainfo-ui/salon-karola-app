@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}WhatsApp - Salon Karola{% endblock %}
+{% block content %}
+<section class="app-hero page-hero">
+  <div class="app-hero-copy">
+    <span class="eyebrow">Kommunikation</span>
+    <h1 class="app-hero-title">WhatsApp</h1>
+    <p class="app-hero-text">Kunden schneller finden und direkt mit vorbereiteten Aktionen anschreiben.</p>
+  </div>
+  <div class="hero-actions-grid">
+    <a class="hero-action primary" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
+    <a class="hero-action" href="{{ url_for('calendar_view') }}">Kalender</a>
+  </div>
+</section>
+
+<section class="card space-top">
+  <form method="get" class="grid grid-2">
+    <div class="form-group">
+      <label>Suche</label>
+      <input type="text" name="q" value="{{ q }}" placeholder="Name oder Telefonnummer">
+    </div>
+    <div class="actions">
+      <button type="submit">Suchen</button>
+      <a class="btn btn-secondary" href="{{ url_for('whatsapp_hub') }}">Zurücksetzen</a>
+    </div>
+  </form>
+</section>
+
+<section class="space-top list-stack">
+  {% for customer in customers %}
+  {% set next_appt = next_appt_map.get(customer['_id']) %}
+  <div class="card">
+    <div class="row-between wrap-mobile">
+      <div>
+        <h2 style="margin-bottom:6px;">{{ customer['_firstname'] }} {{ customer['_name'] }}</h2>
+        <div class="tiny-note">{{ customer['Customer_Mobiltelefon'] or customer['Customer_PersönlichesTelefon'] }}</div>
+      </div>
+      <a class="btn btn-secondary" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">Karte öffnen</a>
+    </div>
+    <div class="quick-actions">
+      <a class="quick-action" href="{{ whatsapp_link(customer) }}" target="_blank" rel="noopener">💬 Nachricht</a>
+      {% if next_appt %}
+      <a class="quick-action" href="{{ whatsapp_link(customer, 'Hallo ' ~ customer['_firstname'] ~ ', wir freuen uns auf deinen Termin am ' ~ (next_appt['appointment_at']|dt) ~ '. Viele Grüße vom Salon Karola') }}" target="_blank" rel="noopener">📅 Termin senden</a>
+      {% endif %}
+      <a class="quick-action" href="{{ whatsapp_link(customer, 'Hallo ' ~ customer['_firstname'] ~ ', wir würden uns freuen, dich bald wieder bei uns im Salon zu sehen. Melde dich gerne für einen neuen Termin. Viele Grüße vom Salon Karola') }}" target="_blank" rel="noopener">🔁 Rückholung</a>
+    </div>
+  </div>
+  {% else %}
+  <section class="card space-top">
+    <div class="list-item">Keine Kontakte mit WhatsApp-Nummer gefunden.</div>
+  </section>
+  {% endfor %}
+</section>
+{% endblock %}

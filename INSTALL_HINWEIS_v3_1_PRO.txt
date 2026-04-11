@@ -1,12 +1,14 @@
-Salon Karola Version 3.1 Pro
+Salon Karola Version 2.4
 
-Neu in 3.1 Pro:
-- Tag / Woche / Monat sauber auf Deutsch
-- Live-Benachrichtigung zwischen Ute und Jessi
-- Auswahl "Dieses Handy" für Ute oder Jessi
+Neu:
+- Mobile Bottom-Navigation
+- Schnellaktionen im Dashboard
+- Kundenstatus: aktiv / beobachten / rueckholung / neu
+- WhatsApp Vorlagen direkt auf der Kundenseite
 
-Wichtig zur Benachrichtigung:
-- Auf jedem Handy in der App unten/oben "Dieses Handy" richtig auf Ute oder Jessi setzen.
-- Dann auf "Push aktivieren" tippen und Benachrichtigungen erlauben.
-- Die andere Kollegin sieht neue Termine als Live-Benachrichtigung, solange die App geöffnet oder als PWA installiert ist.
-- Für echte Hintergrund-Pushs auch bei komplett geschlossener App wäre später noch Web-Push mit Server-Keys nötig.
+Deploy:
+1. ZIP komplett entpacken
+2. alles in GitHub ersetzen
+3. Render deployen
+4. Start Command unverändert lassen:
+   gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application

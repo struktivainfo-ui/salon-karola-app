@@ -1,4 +1,18 @@
-from app import app, boot_app
-
-boot_app()
-application = app
+services:
+  - type: web
+    name: salon-karola-crm
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: APP_TIMEZONE
+        value: Europe/Berlin
+      - key: DATABASE_PATH
+        value: /opt/render/project/src/data/salon_karola.db
+      - key: SMTP_USE_TLS
+        value: true
+      - key: EMAIL_PROVIDER
+        value: auto

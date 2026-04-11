@@ -1,6 +1,10 @@
-Version 3.4.4 Pro Handy Push Fix
+Salon Karola 3.3.6 Pro
 
-Wichtig:
-- Diese Version akzeptiert VAPID-Keys robuster.
-- Auch Public Keys im Hex-Format werden für den Browser sauber umgewandelt.
-- Nach dem Deploy bitte auf dem Handy die Seite neu laden und auf "Push aktivieren" klicken.
+Neu in dieser Version:
+- Standard-Admin wird beim Start immer angelegt bzw. zurückgesetzt
+- Nach Datenbank-Import bleibt ein Login mit admin / 1234 immer möglich
+- Versionsstand auf 3.3.6 Pro
+
+Standard-Login:
+Benutzername: admin
+Passwort: 1234

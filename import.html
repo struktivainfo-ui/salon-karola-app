@@ -1,14 +1,22 @@
 {% extends 'base.html' %}
-{% block title %}Import - Salon Karola{% endblock %}
+{% block title %}Login - Salon Karola{% endblock %}
 {% block content %}
-<section class="hero-card">
-  <h1 class="hero-title">CSV-Import</h1>
-  <p class="hero-text">Kontakte aus einer CSV-Datei übernehmen.</p>
-</section>
-<section class="card">
-  <form method="post" enctype="multipart/form-data">
-    <div class="form-group"><label>CSV-Datei</label><input type="file" name="csv_file" accept=".csv" required></div>
-    <button type="submit">Import starten</button>
-  </form>
-</section>
+<div class="login-shell">
+  <div class="login-card">
+    <img class="login-logo" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
+    <h1>Salon Karola</h1>
+    
+    <form method="post" class="space-top">
+      <div class="form-group">
+        <label>Benutzername</label>
+        <input type="text" name="username" autocomplete="username" required>
+      </div>
+      <div class="form-group">
+        <label>Passwort</label>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit">Einloggen</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

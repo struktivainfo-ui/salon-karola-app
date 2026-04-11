@@ -1,13 +1,15 @@
-Version 3.5.6 Pro Push Panel
+SALON KAROLA – INSTALL HINWEIS VERSION 3.5.1 PRO
 
-Neu:
-- echtes Push-Panel mit funktionierendem Auf/Zu
-- Panel startet geschlossen
-- Klick auf die gelbe Push-Leiste oeffnet/schliesst das Panel
-- Klick ausserhalb schliesst das Panel
-- nach erfolgreicher Push-Aktivierung schliesst das Panel automatisch
+Neu in 3.5.1 Pro:
+- Versionsstand im Code auf 3.5.1 Pro
+- Geräte-Liste im Kalender mit direktem Test-Button pro Gerät
+- Geräte-Liste im Kalender mit direktem Lösch-Button pro Gerät
+- Einzeltest sendet jetzt wirklich nur an das ausgewählte Gerät
+- Push-Erfolg, letzter Test, Fehler und Fehlversuche werden sauber aktualisiert
 
-Nach Deploy:
-1. Seite/App komplett neu laden
-2. Push-Leiste antippen
-3. Push aktivieren testen
+Nach dem Deploy:
+1. App neu starten / neu deployen
+2. Kalender öffnen
+3. Unter Push-Benachrichtigungen Geräte neu laden
+4. Gerät testen
+5. Nicht mehr genutzte Geräte direkt löschen

@@ -1,14 +1,5 @@
-Salon Karola CRM v7.0 Stable UI Final
+Version 3.8.3 Mobile Menü Fix
 
-Enthalten:
-- ruhigeres, einheitlicheres UI
-- sauberere Seitenköpfe
-- verbesserte Desktop-Navigation
-- bessere mobile Karten- und Button-Abstände
-- visuelle Feinschliffe für Tabellen, Karten und Fokuszustände
-
-Nach dem Deploy:
-1. Projekt hochladen oder GitHub aktualisieren
-2. Render neu deployen
-3. App im Browser einmal hart neu laden
-4. PWA am Handy neu öffnen
+Auf Handy wurde die doppelte Touch-/Click-Auslösung im Push-Untermenü entfernt.
+Nach dem Deploy App einmal komplett schließen und neu öffnen.
+Bei alter Ansicht Service Worker / Cache leeren.

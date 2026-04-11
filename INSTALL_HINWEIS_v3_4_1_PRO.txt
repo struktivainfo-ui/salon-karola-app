@@ -1,17 +1,1 @@
-SALON KAROLA – VERSION 3.4.1 PRO
-
-Neu in dieser Version:
-- Resend-Mailversand von urllib auf requests umgestellt
-- RESEND_FROM wird jetzt strikt aus RESEND_FROM gelesen
-- reply_to sauber als String an Resend gesendet
-- App-Version auf 3.4.1 Pro gesetzt
-
-Wichtige Render-Variablen:
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=DEIN_NEUER_KEY
-RESEND_FROM=onboarding@resend.dev
-RESEND_REPLY_TO=matzkesven7@gmail.com
-
-SMTP-Felder bitte leer lassen, wenn nur Resend genutzt wird.
-
-Nach Upload immer neu deployen.
+Nach dem Deploy die App 1x komplett schliessen und neu laden. Falls noetig im Browser die PWA/Service-Worker aktualisieren. Dieser Fix verhindert, dass das Dashboard aus einem alten Cache angezeigt wird.

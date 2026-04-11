@@ -1,1 +1,14 @@
-Deploye diese Version und lade danach das Dashboard hart neu. Wenn dort "Direkt aus DB" 375 anzeigt, aber oben weiter 0 stehen sollte, ist es definitiv kein Datenbankproblem mehr.
+SALON KAROLA – VERSION 3.0 PRO
+
+Neu in 3.0 Pro:
+- Termine direkt bearbeiten
+- Farbige Status-Anzeige im Kalender
+- Schnellwahl für Mitarbeiterin (Ute / Jessi)
+- Verbesserte Mobile-Schnellübersicht
+
+Start lokal:
+1. pip install -r requirements.txt
+2. python app.py
+3. Browser öffnen
+
+Bei bestehender Datenbank bleibt alles erhalten. Die App nutzt dieselbe SQLite-Datei weiter.

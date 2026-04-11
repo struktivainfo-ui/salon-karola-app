@@ -1,12 +1,672 @@
-Salon Karola Version 2.3
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Salon Karola" />
+  <title>{% block title %}Salon Karola{% endblock %}</title>
+  <link rel="manifest" href="{{ url_for('manifest') }}?v={{ app_version|urlencode }}" />
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}" />
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icon-192.png') }}" />
+  <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icon-512.png') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=app_version) }}" />
+</head>
+<body class="app-body endpoint-{{ current_endpoint|default('public') }}">
+  {% if session.get('admin_logged_in') and current_endpoint == 'calendar_view' %}
+  <div id="startupSplash" class="startup-splash" aria-hidden="true">
+    <div class="startup-splash-inner">
+      <div class="startup-splash-title">Jessi &amp; Ute</div>
+      <img class="startup-splash-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Emblem">
+      <div class="startup-splash-subtitle">Salon Karola</div>
+      <audio id="startupSound" preload="auto" playsinline>
+        <source src="{{ url_for('static', filename='sounds/start-chime.wav', v=app_version) }}" type="audio/wav">
+      </audio>
+    </div>
+  </div>
+  {% endif %}
+  {% if session.get('admin_logged_in') %}
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
+        <div>
+          <div class="brand-title">Salon Karola</div>
+          <div class="brand-subtitle">Salon-Organisation</div>
+          <div class="brand-version">{{ app_version }}</div>
+        </div>
+      </div>
+      <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
+      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menü schließen">×</button>
+      <nav class="nav-links" id="mainNavLinks" hidden>
+        <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
+        <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>
+        <details class="nav-admin-group" id="navCustomerGroup">
+          <summary class="nav-admin-summary {% if current_endpoint in ['customer_new', 'customer_detail', 'customer_search_page', 'customer_birthdays_page', 'customer_inactive_page'] %}active{% endif %}">Kunden</summary>
+          <div class="nav-admin-links">
+            <a class="{% if current_endpoint == 'customer_new' or current_endpoint == 'customer_detail' %}active{% endif %}" href="{{ url_for('customer_new') }}" data-nav-link="kunden">Kontakt</a>
+            <a class="{% if current_endpoint == 'customer_search_page' %}active{% endif %}" href="{{ url_for('customer_search_page') }}" data-nav-link="kundensuche">Kundensuche</a>
+            <a class="{% if current_endpoint == 'customer_birthdays_page' %}active{% endif %}" href="{{ url_for('customer_birthdays_page') }}" data-nav-link="geburtstage">Geburtstage</a>
+            <a class="{% if current_endpoint == 'customer_inactive_page' %}active{% endif %}" href="{{ url_for('customer_inactive_page') }}" data-nav-link="ohne-termin">Ohne Termin</a>
+          </div>
+        </details>
+        <a class="{% if current_endpoint == 'whatsapp_hub' %}active{% endif %}" href="{{ url_for('whatsapp_hub') }}" data-nav-link="whatsapp">WhatsApp</a>
+        <details class="nav-admin-group" id="navAdminGroup">
+          <summary class="nav-admin-summary">Admin</summary>
+          <div class="nav-admin-links">
+            <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('templates_view') }}" data-nav-link="vorlagen">Vorlagen</a>
+            <a class="{% if current_endpoint == 'import_customers' %}active{% endif %}" href="{{ url_for('import_customers') }}" data-nav-link="import">Import</a>
+            <a class="{% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('push_center') }}" data-nav-link="push">Push</a>
+            <a class="{% if current_endpoint == 'email_logs' %}active{% endif %}" href="{{ url_for('email_logs') }}" data-nav-link="logs">Logs</a>
+            <a class="{% if current_endpoint == 'database_tools' %}active{% endif %}" href="{{ url_for('database_tools') }}" data-nav-link="datenbank">Datenbank</a>
+          </div>
+        </details>
+        <a href="{{ url_for('logout') }}" data-nav-link="logout">Logout</a>
+      </nav>
+    </div>
+    <div class="menu-overlay" id="menuOverlay" aria-hidden="true"></div>
+  </header>
+  {% endif %}
+  <main class="container">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+    <script>
+    (function () {
+      const isLoggedIn = {{ 'true' if session.get('admin_logged_in') else 'false' }};
+      if (!isLoggedIn) return;
 
-Neu in Version 2.3:
-- Rückhol-System für Kunden ohne Termin in den letzten 60 Tagen
-- Terminstatus: geplant, bestätigt, erledigt, nicht erschienen
-- WhatsApp-Fertigtexte für Rückholung und Termin
-- Geburtstage werden als nächster kommender Geburtstag sortiert
+      const STORAGE_KEY_STAFF = "sk_device_staff";
+      const STORAGE_KEY_DEVICE_NAME = "sk_device_name";
+      const STORAGE_KEY_PUSH_TARGET = "sk_push_target";
+      const staffSelect = document.getElementById("deviceStaffSelect");
+      const enablePushBtn = document.getElementById("enablePushBtn");
+      const pushTargetSelect = document.getElementById("pushTargetSelect");
+      const pushStatusLabel = document.getElementById("pushStatusLabel");
+      const pushStatusMini = document.getElementById("pushStatusMini");
+      const deviceNameInput = document.getElementById("deviceNameInput");
+      const testPushBtn = document.getElementById("testPushBtn");
+      const menuToggle = document.getElementById("menuToggle");
+      const mainNavLinks = document.getElementById("mainNavLinks");
+      const menuOverlay = document.getElementById("menuOverlay");
+      const menuClose = document.getElementById("menuClose");
+      const navPushGroup = document.getElementById("navPushGroup");
+      const navPushToggle = document.getElementById("navPushToggle");
+      const navPushPanel = document.getElementById("navPushPanel");
+      const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
 
-Wichtig:
-- Start Command in Render bleibt:
-  gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application
-- Für Mailversand auf Render Free weiter SMTP-Block beachten.
+      function setPushPanelOpen(open) {
+        if (!navPushGroup || !navPushPanel || !navPushToggle) return;
+        navPushGroup.classList.toggle("open", !!open);
+        navPushPanel.hidden = !open;
+        navPushToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      }
+
+      function openDeviceStaffBar() {
+        setPushPanelOpen(true);
+      }
+
+      function closeDeviceStaffBar() {
+        setPushPanelOpen(false);
+      }
+
+      function toggleDeviceStaffBar() {
+        if (!navPushGroup) return;
+        const isOpen = navPushGroup.classList.contains("open");
+        setPushPanelOpen(!isOpen);
+      }
+
+      function currentStaff() {
+        return (localStorage.getItem(STORAGE_KEY_STAFF) || "Ute").trim() || "Ute";
+      }
+
+      function currentPushTarget() {
+        const value = (localStorage.getItem(STORAGE_KEY_PUSH_TARGET) || "Ute").trim() || "Ute";
+        return ["Ute", "Jessi", "Alle"].includes(value) ? value : "Ute";
+      }
+
+      function deviceNameFallback() {
+        if ((navigator.userAgent || "").includes("iPhone")) return "iPhone";
+        if ((navigator.userAgent || "").includes("Android")) return "Android-Handy";
+        return "Dieses Gerät";
+      }
+
+      function currentDeviceName() {
+        return (localStorage.getItem(STORAGE_KEY_DEVICE_NAME) || deviceNameFallback()).trim().slice(0, 80);
+      }
+
+      function persistDeviceName() {
+        if (!deviceNameInput) return currentDeviceName();
+        const value = (deviceNameInput.value || "").trim().slice(0, 80) || deviceNameFallback();
+        localStorage.setItem(STORAGE_KEY_DEVICE_NAME, value);
+        return value;
+      }
+
+      function setPushUi(text, mode = "idle") {
+        if (pushStatusMini) pushStatusMini.textContent = text;
+
+        if (enablePushBtn) {
+          if (mode === "working") {
+            enablePushBtn.disabled = true;
+            enablePushBtn.textContent = "Aktiviere…";
+          } else if (mode === "active") {
+            enablePushBtn.disabled = false;
+            enablePushBtn.textContent = "Push aktiv";
+          } else {
+            enablePushBtn.disabled = false;
+            enablePushBtn.textContent = "Push aktivieren";
+          }
+        }
+
+        if (pushStatusLabel) {
+          pushStatusLabel.textContent = `${currentStaff()} · ${currentDeviceName()}`;
+        }
+
+        if (pushTargetSelect && document.activeElement !== pushTargetSelect) {
+          pushTargetSelect.value = currentPushTarget();
+        }
+
+        if (deviceNameInput && document.activeElement !== deviceNameInput) {
+          deviceNameInput.value = currentDeviceName();
+        }
+      }
+
+      function closeMobileMenu() {
+        if (mainNavLinks) {
+          mainNavLinks.classList.remove("mobile-open");
+          if (isMobileView()) mainNavLinks.hidden = true;
+        }
+        if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
+        document.body.classList.remove("mobile-menu-open");
+        if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
+        if (menuClose) menuClose.classList.remove("visible");
+      }
+
+      function openMobileMenu() {
+        if (mainNavLinks) {
+          mainNavLinks.hidden = false;
+          requestAnimationFrame(() => mainNavLinks.classList.add("mobile-open"));
+        }
+        if (menuOverlay) { menuOverlay.classList.add("active"); menuOverlay.setAttribute("aria-hidden", "false"); }
+        document.body.classList.add("mobile-menu-open");
+        if (menuToggle) menuToggle.setAttribute("aria-expanded", "true");
+        if (menuClose) menuClose.classList.add("visible");
+      }
+
+      function toggleMobileMenu() {
+        if (!mainNavLinks) return;
+        if (mainNavLinks.classList.contains("mobile-open")) {
+          closeMobileMenu();
+          closeDeviceStaffBar();
+        } else {
+          openMobileMenu();
+        }
+      }
+
+      function closeAppMenuAfterPush() {
+        try {
+          document.body.classList.remove("menu-open", "nav-open", "drawer-open", "modal-open", "overflow-hidden");
+          document.documentElement.classList.remove("menu-open", "nav-open", "drawer-open", "modal-open", "overflow-hidden");
+          document.body.style.overflow = "";
+          document.documentElement.style.overflow = "";
+          closeMobileMenu();
+
+          document.querySelectorAll("details[open]").forEach((el) => el.removeAttribute("open"));
+          closeDeviceStaffBar();
+          document.querySelectorAll("dialog[open]").forEach((el) => { try { el.close(); } catch (e) {} });
+
+          document.querySelectorAll(".app-menu.open, .app-menu.active, .mobile-menu.open, .mobile-menu.active, .drawer.open, .drawer.active, .overlay.show, .overlay.active, .modal.show, .modal.active").forEach((el) => {
+            el.classList.remove("open", "active", "show");
+            if (el.classList.contains("overlay") || el.classList.contains("modal") || el.classList.contains("drawer") || el.classList.contains("app-menu") || el.classList.contains("mobile-menu")) {
+              el.style.display = "none";
+              el.setAttribute("aria-hidden", "true");
+            }
+          });
+
+          if (document.activeElement && typeof document.activeElement.blur === "function") {
+            document.activeElement.blur();
+          }
+        } catch (error) {}
+      }
+
+      document.querySelectorAll('#mainNavLinks a').forEach((link) => {
+        link.addEventListener('click', () => {
+          closeMobileMenu();
+          closeDeviceStaffBar();
+          const adminGroup = document.getElementById('navAdminGroup');
+          if (adminGroup) adminGroup.removeAttribute('open');
+        });
+      });
+
+      async function registerServiceWorker() {
+        if (!("serviceWorker" in navigator)) return null;
+        const registration = await navigator.serviceWorker.register("/service-worker.js", { updateViaCache: "none" });
+        try { await registration.update(); } catch (e) {}
+        return registration;
+      }
+
+      async function fetchPushConfig() {
+        const res = await fetch("/api/push/public-key", { cache: "no-store", credentials: "same-origin" });
+        if (!res.ok) throw new Error("Push-Konfiguration konnte nicht geladen werden.");
+        return res.json();
+      }
+
+      function vapidKeyToUint8Array(value) {
+        const cleaned = (value || "").trim();
+        if (!cleaned) throw new Error("VAPID Public Key fehlt.");
+        if (/^[0-9a-fA-F]+$/.test(cleaned) && cleaned.length % 2 === 0) {
+          const out = new Uint8Array(cleaned.length / 2);
+          for (let i = 0; i < cleaned.length; i += 2) {
+            out[i / 2] = parseInt(cleaned.slice(i, i + 2), 16);
+          }
+          return out;
+        }
+        const padding = "=".repeat((4 - cleaned.length % 4) % 4);
+        const base64 = (cleaned + padding).replace(/-/g, "+").replace(/_/g, "/");
+        const rawData = atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+        return outputArray;
+      }
+
+      async function registerPushSubscription(showMessage = true) {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+          setPushUi("Dieser Browser unterstützt keine Hintergrund-Pushs.");
+          if (showMessage) alert("Dieser Browser unterstützt keine Hintergrund-Pushs.");
+          return false;
+        }
+
+        const config = await fetchPushConfig();
+        if (!config.enabled || !config.public_key) {
+          setPushUi("Push ist serverseitig noch nicht fertig eingerichtet.");
+          if (showMessage) alert("Push ist serverseitig noch nicht vollständig eingerichtet. Bitte VAPID-Keys in Render setzen.");
+          return false;
+        }
+
+        persistDeviceName();
+        setPushUi("Push wird aktiviert…", "working");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          setPushUi("Benachrichtigungen wurden nicht erlaubt.");
+          if (showMessage) alert("Benachrichtigungen wurden nicht erlaubt.");
+          return false;
+        }
+
+        await registerServiceWorker();
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: vapidKeyToUint8Array(config.public_key),
+          });
+        }
+
+        const subscriptionPayload = (subscription && typeof subscription.toJSON === "function") ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription || {}));
+
+        const saveRes = await fetch("/api/push/subscribe", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            staff_name: currentStaff(),
+            device_name: currentDeviceName(),
+            subscription: subscriptionPayload,
+          }),
+        });
+        let saveData = null;
+        try { saveData = await saveRes.json(); } catch (e) {}
+
+        if (!saveRes.ok || !saveData || saveData.ok === false) {
+          const backendError = (saveData && (saveData.error || saveData.message)) || "Push-Abo konnte nicht gespeichert werden.";
+          setPushUi(backendError);
+          throw new Error(backendError);
+        }
+
+        const pingRes = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(currentStaff())}`, { cache: "no-store", credentials: "same-origin" });
+        let pingData = null;
+        try { pingData = await pingRes.json(); } catch (e) {}
+        const sentCount = pingData && pingData.result ? Number(pingData.result.sent || 0) : 0;
+        const deviceCount = pingData && typeof pingData.device_count !== "undefined" ? Number(pingData.device_count || 0) : 0;
+
+        if (typeof window.refreshPushOverview === "function") {
+          await window.refreshPushOverview();
+        }
+
+        if (deviceCount > 0) {
+          setPushUi(`Push ist für ${currentStaff()} aktiv.`, "active");
+        } else {
+          setPushUi(`Gerät wurde noch nicht sauber registriert. Bitte Seite neu laden und erneut aktivieren.`);
+        }
+
+        if (showMessage) {
+          if (deviceCount > 0 && sentCount > 0) {
+            alert(`Push ist für ${currentStaff()} aktiv.`);
+          } else if (deviceCount > 0) {
+            alert(`Gerät für ${currentStaff()} wurde gespeichert. Der Test-Push konnte aber noch nicht zugestellt werden.`);
+          }
+          setTimeout(() => { closeAppMenuAfterPush(); closeDeviceStaffBar(); }, 150);
+        }
+        return deviceCount > 0;
+      }
+
+      async function syncExistingPushSubscriptionSilently() {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return false;
+        if (Notification.permission !== "granted") return false;
+        try {
+          const config = await fetchPushConfig();
+          if (!config.enabled || !config.public_key) return false;
+          await registerServiceWorker();
+          const registration = await navigator.serviceWorker.ready;
+          let subscription = await registration.pushManager.getSubscription();
+          if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: vapidKeyToUint8Array(config.public_key),
+            });
+          }
+          const subscriptionPayload = (subscription && typeof subscription.toJSON === "function") ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription || {}));
+          const saveRes = await fetch("/api/push/subscribe", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              staff_name: currentStaff(),
+              device_name: currentDeviceName(),
+              subscription: subscriptionPayload,
+            }),
+          });
+          return saveRes.ok;
+        } catch (error) {
+          return false;
+        }
+      }
+
+      async function triggerPushTest(showMessage = true) {
+        const staff = currentPushTarget();
+        const res = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staff)}`, { cache: "no-store", credentials: "same-origin" });
+        const data = await res.json();
+        const sent = (data.result && data.result.sent) || 0;
+        const deviceCount = Number(data.device_count || 0);
+        const errors = (data.result && data.result.errors) || [];
+        if (typeof window.refreshPushOverview === "function") {
+          await window.refreshPushOverview();
+        }
+        if (sent > 0) {
+          setPushUi(`Push-Test für ${staff} gesendet (${sent}).`, "active");
+          if (showMessage) alert(`Test-Push für ${staff} wurde gesendet.`);
+        } else if (deviceCount > 0) {
+          const detail = errors.length ? ` Versandfehler: ${errors[0]}` : " Gerät ist registriert, aber der Versand ist fehlgeschlagen.";
+          setPushUi(`Push für ${staff} konnte nicht zugestellt werden.`);
+          if (showMessage) alert(`Gerät für ${staff} ist registriert, aber der Push konnte nicht zugestellt werden.${detail}`);
+        } else {
+          setPushUi(`Kein registriertes Gerät für ${staff} gefunden.`);
+          if (showMessage) alert(`Für ${staff} wurde kein aktives Gerät gefunden.`);
+        }
+      }
+
+      async function refreshPushStatus() {
+        if (staffSelect) staffSelect.value = currentStaff();
+        if (!deviceNameInput || document.activeElement !== deviceNameInput) {
+          if (deviceNameInput) deviceNameInput.value = currentDeviceName();
+        }
+
+        if (!("Notification" in window)) {
+          setPushUi("Dieser Browser unterstützt keine Push-Benachrichtigungen.");
+          return;
+        }
+
+        try {
+          const config = await fetchPushConfig();
+          if (!config.enabled || !config.public_key) {
+            setPushUi("Push ist serverseitig noch nicht vollständig eingerichtet.");
+            return;
+          }
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.getSubscription();
+          if (Notification.permission === "granted" && subscription) {
+            setPushUi(`Push ist für ${currentStaff()} aktiv.`, "active");
+            return;
+          }
+          if (Notification.permission === "granted") {
+            await registerPushSubscription(false);
+            return;
+          }
+          if (Notification.permission === "denied") {
+            setPushUi("Push wurde im Browser blockiert.");
+            return;
+          }
+          setPushUi("Push ist noch nicht aktiviert.");
+        } catch (error) {
+          setPushUi(error.message || "Push-Status konnte nicht geladen werden.");
+        }
+      }
+
+
+      function applyResponsiveMenuState() {
+        if (!mainNavLinks) return;
+        if (isMobileView()) {
+          mainNavLinks.hidden = !mainNavLinks.classList.contains("mobile-open");
+        } else {
+          mainNavLinks.hidden = false;
+          mainNavLinks.classList.remove("mobile-open");
+          if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
+          document.body.classList.remove("mobile-menu-open");
+          if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
+          if (menuClose) menuClose.classList.remove("visible");
+        }
+      }
+
+      applyResponsiveMenuState();
+      window.addEventListener("resize", applyResponsiveMenuState);
+
+      if (staffSelect) {
+        staffSelect.value = currentStaff();
+        staffSelect.addEventListener("change", async () => {
+          localStorage.setItem(STORAGE_KEY_STAFF, staffSelect.value);
+          await refreshPushStatus();
+          try {
+            if (Notification.permission === "granted") {
+              await registerPushSubscription(false);
+            }
+          } catch (e) {}
+        });
+      }
+
+      if (pushTargetSelect) {
+        pushTargetSelect.value = currentPushTarget();
+        if (!localStorage.getItem(STORAGE_KEY_PUSH_TARGET)) {
+          localStorage.setItem(STORAGE_KEY_PUSH_TARGET, pushTargetSelect.value || "Ute");
+        }
+        pushTargetSelect.addEventListener("change", () => {
+          const nextTarget = ["Ute", "Jessi", "Alle"].includes(pushTargetSelect.value) ? pushTargetSelect.value : "Ute";
+          localStorage.setItem(STORAGE_KEY_PUSH_TARGET, nextTarget);
+          pushTargetSelect.value = nextTarget;
+          setPushUi(`Push-Ziel: ${nextTarget}`);
+        });
+      }
+
+      if (deviceNameInput) {
+        deviceNameInput.value = currentDeviceName();
+        deviceNameInput.addEventListener("change", () => {
+          persistDeviceName();
+          setPushUi(pushStatusMini ? pushStatusMini.textContent : "Push-Status aktualisiert.");
+        });
+      }
+
+      if (menuToggle) {
+        const handleMenuToggle = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          toggleMobileMenu();
+        };
+        menuToggle.addEventListener("click", handleMenuToggle, { passive: false });
+      }
+
+      if (menuClose) {
+        menuClose.addEventListener("click", (event) => {
+          event.preventDefault();
+          closeMobileMenu();
+        });
+      }
+
+      if (menuOverlay) {
+        menuOverlay.addEventListener("click", () => closeMobileMenu());
+      }
+      if (navPushToggle) {
+        let pushToggleLockUntil = 0;
+        const handlePushToggle = (event) => {
+          const now = Date.now();
+          if (now < pushToggleLockUntil) return;
+          pushToggleLockUntil = now + 350;
+          event.preventDefault();
+          event.stopPropagation();
+          toggleDeviceStaffBar();
+          if (navPushGroup && navPushGroup.classList.contains("open")) {
+            setTimeout(() => {
+              if (deviceNameInput && isMobileView()) {
+                try { deviceNameInput.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) {}
+              }
+            }, 120);
+          }
+        };
+        navPushToggle.addEventListener("click", handlePushToggle);
+      }
+
+      if (mainNavLinks) {
+        mainNavLinks.addEventListener("click", (event) => {
+          const target = event.target.closest("#navPushGroup, #navPushGroup *");
+          if (target) event.stopPropagation();
+        });
+      }
+
+
+      if (mainNavLinks) {
+        const navigateFromMenu = (link, event) => {
+          const href = link.getAttribute("href");
+          if (!href || href.startsWith("#")) return;
+          event.preventDefault();
+          event.stopPropagation();
+          closeMobileMenu();
+          window.setTimeout(() => { window.location.href = link.href || href; }, 10);
+        };
+
+        mainNavLinks.querySelectorAll("a[data-nav-link]").forEach((link) => {
+          link.style.touchAction = "manipulation";
+          link.style.pointerEvents = "auto";
+          link.addEventListener("click", (event) => navigateFromMenu(link, event), { passive: false });
+        });
+      }
+
+      if (testPushBtn) {
+        testPushBtn.addEventListener("click", async () => {
+          try {
+            await triggerPushTest(true);
+          } catch (error) {
+            setPushUi(error.message || "Push-Test fehlgeschlagen.");
+            alert((error && error.message) ? error.message : "Push-Test fehlgeschlagen.");
+          }
+        });
+      }
+
+      if (enablePushBtn) {
+        enablePushBtn.addEventListener("click", async () => {
+          try {
+            await registerPushSubscription(true);
+          } catch (error) {
+            setPushUi(error.message || "Push konnte nicht aktiviert werden.");
+            alert((error && error.message) ? error.message : "Push konnte nicht aktiviert werden. Bitte Handy-Seite neu laden und erneut versuchen.");
+          }
+        });
+      }
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeMobileMenu();
+      });
+
+      window.addEventListener("resize", () => {
+        if (window.innerWidth > 768) closeMobileMenu();
+      });
+
+
+
+      function hideStartupSplash() {
+        const splash = document.getElementById("startupSplash");
+        if (!splash) return;
+        splash.classList.add("fade-out");
+        window.setTimeout(() => {
+          try { splash.remove(); } catch (e) {}
+        }, 950);
+      }
+
+      async function playStartupSound() {
+        const sound = document.getElementById("startupSound");
+        if (!sound) return;
+        try {
+          sound.volume = 0.45;
+          sound.currentTime = 0;
+          await sound.play();
+        } catch (error) {
+          // Mobile browsers can block autoplay with sound until the first interaction.
+        }
+      }
+
+      function runStartupSplash() {
+        const splash = document.getElementById("startupSplash");
+        if (!splash) return;
+        const splashKey = "sk_startup_splash_seen";
+        try {
+          if (window.sessionStorage.getItem(splashKey) === "1") {
+            splash.remove();
+            return;
+          }
+          window.sessionStorage.setItem(splashKey, "1");
+        } catch (error) {
+          // If sessionStorage is blocked, fall back to showing it once per page load.
+        }
+        splash.classList.add("visible");
+        playStartupSound();
+        window.setTimeout(hideStartupSplash, 2200);
+      }
+
+      window.addEventListener("load", async () => {
+        try {
+          const registration = await registerServiceWorker();
+          if (registration && registration.waiting) registration.waiting.postMessage({ type: "SKIP_WAITING" });
+          navigator.serviceWorker.addEventListener("controllerchange", () => {
+            if (!window.__skReloaded) {
+              window.__skReloaded = true;
+              window.location.reload();
+            }
+          });
+        } catch (e) {}
+        runStartupSplash();
+        closeMobileMenu();
+        closeDeviceStaffBar();
+        await refreshPushStatus();
+        await syncExistingPushSubscriptionSilently();
+      });
+
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+          refreshPushStatus();
+          syncExistingPushSubscriptionSilently();
+        }
+      });
+
+      window.addEventListener("focus", () => {
+        refreshPushStatus();
+        syncExistingPushSubscriptionSilently();
+      });
+    })();
+  </script>
+</body>
+</html>

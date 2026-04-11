@@ -1,12 +1,10 @@
-Version 3.5.3 Pro mit echtem Mobile-Menü Fix
+Version 3.4.3 Pro
 
-Neu:
-- echtes aufklappbares Mobile-Menü
-- Menü ist auf dem Handy standardmäßig geschlossen
-- nach Push-Aktivierung wird das Mobile-Menü sicher geschlossen
-- Menü schließt auch nach Klick auf einen Navigationspunkt
+Neu: sichtbare Push-Leiste auf Desktop und Handy, Push aktivieren, Push testen.
 
-Nach dem Deploy:
-1. Seite auf dem Handy komplett neu laden
-2. Falls als App installiert: App einmal schließen und neu öffnen
-3. Push aktivieren und prüfen, ob nur noch der kleine Menü-Button sichtbar ist
+Wichtig:
+1. VAPID_PUBLIC_KEY und VAPID_PRIVATE_KEY in Render setzen
+2. neu deployen
+3. im Browser Benachrichtigungen erlauben
+4. in der Kalender-Seite auf Push aktivieren klicken
+5. danach Push testen

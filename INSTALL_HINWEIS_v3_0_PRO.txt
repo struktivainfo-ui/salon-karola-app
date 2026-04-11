@@ -1,14 +1,12 @@
-SALON KAROLA – VERSION 3.0 PRO
+Salon Karola Version 2.3
 
-Neu in 3.0 Pro:
-- Termine direkt bearbeiten
-- Farbige Status-Anzeige im Kalender
-- Schnellwahl für Mitarbeiterin (Ute / Jessi)
-- Verbesserte Mobile-Schnellübersicht
+Neu in Version 2.3:
+- Rückhol-System für Kunden ohne Termin in den letzten 60 Tagen
+- Terminstatus: geplant, bestätigt, erledigt, nicht erschienen
+- WhatsApp-Fertigtexte für Rückholung und Termin
+- Geburtstage werden als nächster kommender Geburtstag sortiert
 
-Start lokal:
-1. pip install -r requirements.txt
-2. python app.py
-3. Browser öffnen
-
-Bei bestehender Datenbank bleibt alles erhalten. Die App nutzt dieselbe SQLite-Datei weiter.
+Wichtig:
+- Start Command in Render bleibt:
+  gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application
+- Für Mailversand auf Render Free weiter SMTP-Block beachten.

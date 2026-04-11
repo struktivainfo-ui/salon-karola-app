@@ -1,5 +1,12 @@
-Version 4.3 erweitert das Push-System um drei Ziele: Ute, Jessi und Alle.
+Salon Karola – Version 3.6.0 Pro Clean Left Menu
 
-Dieses Handy bleibt weiterhin nur Ute oder Jessi zugeordnet. Über "Push senden an" kann jetzt aber gezielt an Ute, Jessi oder an alle registrierten Geräte gesendet werden.
+Neu:
+- Oberes Handy-Menü fährt jetzt von links ein
+- Widersprüchliche alte Mobile-Menü-CSS entfernt
+- Service-Worker-Cache-Version erhöht
+- Style.css wird mit Versionsparameter geladen
 
-Nach dem Deploy die App einmal neu laden und Push testen.
+Nach dem Deploy:
+1. Browser/PWA komplett schließen
+2. Seite neu öffnen
+3. Falls noch alte Ansicht sichtbar ist: Browserdaten der Seite löschen

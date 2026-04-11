@@ -1,12 +1,13 @@
-Salon Karola – Version 3.6.0 Pro Clean Left Menu
+Version 3.5.6 Pro Push Panel
 
 Neu:
-- Oberes Handy-Menü fährt jetzt von links ein
-- Widersprüchliche alte Mobile-Menü-CSS entfernt
-- Service-Worker-Cache-Version erhöht
-- Style.css wird mit Versionsparameter geladen
+- echtes Push-Panel mit funktionierendem Auf/Zu
+- Panel startet geschlossen
+- Klick auf die gelbe Push-Leiste oeffnet/schliesst das Panel
+- Klick ausserhalb schliesst das Panel
+- nach erfolgreicher Push-Aktivierung schliesst das Panel automatisch
 
-Nach dem Deploy:
-1. Browser/PWA komplett schließen
-2. Seite neu öffnen
-3. Falls noch alte Ansicht sichtbar ist: Browserdaten der Seite löschen
+Nach Deploy:
+1. Seite/App komplett neu laden
+2. Push-Leiste antippen
+3. Push aktivieren testen

@@ -1,8 +1,15 @@
-Version 3.3.2 Pro
+Salon Karola Version 2.8 Pro
 
-Fixes:
-- Dashboard liest Kundenzahl auch dann korrekt, wenn importierte SQLite-Dateien einzelne Kunden-Spalten nicht enthalten.
-- Fehlende _Customers-Spalten werden beim Start automatisch ergänzt.
-- Suche im Dashboard passt sich an die vorhandenen Kunden-Spalten an.
+Neu:
+- Termin kann Ute oder Jessi zugeordnet werden
+- Team-Kalender Menü oben im Dashboard
+- Kalenderfilter für Alle / Ute / Jessi
+- Deutsche Wochentage in Tag- und Wochenansicht
+- Kein Umsatzmodul
 
-Nach dem Upload auf Render bitte neu deployen und danach einmal die Startseite hart neu laden (Strg+F5).
+Deploy:
+1. ZIP komplett entpacken
+2. alles in GitHub ersetzen
+3. Render deployen
+4. Start Command unverändert lassen:
+   gunicorn --workers 1 --bind 0.0.0.0:$PORT wsgi:application

@@ -1,9 +1,12 @@
-Salon Karola 3.3.6 Pro
+Salon Karola Version 3.1 Pro
 
-Wichtig nach dem Deploy:
-1. Deploy auf Render fertig laufen lassen
-2. Browser komplett schließen
-3. Die installierte PWA einmal entfernen oder neu öffnen
-4. Dann die Webseite neu laden
+Neu in 3.1 Pro:
+- Tag / Woche / Monat sauber auf Deutsch
+- Live-Benachrichtigung zwischen Ute und Jessi
+- Auswahl "Dieses Handy" für Ute oder Jessi
 
-Diese Version setzt Dashboard und Datenbank auf direkte DB-Zaehlung und deaktiviert HTML-Cache fuer Dashboard, Kalender und Datenbank-Tools.
+Wichtig zur Benachrichtigung:
+- Auf jedem Handy in der App unten/oben "Dieses Handy" richtig auf Ute oder Jessi setzen.
+- Dann auf "Push aktivieren" tippen und Benachrichtigungen erlauben.
+- Die andere Kollegin sieht neue Termine als Live-Benachrichtigung, solange die App geöffnet oder als PWA installiert ist.
+- Für echte Hintergrund-Pushs auch bei komplett geschlossener App wäre später noch Web-Push mit Server-Keys nötig.
