@@ -35,11 +35,11 @@
         <div class="brand-main">
           <div class="brand-title-row">
             <div class="brand-title">Salon Karola App</div>
-            <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menü</button>
+            <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menue</button>
           </div>
         </div>
       </div>
-      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Men&uuml; schlie&szlig;en">&times;</button>
+      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menue schliessen">Schliessen</button>
       <nav class="nav-links" id="mainNavLinks" hidden>
         <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>
