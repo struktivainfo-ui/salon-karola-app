@@ -22,7 +22,7 @@
 <section class="card premium-calendar-panel">
   <div class="calendar-control-head">
     <h2>Steuerung</h2>
-    <span class="badge">{{ staff }} ? {{ selected_date }}</span>
+    <span class="badge">{{ staff }} Â· {{ selected_date }}</span>
   </div>
 
   <form method="get" class="calendar-toolbar premium-calendar-toolbar space-top">
@@ -48,7 +48,7 @@
     <div class="calendar-control-group calendar-nav-group">
       <div class="calendar-group-label">Datum</div>
       <div class="calendar-nav premium-calendar-nav">
-        <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=prev_date, staff=staff) }}">Zur?ck</a>
+        <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=prev_date, staff=staff) }}">ZurÃ¼ck</a>
         <input type="date" name="date" value="{{ selected_date }}">
         <input type="hidden" name="view" value="{{ view }}">
         <input type="hidden" name="staff" value="{{ staff }}">
@@ -84,7 +84,7 @@
           <div class="day-slot-content">
             {% for appt in slot['items'] %}
             <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-              <strong>{{ appt['customer_name'] }}</strong> ? {{ appt['title'] }}
+              <strong>{{ appt['customer_name'] }}</strong> Â· {{ appt['title'] }}
             </a>
             {% else %}
             <div class="day-slot-empty">frei</div>
@@ -120,7 +120,7 @@
       <div class="day-slot-content">
         {% for appt in slot['items'] %}
         <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-          <strong>{{ appt['customer_name'] }}</strong> ? {{ appt['title'] }} ? {{ appt['staff_name'] }}
+          <strong>{{ appt['customer_name'] }}</strong> Â· {{ appt['title'] }} Â· {{ appt['staff_name'] }}
         </a>
         {% else %}
         <div class="day-slot-empty">frei</div>
@@ -153,7 +153,7 @@
         <a class="week-event week-event-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
           <div class="week-event-time">{{ appt['appointment_at']|dt }}</div>
           <div class="week-event-title">{{ appt['firstname'] }} {{ appt['lastname'] }}</div>
-          <div class="week-event-meta">{{ appt['title'] }} ? {{ appt['staff_name'] }}</div>
+          <div class="week-event-meta">{{ appt['title'] }} Â· {{ appt['staff_name'] }}</div>
         </a>
         {% else %}
         <div class="week-empty">Keine Termine</div>
@@ -182,7 +182,7 @@
         <div class="month-cell-items">
           {% for appt in cell['items'][:3] %}
           <a class="month-item month-item-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-            {{ appt['time_short'] }} {{ appt['firstname'] }} {{ appt['lastname'] }} ? {{ appt['staff_name'] }}
+            {{ appt['time_short'] }} {{ appt['firstname'] }} {{ appt['lastname'] }} Â· {{ appt['staff_name'] }}
           </a>
           {% endfor %}
           {% if cell['items']|length > 3 %}
@@ -201,7 +201,7 @@
         <div class="mobile-card {% if cell['is_today'] %}today-outline{% endif %}">
           <h3>{{ cell['date'] }}</h3>
           {% for appt in cell['items'] %}
-          <div class="mobile-line">{{ appt['appointment_at']|dt }} ? {{ appt['firstname'] }} {{ appt['lastname'] }} ? {{ appt['title'] }}</div>
+          <div class="mobile-line">{{ appt['appointment_at']|dt }} Â· {{ appt['firstname'] }} {{ appt['lastname'] }} Â· {{ appt['title'] }}</div>
           {% endfor %}
         </div>
         {% endif %}

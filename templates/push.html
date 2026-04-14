@@ -4,9 +4,9 @@
 <section class="premium-shell">
   <section class="premium-page-head">
     <div>
-      <div class="premium-page-kicker">Admin</div>
+      <div class="premium-page-kicker">Verwaltung</div>
       <h1 class="premium-page-title">Push</h1>
-      <div class="premium-page-subtitle">Geraete und Zustellung an einem Ort.</div>
+      <div class="premium-page-subtitle">Geräte und Zustellung an einem Ort.</div>
     </div>
     <div class="premium-top-actions">
       <a class="premium-top-action primary" href="{{ url_for('calendar_view') }}">Kalender</a>
@@ -18,7 +18,7 @@
     <article class="premium-panel">
       <div class="premium-panel-head">
         <div>
-          <div class="premium-panel-kicker">Dieses Geraet</div>
+          <div class="premium-panel-kicker">Dieses Gerät</div>
           <h2 class="premium-panel-title">Einrichten</h2>
         </div>
       </div>
@@ -30,7 +30,7 @@
           </select>
         </div>
         <div class="form-group premium-form-group">
-          <label for="deviceNameInput">Geraetename</label>
+          <label for="deviceNameInput">Gerätename</label>
           <input type="text" id="deviceNameInput" placeholder="z. B. Handy Sven" maxlength="80">
         </div>
         <div class="form-group premium-form-group">
@@ -44,7 +44,7 @@
           <button type="button" class="premium-button" id="enablePushBtn">Push aktivieren</button>
           <button type="button" class="premium-button secondary" id="testPushBtn">Push testen</button>
         </div>
-        <div class="premium-note">Push wird direkt diesem Geraet und der ausgewaehlten Person zugeordnet.</div>
+        <div class="premium-note">Push wird direkt diesem Gerät und der ausgewählten Person zugeordnet.</div>
         <div class="premium-note" id="pushStatusMini">Push ist noch nicht aktiviert.</div>
       </div>
     </article>
@@ -52,8 +52,8 @@
     <article class="premium-panel">
       <div class="premium-panel-head">
         <div>
-          <div class="premium-panel-kicker">Uebersicht</div>
-          <h2 class="premium-panel-title">Geraete</h2>
+          <div class="premium-panel-kicker">&Uuml;bersicht</div>
+          <h2 class="premium-panel-title">Geräte</h2>
         </div>
       </div>
       <div class="premium-stat-grid compact premium-space-top">
@@ -64,9 +64,9 @@
         <article class="premium-stat-card"><div class="premium-stat-label">Gesamt</div><div class="premium-stat-value" id="totalCount">0</div></article>
       </div>
       <div class="premium-button-row compact premium-space-top">
-        <button type="button" class="premium-button secondary" id="reloadDevicesBtn">Geraete neu laden</button>
+        <button type="button" class="premium-button secondary" id="reloadDevicesBtn">Geräte neu laden</button>
       </div>
-      <div id="pushDevicesList" class="premium-list premium-space-top"><div class="premium-list-empty">Noch keine Geraete registriert.</div></div>
+      <div id="pushDevicesList" class="premium-list premium-space-top"><div class="premium-list-empty">Noch keine Geräte registriert.</div></div>
     </article>
   </section>
 </section>
@@ -94,13 +94,13 @@
 
   async function loadDevices() {
     if (!list) return;
-    list.innerHTML = '<div class="premium-list-empty">Lade Geraete...</div>';
+    list.innerHTML = '<div class="premium-list-empty">Lade Geräte...</div>';
     try {
       const res = await fetch('/api/push/devices', { cache: 'no-store' });
       const data = await res.json();
       const items = data.items || [];
       if (!items.length) {
-        list.innerHTML = '<div class="premium-list-empty">Noch keine Geraete registriert.</div>';
+        list.innerHTML = '<div class="premium-list-empty">Noch keine Geräte registriert.</div>';
         return;
       }
       list.innerHTML = items.map((item) => {
@@ -113,7 +113,7 @@
           </div>`;
       }).join('');
     } catch (e) {
-      list.innerHTML = '<div class="premium-list-empty">Geraete konnten nicht geladen werden.</div>';
+      list.innerHTML = '<div class="premium-list-empty">Geräte konnten nicht geladen werden.</div>';
     }
   }
 

@@ -2801,7 +2801,7 @@ thead th {
   color: #f4d978;
 }
 
-.premium-status-best?tigt,
+.premium-status-bestÃ¤tigt,
 .premium-status-bestaetigt,
 .premium-activity-aktiv {
   background: rgba(80, 162, 108, 0.16);
@@ -3611,7 +3611,7 @@ thead th {
   color: #8a5b1e;
 }
 
-.premium-status-best?tigt,
+.premium-status-bestÃ¤tigt,
 .premium-status-bestaetigt,
 .premium-activity-aktiv {
   background: rgba(124, 176, 136, 0.16);
@@ -4415,6 +4415,11 @@ th, td {
   top: 0;
   z-index: 90;
   background: rgba(250, 243, 236, 0.97);
+  transition: transform .22s ease, box-shadow .22s ease;
+}
+
+.topbar.topbar-hidden {
+  transform: translateY(-100%);
 }
 
 .topbar-inner {
@@ -4481,13 +4486,37 @@ th, td {
   min-height: 40px;
   padding: 8px 12px;
   border-radius: 12px;
-  background: rgba(255,255,255,0.96);
+  background: rgba(255,255,255,0.97);
   color: #3c2417;
   border: 1px solid rgba(143, 92, 51, 0.14);
 }
 
 .nav-admin-group {
   position: relative;
+}
+
+.nav-admin-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.nav-admin-summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-admin-summary::after {
+  content: "\25BE";
+  font-size: 0.78rem;
+  color: #7c563c;
+  transition: transform .18s ease;
+}
+
+.nav-admin-group[open] > .nav-admin-summary::after {
+  transform: rotate(180deg);
 }
 
 .nav-admin-links {
@@ -4497,7 +4526,7 @@ th, td {
 }
 
 .nav-admin-links a {
-  background: rgba(255, 250, 245, 0.98);
+  background: rgba(255, 250, 245, 0.99);
   color: #3e2415;
   border: 1px solid rgba(143, 92, 51, 0.12);
 }
@@ -4605,7 +4634,7 @@ th, td {
     gap: 8px;
     padding: 12px;
     border-radius: 18px;
-    background: rgba(250, 244, 238, 0.98);
+    background: rgba(250, 244, 238, 0.99);
     border: 1px solid rgba(143, 92, 51, 0.16);
     box-shadow: 0 18px 50px rgba(74, 42, 24, 0.14);
     max-height: calc(100vh - 84px);
@@ -4643,4 +4672,13 @@ th, td {
     padding: 9px 10px;
     font-size: 0.92rem;
   }
+}
+
+.menu-toggle:hover,
+.menu-toggle:focus-visible,
+.nav-admin-summary:hover,
+.nav-admin-summary:focus-visible {
+  background: #fffaf5;
+  color: #2f1a10;
+  border-color: rgba(143, 92, 51, 0.26);
 }
