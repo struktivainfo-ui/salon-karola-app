@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
-{% block title %}Termine ? Salon Karola App{% endblock %}
+{% block title %}Termine - Salon Karola App{% endblock %}
 {% block content %}
 <section class="premium-shell">
   <section class="premium-page-head">
     <div>
       <div class="premium-page-kicker">Termine</div>
       <h1 class="premium-page-title">Planen</h1>
-      <div class="premium-page-subtitle">Schnell anlegen, heute pr?fen, n?chste Termine im Blick.</div>
+      <div class="premium-page-subtitle">Schnell anlegen, heute prüfen, nächste Termine im Blick.</div>
     </div>
     <div class="premium-top-actions">
       <a class="premium-top-action primary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Tageskalender</a>
@@ -29,9 +29,9 @@
           <div class="form-group premium-form-group">
             <label for="customer_id">Kontakt</label>
             <select name="customer_id" id="customer_id">
-              <option value="">Kontakt ausw?hlen</option>
+              <option value="">Kontakt auswählen</option>
               {% for customer in customers %}
-              <option value="{{ customer['_id'] }}">{{ customer['lastname'] }}{% if customer['firstname'] %}, {{ customer['firstname'] }}{% endif %}{% if customer['phone'] %} ? {{ customer['phone'] }}{% endif %}</option>
+              <option value="{{ customer['_id'] }}">{{ customer['lastname'] }}{% if customer['firstname'] %}, {{ customer['firstname'] }}{% endif %}{% if customer['phone'] %} - {{ customer['phone'] }}{% endif %}</option>
               {% endfor %}
             </select>
           </div>
@@ -60,7 +60,7 @@
             <label for="status">Status</label>
             <select name="status" id="status">
               <option value="geplant">geplant</option>
-              <option value="best?tigt">best?tigt</option>
+              <option value="bestätigt">bestätigt</option>
               <option value="erledigt">erledigt</option>
               <option value="nicht erschienen">nicht erschienen</option>
             </select>
@@ -90,7 +90,7 @@
 
         <div class="premium-button-row">
           <button type="submit" class="premium-button">Termin speichern</button>
-          <a class="premium-button secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender ?ffnen</a>
+          <a class="premium-button secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender öffnen</a>
         </div>
       </form>
     </article>
@@ -132,7 +132,7 @@
     <div class="premium-panel-head">
       <div>
         <div class="premium-panel-kicker">Ausblick</div>
-        <h2 class="premium-panel-title">N?chste Termine</h2>
+        <h2 class="premium-panel-title">Nächste Termine</h2>
       </div>
       <a class="premium-inline-link" href="{{ url_for('calendar_view', view='week', staff='Alle') }}">Wochenkalender</a>
     </div>
@@ -144,10 +144,10 @@
           <span class="premium-status-pill premium-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
         </div>
         <div class="premium-list-sub">{{ appt['appointment_at']|dt }}</div>
-        <div class="premium-list-meta">{{ appt['title'] }} ? {{ appt['staff_name'] or default_staff }}</div>
+        <div class="premium-list-meta">{{ appt['title'] }} - {{ appt['staff_name'] or default_staff }}</div>
       </a>
       {% else %}
-      <div class="premium-list-empty">Noch keine n?chsten Termine vorhanden.</div>
+      <div class="premium-list-empty">Noch keine nächsten Termine vorhanden.</div>
       {% endfor %}
     </div>
   </section>

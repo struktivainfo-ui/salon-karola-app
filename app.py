@@ -117,8 +117,9 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-04-11-landing-refresh-2"
-STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
+APP_VERSION = "Salon Karola App 2026-04-14-polish-1"
+CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
+STAFF_MEMBERS = list(CONFIGURED_STAFF_MEMBERS)
 STAFF_OPTIONS = ["Alle", *STAFF_MEMBERS]
 DEFAULT_STAFF = STAFF_MEMBERS[0]
 MANUAL_PLACEHOLDER_LASTNAME = "__MANUELLER_TERMIN__"
@@ -161,7 +162,7 @@ def verify_password(stored_password, candidate_password):
 
 def staff_account_configs():
     accounts = []
-    for member in STAFF_MEMBERS:
+    for member in CONFIGURED_STAFF_MEMBERS:
         env_prefix = member.upper()
         username_default = "sven" if member == "Sven" else member.lower()
         password_fallback = os.getenv("ADMIN_PASSWORD") if member == "Sven" else ""
@@ -172,8 +173,33 @@ def staff_account_configs():
     return accounts
 
 
-def default_login_options():
-    return [{"staff_name": item["staff_name"], "label": item["display_name"] or item["staff_name"]} for item in staff_account_configs()]
+def get_staff_members(db=None):
+    fallback = list(dict.fromkeys(CONFIGURED_STAFF_MEMBERS))
+    try:
+        conn = db or get_db()
+        rows = conn.execute("SELECT staff_name FROM staff_users WHERE COALESCE(staff_name, '') <> '' ORDER BY created_at ASC, id ASC").fetchall()
+    except Exception:
+        rows = []
+    names = []
+    for row in rows:
+        name = (row["staff_name"] or "").strip()
+        if name and name not in names:
+            names.append(name)
+    return names or fallback
+
+
+def get_staff_options(db=None):
+    return ["Alle", *get_staff_members(db)]
+
+
+def get_default_staff(db=None):
+    members = get_staff_members(db)
+    return members[0] if members else DEFAULT_STAFF
+
+
+def default_login_options(db=None):
+    config_map = {item["staff_name"]: item for item in staff_account_configs()}
+    return [{"staff_name": name, "label": (config_map.get(name, {}).get("display_name") or name)} for name in get_staff_members(db)]
 
 
 def user_has_password(user_row):
@@ -189,18 +215,19 @@ def fetch_user_for_staff(conn, staff_name):
     ).fetchone()
 
 
-def resolve_staff_name_for_user(user_row):
+def resolve_staff_name_for_user(user_row, db=None):
     if not user_row:
-        return DEFAULT_STAFF
+        return get_default_staff(db)
+    staff_members = get_staff_members(db)
     staff_name = (user_row["staff_name"] or "").strip() if "staff_name" in user_row.keys() else ""
-    if staff_name in STAFF_MEMBERS:
+    if staff_name in staff_members:
         return staff_name
     username = (user_row["username"] or "").strip().lower() if "username" in user_row.keys() else ""
     display_name = (user_row["display_name"] or "").strip().lower() if "display_name" in user_row.keys() else ""
-    for member in STAFF_MEMBERS:
+    for member in staff_members:
         if username == member.lower() or display_name == member.lower():
             return member
-    return DEFAULT_STAFF
+    return get_default_staff(db)
 
 
 def login_user(user, *, staff_name=None, remember_device=False):
@@ -1222,9 +1249,10 @@ def _touch_push_subscription(subscription_id, **values):
 
 def push_devices_for_staff(staff_name=None):
     db = get_db()
+    active_staff = get_staff_members(db)
     params = []
     query = "SELECT * FROM push_subscriptions"
-    if staff_name in STAFF_MEMBERS:
+    if staff_name in active_staff:
         query += " WHERE staff_name = ?"
         params.append(staff_name)
     query += " ORDER BY staff_name ASC, COALESCE(last_success_at, last_seen_at, updated_at, created_at) DESC"
@@ -1369,7 +1397,7 @@ def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
 
 def webpush_send_to_all_staff(title, body, url="/calendar"):
     totals = {"sent": 0, "skipped": 0, "errors": []}
-    for target_staff in STAFF_MEMBERS:
+    for target_staff in get_staff_members():
         result = webpush_send_to_staff(target_staff, title, body, url)
         totals["sent"] += int(result.get("sent") or 0)
         totals["skipped"] += int(result.get("skipped") or 0)
@@ -1603,17 +1631,19 @@ def _parse_dt_safe(value):
         return None
 
 
-def _normalize_staff_name(value, default=DEFAULT_STAFF):
-    default = default if default in STAFF_OPTIONS else DEFAULT_STAFF
-    value = (value or default or DEFAULT_STAFF).strip()
-    return value if value in STAFF_OPTIONS else default
+def _normalize_staff_name(value, default=DEFAULT_STAFF, db=None):
+    staff_options = get_staff_options(db)
+    fallback = default if default in staff_options else get_default_staff(db)
+    value = (value or fallback or get_default_staff(db)).strip()
+    return value if value in staff_options else fallback
 
 
-def other_staff_members(current_staff):
-    normalized = _normalize_staff_name(current_staff, default=DEFAULT_STAFF)
+def other_staff_members(current_staff, db=None):
+    staff_members = get_staff_members(db)
+    normalized = _normalize_staff_name(current_staff, default=get_default_staff(db), db=db)
     if normalized == "Alle":
-        return list(STAFF_MEMBERS)
-    return [name for name in STAFF_MEMBERS if name != normalized]
+        return list(staff_members)
+    return [name for name in staff_members if name != normalized]
 
 
 def _safe_int(value, default=0, minimum=None, maximum=None):
@@ -1791,13 +1821,15 @@ def staff_dashboard_counts():
         (today_start, tomorrow_start),
     ).fetchall()
 
-    data = {name: 0 for name in STAFF_MEMBERS}
+    members = get_staff_members(db)
+    default_staff = get_default_staff(db)
+    data = {name: 0 for name in members}
     for row in rows:
-        staff_name = (row["staff_name"] or DEFAULT_STAFF).strip() if isinstance(row["staff_name"], str) else DEFAULT_STAFF
+        staff_name = (row["staff_name"] or default_staff).strip() if isinstance(row["staff_name"], str) else default_staff
         if staff_name in data:
             data[staff_name] = int(row["cnt"] or 0)
 
-    return [{"staff_name": name, "count": data.get(name, 0)} for name in STAFF_MEMBERS]
+    return [{"staff_name": name, "count": data.get(name, 0)} for name in members]
 
 
 def today_appointments(limit=20):
@@ -1934,7 +1966,7 @@ def login():
     db = get_db()
     if request.method == "POST":
         action = (request.form.get("action") or "login").strip().lower()
-        selected_staff = _normalize_staff_name(request.form.get("staff_name"), default=DEFAULT_STAFF)
+        selected_staff = _normalize_staff_name(request.form.get("staff_name"), default=get_default_staff(db), db=db)
         user = fetch_user_for_staff(db, selected_staff)
         remember_device = (request.form.get("remember_device") or "").strip().lower() in {"1", "true", "on", "yes"}
 
@@ -1944,9 +1976,9 @@ def login():
             if not user:
                 flash("Benutzer konnte nicht vorbereitet werden.")
             elif len(password) < 4:
-                flash("Bitte ein Passwort mit mindestens 4 Zeichen waehlen.")
+                flash("Bitte ein Passwort mit mindestens 4 Zeichen w?hlen.")
             elif password != password_confirm:
-                flash("Die beiden Passwoerter stimmen nicht ueberein.")
+                flash("Die beiden Passw?rter stimmen nicht ?berein.")
             else:
                 db.execute(
                     "UPDATE staff_users SET password = ? WHERE id = ?",
@@ -1954,7 +1986,7 @@ def login():
                 )
                 db.commit()
                 login_user(user, staff_name=selected_staff, remember_device=remember_device)
-                flash(f"Passwort fuer {selected_staff} gespeichert oder ersetzt. Willkommen, {selected_staff}.")
+                flash(f"Passwort f?r {selected_staff} gespeichert oder ersetzt. Willkommen, {selected_staff}.")
                 return redirect(request.args.get("next") or url_for("calendar_view"))
         else:
             password = request.form.get("password", "")
@@ -1969,7 +2001,7 @@ def login():
                         (hash_password(password), user["id"]),
                     )
                     db.commit()
-                staff_name = resolve_staff_name_for_user(user)
+                staff_name = resolve_staff_name_for_user(user, db=db)
                 login_user(user, staff_name=staff_name, remember_device=remember_device)
                 flash(f"Login erfolgreich: {staff_name}.")
                 return redirect(request.args.get("next") or url_for("calendar_view"))
@@ -2877,15 +2909,17 @@ def appointments_hub():
         """
     ).fetchall()
     today_rows = today_appointments(limit=50)
-    today_split = {"Ute": [], "Jessi": []}
+    active_staff = get_staff_members(db)
+    default_staff = get_default_staff(db)
+    today_split = {name: [] for name in active_staff}
     for row in today_rows:
-        staff_name = row["staff_name"] if row["staff_name"] in STAFF_MEMBERS else DEFAULT_STAFF
+        staff_name = row["staff_name"] if row["staff_name"] in active_staff else default_staff
         today_split.setdefault(staff_name, []).append(row)
 
     prefill_at = (request.args.get("appointment_at") or "").strip()
     if not prefill_at:
         prefill_at = datetime.now().replace(second=0, microsecond=0).isoformat(timespec="minutes")
-    prefill_staff = _normalize_staff_name(request.args.get("staff"), default=DEFAULT_STAFF)
+    prefill_staff = _normalize_staff_name(request.args.get("staff"), default=get_default_staff(db), db=db)
     if prefill_staff == "Alle":
         prefill_staff = DEFAULT_STAFF
     prefill_source = (request.args.get("source") or "manual").strip()
@@ -2911,8 +2945,10 @@ def calendar_view():
         view = "week"
 
     selected_date = parse_iso_date(request.args.get("date"))
+    db = get_db()
+    staff_options = get_staff_options(db)
     staff = (request.args.get("staff") or "Alle").strip()
-    if staff not in STAFF_OPTIONS:
+    if staff not in staff_options:
         staff = "Alle"
 
     day_view = _build_day_view(selected_date, staff) if view == "day" else None
@@ -2920,7 +2956,7 @@ def calendar_view():
     month_view = _build_month_view(selected_date, staff) if view == "month" else None
     split_day_views = None
     if view == "day" and staff == "Alle":
-        split_day_views = {name: _build_day_view(selected_date, name) for name in STAFF_MEMBERS}
+        split_day_views = {name: _build_day_view(selected_date, name) for name in get_staff_members(db)}
 
     return render_template(
         "calendar.html",
@@ -3030,7 +3066,7 @@ def push_overview():
         "generated_keys": bool(_get_app_setting("push:vapid_generated_at", "")),
         "total_devices": total_devices,
         "active_devices": total_active,
-        "counts_by_staff": {name: len(push_devices_for_staff(name)) for name in STAFF_MEMBERS},
+        "counts_by_staff": {name: len(push_devices_for_staff(name)) for name in get_staff_members(db)},
         "last_run_at": get_setting("automation:last_run_at", ""),
         "last_run_summary": get_setting("automation:last_run_summary", ""),
         "last_run_error": get_setting("automation:last_run_error", ""),
@@ -3040,8 +3076,10 @@ def push_overview():
 @app.route("/api/push/devices")
 @login_required
 def push_devices():
+    db = get_db()
+    active_staff = get_staff_members(db)
     staff_name = (request.args.get("staff_name") or "").strip()
-    if staff_name not in STAFF_MEMBERS:
+    if staff_name not in active_staff:
         staff_name = None
     return {"ok": True, "items": push_devices_for_staff(staff_name)}
 
@@ -3219,6 +3257,63 @@ def push_center():
         current_endpoint="push_center",
         app_version=APP_VERSION,
     )
+
+
+@app.route("/staff", methods=["GET", "POST"])
+@login_required
+def staff_management():
+    db = get_db()
+    if request.method == "POST":
+        staff_id = (request.form.get("staff_id") or "").strip()
+        staff_name = (request.form.get("staff_name") or "").strip()
+        display_name = (request.form.get("display_name") or staff_name).strip()
+        username = (request.form.get("username") or "").strip().lower()
+        password = request.form.get("password", "")
+        current_id = int(staff_id) if staff_id.isdigit() else None
+
+        if not staff_name:
+            flash("Bitte einen Mitarbeiternamen eintragen.")
+        elif not username:
+            flash("Bitte einen Benutzernamen eintragen.")
+        else:
+            username_row = db.execute("SELECT id FROM staff_users WHERE username = ? LIMIT 1", (username,)).fetchone()
+            staff_row = db.execute("SELECT id FROM staff_users WHERE staff_name = ? LIMIT 1", (staff_name,)).fetchone()
+            if username_row and username_row["id"] != current_id:
+                flash("Dieser Benutzername ist schon vergeben.")
+            elif staff_row and staff_row["id"] != current_id:
+                flash("Dieser Mitarbeitername ist schon vergeben.")
+            elif current_id:
+                sql = "UPDATE staff_users SET username = ?, display_name = ?, staff_name = ?"
+                params = [username, display_name or staff_name, staff_name]
+                if password:
+                    sql += ", password = ?"
+                    params.append(hash_password(password))
+                sql += " WHERE id = ?"
+                params.append(current_id)
+                db.execute(sql, params)
+                db.commit()
+                flash(f"Mitarbeiter {staff_name} wurde aktualisiert.")
+            else:
+                db.execute(
+                    """
+                    INSERT INTO staff_users(username, password, display_name, staff_name, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (username, hash_password(password) if password else "", display_name or staff_name, staff_name, datetime.now().isoformat(timespec="seconds")),
+                )
+                db.commit()
+                flash(f"Mitarbeiter {staff_name} wurde angelegt.")
+        return redirect(url_for("staff_management"))
+
+    staff_users = db.execute(
+        """
+        SELECT id, username, display_name, staff_name, created_at,
+               CASE WHEN COALESCE(password, '') <> '' THEN 1 ELSE 0 END AS has_password
+        FROM staff_users
+        ORDER BY created_at ASC, id ASC
+        """
+    ).fetchall()
+    return render_template("staff.html", staff_users=staff_users, current_endpoint="staff_management", app_version=APP_VERSION)
 
 
 @app.route("/whatsapp")
@@ -3423,14 +3518,14 @@ def format_phone_href(value):
 def inject_globals():
     return {
         "admin_name": session.get("admin_name"),
-        "logged_in_staff": session.get("staff_name") or DEFAULT_STAFF,
+        "logged_in_staff": session.get("staff_name") or get_default_staff(),
         "login_options": default_login_options(),
         "customer_activity_status": customer_activity_status,
         "whatsapp_link": whatsapp_link,
         "phone_href": phone_href,
         "app_version": APP_VERSION,
-        "staff_members": STAFF_MEMBERS,
-        "default_staff": DEFAULT_STAFF,
+        "staff_members": get_staff_members(),
+        "default_staff": get_default_staff(),
         "passkeys_ready": passkeys_ready(),
     }
 

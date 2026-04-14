@@ -18,7 +18,7 @@
   {% if session.get('admin_logged_in') and current_endpoint == 'calendar_view' %}
   <div id="startupSplash" class="startup-splash" aria-hidden="true">
     <div class="startup-splash-inner">
-      <div class="startup-splash-title">Jessi &amp; Ute</div>
+      <div class="startup-splash-title">Salon-Team</div>
       <img class="startup-splash-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Emblem">
       <div class="startup-splash-subtitle">Salon Karola</div>
       <audio id="startupSound" preload="auto" playsinline>
@@ -35,11 +35,11 @@
         <div class="brand-main">
           <div class="brand-title-row">
             <div class="brand-title">Salon Karola App</div>
-            <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks" onclick="window.skToggleMenu && window.skToggleMenu(event)">Menue</button>
+            <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks" onclick="window.skToggleMenu && window.skToggleMenu(event)">Menü</button>
           </div>
         </div>
       </div>
-      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menue schliessen" onclick="window.skCloseMenu && window.skCloseMenu(event)">Schliessen</button>
+      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menü schließen" onclick="window.skCloseMenu && window.skCloseMenu(event)">Schließen</button>
       <nav class="nav-links" id="mainNavLinks" hidden>
         <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>
@@ -54,11 +54,12 @@
         </details>
         <a class="{% if current_endpoint == 'whatsapp_hub' %}active{% endif %}" href="{{ url_for('whatsapp_hub') }}" data-nav-link="whatsapp">WhatsApp</a>
         <details class="nav-admin-group" id="navAdminGroup">
-          <summary class="nav-admin-summary {% if current_endpoint in ['templates_view', 'import_customers', 'push_center', 'email_logs', 'database_tools'] %}active{% endif %}">Verwaltung</summary>
+          <summary class="nav-admin-summary {% if current_endpoint in ['templates_view', 'import_customers', 'push_center', 'email_logs', 'database_tools', 'staff_management'] %}active{% endif %}">Verwaltung</summary>
           <div class="nav-admin-links">
             <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('templates_view') }}" data-nav-link="vorlagen">Vorlagen</a>
             <a class="{% if current_endpoint == 'import_customers' %}active{% endif %}" href="{{ url_for('import_customers') }}" data-nav-link="import">Import</a>
             <a class="{% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('push_center') }}" data-nav-link="push">Push</a>
+            <a class="{% if current_endpoint == 'staff_management' %}active{% endif %}" href="{{ url_for('staff_management') }}" data-nav-link="mitarbeiter">Mitarbeiter</a>
             <a class="{% if current_endpoint == 'email_logs' %}active{% endif %}" href="{{ url_for('email_logs') }}" data-nav-link="logs">Protokolle</a>
             <a class="{% if current_endpoint == 'database_tools' %}active{% endif %}" href="{{ url_for('database_tools') }}" data-nav-link="datenbank">Datenbank</a>
           </div>
@@ -132,12 +133,12 @@
       function currentPushTarget() {
         const storedTarget = (localStorage.getItem(STORAGE_KEY_PUSH_TARGET) || "").trim();
         if (!storedTarget) return currentStaff();
-        return allowedTargets.includes(storedTarget) · storedTarget : currentStaff();
+        return allowedTargets.includes(storedTarget) ? storedTarget : currentStaff();
       }
 
       function deviceNameFallback() {
         if ((navigator.userAgent || "").includes("iPhone")) return "iPhone";
-        if ((navigator.userAgent || "").includes("Android")) return isNativeApp · "Salon Karola App" : "Android-Handy";
+        if ((navigator.userAgent || "").includes("Android")) return isNativeApp ? "Salon Karola App" : "Android-Handy";
         return "Dieses Gerät";
       }
 
@@ -322,7 +323,7 @@
         });
 
         await nativePushPlugin.addListener('registrationError', (error) => {
-          const message = (error && (error.error || error.message)) · (error.error || error.message) : 'Android-Push konnte nicht registriert werden.';
+          const message = (error && (error.error || error.message)) ? (error.error || error.message) : 'Android-Push konnte nicht registriert werden.';
           if (nativePushPending && nativePushPending.timer) clearTimeout(nativePushPending.timer);
           if (nativePushPending && nativePushPending.reject) nativePushPending.reject(new Error(message));
           nativePushPending = null;
@@ -331,7 +332,7 @@
 
         await nativePushPlugin.addListener('pushNotificationActionPerformed', (event) => {
           try {
-            const notification = event && event.notification · event.notification : {};
+            const notification = event && event.notification ? event.notification : {};
             const data = notification.data || {};
             const targetUrl = data.url || '/calendar';
             if (targetUrl) window.location.href = targetUrl;
@@ -414,10 +415,10 @@
         }
         const pingRes = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(currentStaff())}`, { cache: 'no-store', credentials: 'same-origin' });
         const pingData = await pingRes.json().catch(() => null);
-        const sentCount = pingData && pingData.result · Number(pingData.result.sent || 0) : 0;
-        const deviceCount = pingData && typeof pingData.device_count !== 'undefined' · Number(pingData.device_count || 0) : 0;
+        const sentCount = pingData && pingData.result ? Number(pingData.result.sent || 0) : 0;
+        const deviceCount = pingData && typeof pingData.device_count !== 'undefined' ? Number(pingData.device_count || 0) : 0;
         const errors = (pingData && pingData.result && pingData.result.errors) || [];
-        const firstError = errors.length · String(errors[0] || '') : '';
+        const firstError = errors.length ? String(errors[0] || '') : '';
         if (deviceCount > 0 && sentCount === 0 && isVapidMismatchError(firstError)) {
           setPushUi('Alte Push-Registrierung erkannt. Gerät wird neu verbunden...', 'working');
           await resetBrowserPushSubscription();
@@ -496,12 +497,12 @@
           setPushUi(`Push-Test für ${staff} gesendet (${sent}).`, 'active');
           if (showMessage) alert(`Test-Push für ${staff} wurde gesendet.`);
         } else if (deviceCount > 0) {
-          const detail = errors.length · ` Versandfehler: ${errors[0]}` : ' Gerät ist registriert, aber der Versand ist fehlgeschlagen.';
+          const detail = errors.length ? ` Versandfehler: ${errors[0]}` : ' Gerät ist registriert, aber der Versand ist fehlgeschlagen.';
           setPushUi(`Push für ${staff} konnte nicht zugestellt werden.`);
           if (showMessage) alert(`Gerät für ${staff} ist registriert, aber der Push konnte nicht zugestellt werden.${detail}`);
         } else {
           setPushUi(`Kein registriertes Gerät für ${staff} gefunden.`);
-          if (showMessage) alert(`Für ${staff} wurde kein aktives Geraet gefunden.`);
+          if (showMessage) alert(`Für ${staff} wurde kein aktives Gerät gefunden.`);
         }
       }
 
@@ -595,7 +596,7 @@
         pushTargetSelect.value = currentPushTarget();
         if (!localStorage.getItem(STORAGE_KEY_PUSH_TARGET)) localStorage.setItem(STORAGE_KEY_PUSH_TARGET, pushTargetSelect.value || {{ default_staff|tojson }});
         pushTargetSelect.addEventListener('change', () => {
-          const nextTarget = allowedTargets.includes(pushTargetSelect.value) · pushTargetSelect.value : {{ default_staff|tojson }};
+          const nextTarget = allowedTargets.includes(pushTargetSelect.value) ? pushTargetSelect.value : {{ default_staff|tojson }};
           localStorage.setItem(STORAGE_KEY_PUSH_TARGET, nextTarget);
           pushTargetSelect.value = nextTarget;
           setPushUi(`Push-Ziel: ${nextTarget}`);
@@ -606,7 +607,7 @@
         deviceNameInput.value = currentDeviceName();
         deviceNameInput.addEventListener('change', () => {
           persistDeviceName();
-          setPushUi(pushStatusMini · pushStatusMini.textContent : 'Push-Status aktualisiert.');
+          setPushUi(pushStatusMini ? pushStatusMini.textContent : 'Push-Status aktualisiert.');
         });
       }
 
@@ -637,7 +638,7 @@
           try { await triggerPushTest(true); }
           catch (error) {
             setPushUi(error.message || 'Push-Test fehlgeschlagen.');
-            alert((error && error.message) · error.message : 'Push-Test fehlgeschlagen.');
+            alert((error && error.message) ? error.message : 'Push-Test fehlgeschlagen.');
           }
         });
       }
@@ -647,7 +648,7 @@
           try { await registerPushSubscription(true); }
           catch (error) {
             setPushUi(error.message || 'Push konnte nicht aktiviert werden.');
-            alert((error && error.message) · error.message : 'Push konnte nicht aktiviert werden. Bitte noch einmal versuchen.');
+            alert((error && error.message) ? error.message : 'Push konnte nicht aktiviert werden. Bitte noch einmal versuchen.');
           }
         });
       }

@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 {% block title %}Salon Karola App{% endblock %}
 {% block content %}
 <div class="auth-app-shell">
@@ -20,13 +20,13 @@
     <div class="auth-stage-card">
       <div class="auth-stage-copy">
         <div class="auth-stage-kicker">Friseursalon in Calw-Wimberg</div>
-        <h1 class="auth-stage-title">SchÃ¶nheit beginnt mit einem Termin, der sich leicht anfÃ¼hlt.</h1>
-        <p class="auth-stage-text">PersÃ¶nliche Beratung, entspannte AtmosphÃ¤re und professionelle Schnitte fÃ¼r Damen, Herren und Kinder.</p>
+        <h1 class="auth-stage-title">Schönheit beginnt mit einem Termin, der sich leicht anfühlt.</h1>
+        <p class="auth-stage-text">Persönliche Beratung, entspannte Atmosphäre und professionelle Schnitte für Damen, Herren und Kinder.</p>
       </div>
 
       <div class="auth-stage-chips">
         <span>Jessi &amp; Ute</span>
-        <span>PersÃ¶nlich</span>
+        <span>Persönlich</span>
         <span>Kompetent</span>
         <span>Herzlich</span>
       </div>
@@ -41,7 +41,7 @@
           <strong>Calw-Wimberg</strong>
         </article>
         <article class="auth-stage-info-card auth-stage-info-card-wide">
-          <span>Ãffnungszeiten</span>
+          <span>Öffnungszeiten</span>
           <strong>Di-Fr 9-12 Uhr und 13:30-17:45 Uhr</strong>
         </article>
         <article class="auth-stage-info-card auth-stage-info-card-wide">
@@ -57,11 +57,11 @@
   <div class="auth-modal-backdrop" data-close-auth></div>
 
   <section class="auth-modal-card" id="loginModal" hidden aria-labelledby="loginModalTitle">
-    <button type="button" class="auth-modal-close" data-close-auth aria-label="Fenster schlieÃen">Ã</button>
+    <button type="button" class="auth-modal-close" data-close-auth aria-label="Fenster schließen">×</button>
     <div class="auth-modal-head">
-      <div class="auth-modal-kicker">Willkommen zurÃ¼ck</div>
+      <div class="auth-modal-kicker">Willkommen zurück</div>
       <h2 id="loginModalTitle">Anmelden</h2>
-      <p>WÃ¤hle deinen Namen und melde dich auf diesem GerÃ¤t an.</p>
+      <p>Wähle deinen Namen und melde dich auf diesem Gerät an.</p>
     </div>
     <form method="post" class="auth-modal-form">
       <input type="hidden" name="action" value="login">
@@ -79,18 +79,18 @@
       </div>
       <label class="auth-check-row">
         <input type="checkbox" name="remember_device" value="1" id="rememberDeviceLogin" checked>
-        <span>Auf diesem GerÃ¤t angemeldet bleiben</span>
+        <span>Auf diesem Gerät angemeldet bleiben</span>
       </label>
       <button type="submit" class="auth-primary-button">Einloggen</button>
     </form>
   </section>
 
   <section class="auth-modal-card" id="registerModal" hidden aria-labelledby="registerModalTitle">
-    <button type="button" class="auth-modal-close" data-close-auth aria-label="Fenster schlieÃen">Ã</button>
+    <button type="button" class="auth-modal-close" data-close-auth aria-label="Fenster schließen">×</button>
     <div class="auth-modal-head">
       <div class="auth-modal-kicker">Erster Start</div>
       <h2 id="registerModalTitle">Registrieren</h2>
-      <p>Lege fÃ¼r deinen Namen ein eigenes Passwort an.</p>
+      <p>Lege für deinen Namen ein eigenes Passwort an.</p>
     </div>
     <form method="post" class="auth-modal-form">
       <input type="hidden" name="action" value="setup">
@@ -112,7 +112,7 @@
       </div>
       <label class="auth-check-row">
         <input type="checkbox" name="remember_device" value="1" checked>
-        <span>Auf diesem GerÃ¤t angemeldet bleiben</span>
+        <span>Auf diesem Gerät angemeldet bleiben</span>
       </label>
       <button type="submit" class="auth-primary-button">Passwort speichern</button>
     </form>
@@ -143,14 +143,8 @@
     document.body.classList.remove('auth-modal-open');
   }
 
-  openButtons.forEach((btn) => {
-    btn.addEventListener('click', () => showModal(btn.dataset.openAuth));
-  });
-
-  closeButtons.forEach((btn) => {
-    btn.addEventListener('click', closeModals);
-  });
-
+  openButtons.forEach((btn) => btn.addEventListener('click', () => showModal(btn.dataset.openAuth)));
+  closeButtons.forEach((btn) => btn.addEventListener('click', closeModals));
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeModals();
   });

@@ -4791,3 +4791,30 @@ th, td {
     pointer-events: auto !important;
   }
 }
+
+
+/* 2026-04-14 polish block */
+.brand-title-row { align-items: center; }
+.nav-links a, .nav-admin-summary, .nav-admin-links a { font-weight: 700; }
+.calendar-hero-meta { gap: 8px; flex-wrap: wrap; }
+.calendar-meta-pill {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 38px; padding: 0 14px;
+  border-radius: 999px; background: rgba(255,255,255,0.88); border: 1px solid rgba(143, 92, 51, 0.12);
+  color: #6b4630; font-weight: 700;
+}
+.calendar-hero-actions { gap: 10px; }
+.premium-calendar-toolbar { gap: 18px; }
+.calendar-nav .btn, .calendar-nav button, .calendar-nav input { flex: 1 1 0; }
+.week-event-time, .day-slot-time, .day-slot-link { color: #3d2416; }
+.staff-edit-card { background: rgba(255,255,255,0.92); border: 1px solid rgba(143, 92, 51, 0.12); border-radius: 18px; }
+.staff-edit-summary {
+  list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer;
+}
+.staff-edit-summary::-webkit-details-marker { display: none; }
+.staff-form-grid { gap: 14px; }
+@media (max-width: 768px) {
+  .premium-top-actions { width: 100%; grid-template-columns: 1fr 1fr; }
+  .calendar-hero-actions { grid-template-columns: 1fr; }
+  .calendar-nav { display: grid; grid-template-columns: 1fr; }
+  .nav-links.mobile-open { gap: 10px; }
+}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Mitarbeiter - Salon Karola App{% endblock %}
+{% block content %}
+<section class="premium-shell">
+  <section class="premium-page-head">
+    <div>
+      <div class="premium-page-kicker">Verwaltung</div>
+      <h1 class="premium-page-title">Mitarbeiter</h1>
+      <div class="premium-page-subtitle">Team, Anmeldenamen und Passw?rter an einem Ort verwalten.</div>
+    </div>
+    <div class="premium-top-actions">
+      <a class="premium-top-action primary" href="{{ url_for('calendar_view') }}">Kalender</a>
+      <a class="premium-top-action" href="{{ url_for('push_center') }}">Push</a>
+    </div>
+  </section>
+
+  <section class="premium-grid-2 premium-space-top">
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Neu</div>
+          <h2 class="premium-panel-title">Mitarbeiter anlegen</h2>
+        </div>
+      </div>
+      <form method="post" class="premium-form premium-space-top staff-form-grid">
+        <input type="hidden" name="action" value="save">
+        <div class="premium-form-grid premium-form-grid-2">
+          <div class="form-group premium-form-group">
+            <label for="staff_name">Name in der App</label>
+            <input type="text" id="staff_name" name="staff_name" placeholder="z. B. Mira" required>
+          </div>
+          <div class="form-group premium-form-group">
+            <label for="display_name">Anzeigename</label>
+            <input type="text" id="display_name" name="display_name" placeholder="z. B. Mira Schneider">
+          </div>
+          <div class="form-group premium-form-group">
+            <label for="username">Benutzername</label>
+            <input type="text" id="username" name="username" placeholder="z. B. mira" required>
+          </div>
+          <div class="form-group premium-form-group">
+            <label for="password">Passwort</label>
+            <input type="password" id="password" name="password" placeholder="mindestens 4 Zeichen">
+          </div>
+        </div>
+        <button type="submit" class="premium-button">Mitarbeiter speichern</button>
+      </form>
+    </article>
+
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">?bersicht</div>
+          <h2 class="premium-panel-title">Aktuelles Team</h2>
+        </div>
+      </div>
+      <div class="premium-list premium-space-top">
+        {% for user in staff_users %}
+        <details class="premium-list-item staff-edit-card">
+          <summary class="staff-edit-summary">
+            <span>
+              <strong>{{ user['staff_name'] }}</strong>
+              <span class="premium-list-sub">{{ user['display_name'] or user['username'] }}</span>
+            </span>
+            <span class="premium-badge">{% if user['has_password'] %}Passwort gesetzt{% else %}Noch ohne Passwort{% endif %}</span>
+          </summary>
+          <form method="post" class="premium-form premium-space-top staff-form-grid">
+            <input type="hidden" name="action" value="save">
+            <input type="hidden" name="staff_id" value="{{ user['id'] }}">
+            <div class="premium-form-grid premium-form-grid-2">
+              <div class="form-group premium-form-group">
+                <label>Name in der App</label>
+                <input type="text" name="staff_name" value="{{ user['staff_name'] }}" required>
+              </div>
+              <div class="form-group premium-form-group">
+                <label>Anzeigename</label>
+                <input type="text" name="display_name" value="{{ user['display_name'] or '' }}">
+              </div>
+              <div class="form-group premium-form-group">
+                <label>Benutzername</label>
+                <input type="text" name="username" value="{{ user['username'] }}" required>
+              </div>
+              <div class="form-group premium-form-group">
+                <label>Neues Passwort</label>
+                <input type="password" name="password" placeholder="nur ausf?llen, wenn es ge?ndert werden soll">
+              </div>
+            </div>
+            <button type="submit" class="premium-button secondary">?nderungen speichern</button>
+          </form>
+        </details>
+        {% else %}
+        <div class="premium-list-empty">Noch keine Mitarbeiter angelegt.</div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+</section>
+{% endblock %}
