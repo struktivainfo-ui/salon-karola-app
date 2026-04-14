@@ -1532,10 +1532,10 @@ def run_birthday_job():
     for customer in customers:
         checked += 1
         mail_key = f"birthday:{customer['_id']}:{current_year}"
-        if get_setting(mail_key):
+        subject, body = render_template_text("birthdate", customer)
+        if get_setting(mail_key) or email_already_sent_today("birthday", customer_id=customer["_id"], recipient=customer["_mail"], subject=subject):
             continue
 
-        subject, body = render_template_text("birthdate", customer)
         try:
             send_email(customer["_mail"], subject, body)
             set_setting(mail_key, datetime.now().isoformat(timespec="seconds"))
@@ -1582,6 +1582,14 @@ def run_appointment_job():
                 continue
 
             subject, body = render_template_text("appointment", appt, appt)
+            if email_already_sent_today("appointment", customer_id=appt["customer_id"], recipient=appt["_mail"], subject=subject):
+                if not appt["reminder_sent_at"]:
+                    conn.execute(
+                        "UPDATE appointments SET reminder_sent_at = ? WHERE id = ?",
+                        (datetime.now().isoformat(timespec="seconds"), appt["id"]),
+                    )
+                    conn.commit()
+                continue
             try:
                 send_email(appt["_mail"], subject, body)
                 conn.execute(
