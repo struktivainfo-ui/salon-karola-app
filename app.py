@@ -77,6 +77,13 @@ except Exception:
     WebPushException = Exception
     webpush = None
 
+try:
+    from google.auth.transport.requests import Request as GoogleAuthRequest
+    from google.oauth2 import service_account
+except Exception:
+    GoogleAuthRequest = None
+    service_account = None
+
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 DB_PATH = Path(os.getenv("DATABASE_PATH", str(BASE_DIR / "salon_karola.db")))
@@ -454,6 +461,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 endpoint TEXT NOT NULL UNIQUE,
                 subscription_json TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'webpush',
                 staff_name TEXT NOT NULL DEFAULT 'Ute',
                 device_name TEXT,
                 user_agent TEXT,
@@ -542,6 +550,12 @@ def init_db():
         add_column_if_missing("appointments", "manual_lastname", "TEXT DEFAULT ''")
         add_column_if_missing("appointments", "manual_phone", "TEXT DEFAULT ''")
         add_column_if_missing("appointments", "manual_email", "TEXT DEFAULT ''")
+        add_column_if_missing(
+            "push_subscriptions",
+            "provider",
+            "TEXT DEFAULT 'webpush'",
+            fill_sql="UPDATE push_subscriptions SET provider = CASE WHEN lower(COALESCE(endpoint, '')) LIKE 'fcm:%' THEN 'fcm' ELSE 'webpush' END WHERE provider IS NULL OR provider = ''",
+        )
         add_column_if_missing("staff_users", "staff_name", "TEXT DEFAULT ''", fill_sql="UPDATE staff_users SET staff_name = CASE lower(COALESCE(display_name, username, '')) WHEN 'ute' THEN 'Ute' WHEN 'jessi' THEN 'Jessi' WHEN 'sven' THEN 'Sven' ELSE COALESCE(staff_name, '') END")
 
         ensure_manual_placeholder_customer(conn)
@@ -1057,6 +1071,124 @@ def vapid_private_key():
     return _normalize_vapid_private_key(private_key)
 
 
+FCM_SCOPES = ["https://www.googleapis.com/auth/firebase.messaging"]
+
+
+def _json_file_if_exists(path):
+    try:
+        file_path = Path(path)
+        if file_path.exists():
+            return json.loads(file_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return None
+
+
+def firebase_service_account_info():
+    raw_json = (os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON") or "").strip()
+    if raw_json:
+        try:
+            return json.loads(raw_json)
+        except Exception:
+            pass
+    raw_b64 = (os.getenv("FIREBASE_SERVICE_ACCOUNT_B64") or "").strip()
+    if raw_b64:
+        try:
+            return json.loads(base64.b64decode(raw_b64).decode("utf-8"))
+        except Exception:
+            pass
+    file_path = (os.getenv("FIREBASE_SERVICE_ACCOUNT_FILE") or "").strip()
+    if file_path:
+        info = _json_file_if_exists(file_path)
+        if info:
+            return info
+    info = _json_file_if_exists(BASE_DIR / "firebase-service-account.json")
+    if info:
+        return info
+    return None
+
+
+def firebase_project_id():
+    explicit = (os.getenv("FIREBASE_PROJECT_ID") or "").strip()
+    if explicit:
+        return explicit
+    service_info = firebase_service_account_info() or {}
+    if service_info.get("project_id"):
+        return str(service_info.get("project_id")).strip()
+    google_services = _json_file_if_exists(BASE_DIR / "android" / "app" / "google-services.json") or {}
+    project_info = google_services.get("project_info") or {}
+    if project_info.get("project_id"):
+        return str(project_info.get("project_id")).strip()
+    return ""
+
+
+def fcm_ready():
+    return bool(firebase_project_id() and firebase_service_account_info() and GoogleAuthRequest and service_account)
+
+
+def push_delivery_ready():
+    return bool(vapid_ready() or fcm_ready())
+
+
+def fcm_access_token():
+    info = firebase_service_account_info()
+    if not info:
+        raise RuntimeError("Firebase Service Account fehlt.")
+    if not GoogleAuthRequest or not service_account:
+        raise RuntimeError("google-auth ist auf dem Server nicht installiert.")
+    credentials = service_account.Credentials.from_service_account_info(info, scopes=FCM_SCOPES)
+    credentials.refresh(GoogleAuthRequest())
+    if not credentials.token:
+        raise RuntimeError("FCM Zugriffstoken konnte nicht erzeugt werden.")
+    return credentials.token
+
+
+def _push_provider(row):
+    provider = ((row["provider"] if "provider" in row.keys() else "") or "").strip().lower()
+    if provider:
+        return provider
+    endpoint = ((row["endpoint"] if "endpoint" in row.keys() else "") or "").strip().lower()
+    if endpoint.startswith("fcm:"):
+        return "fcm"
+    return "webpush"
+
+
+def fcm_send_to_token(device_token, title, body, url="/calendar"):
+    project_id = firebase_project_id()
+    if not project_id:
+        raise RuntimeError("Firebase Projekt-ID fehlt.")
+    access_token = fcm_access_token()
+    response = requests.post(
+        f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json; charset=UTF-8",
+        },
+        json={
+            "message": {
+                "token": device_token,
+                "notification": {"title": title, "body": body},
+                "data": {
+                    "title": title,
+                    "body": body,
+                    "url": url,
+                },
+                "android": {
+                    "priority": "high",
+                    "notification": {
+                        "channel_id": "salon_karola_default",
+                        "click_action": "OPEN_ACTIVITY_1",
+                    },
+                },
+            }
+        },
+        timeout=30,
+    )
+    if response.status_code >= 400:
+        raise RuntimeError(f"FCM Fehler: HTTP {response.status_code} {response.text}")
+    return response.json() if response.text else {"ok": True}
+
+
 def _push_device_label(row):
     label = (row["device_name"] if "device_name" in row.keys() else "") or ""
     if label.strip():
@@ -1111,6 +1243,7 @@ def push_devices_for_staff(staff_name=None):
             "last_test_at": row["last_test_at"] or "",
             "last_error": row["last_error"] or "",
             "fail_count": int(row["fail_count"] or 0),
+            "provider": _push_provider(row),
             "endpoint_tail": (row["endpoint"] or "")[-32:],
         })
     return items
@@ -1145,8 +1278,8 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
             db.execute("DELETE FROM push_subscriptions WHERE id = ?", (row["id"],))
             db.commit()
             if mismatch:
-                return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Gerät war mit alten Push-Schlüsseln registriert und wurde entfernt. Bitte Push auf diesem Gerät neu aktivieren."]}
-            return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Gerät war nicht mehr gültig und wurde entfernt."]}
+                return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Geraet war mit alten Push-Schluesseln registriert und wurde entfernt. Bitte Push auf diesem Geraet neu aktivieren."]}
+            return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Geraet war nicht mehr gueltig und wurde entfernt."]}
         fail_count = int(row["fail_count"] or 0) + 1
         _touch_push_subscription(
             row["id"],
@@ -1166,10 +1299,53 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
         return {"ok": False, "sent": 0, "skipped": 0, "errors": [str(exc)]}
 
 
-def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
-    if not vapid_ready():
-        return {"sent": 0, "skipped": 0, "errors": ["VAPID nicht konfiguriert"]}
+def fcm_send_to_subscription_row(row, title, body, url="/calendar"):
+    db = get_db()
+    now = datetime.now().isoformat(timespec="seconds")
+    try:
+        payload = json.loads(row["subscription_json"])
+        token = (payload.get("token") or "").strip()
+        if not token:
+            raise RuntimeError("FCM-Token fehlt in der Registrierung.")
+        fcm_send_to_token(token, title, body, url)
+        _touch_push_subscription(
+            row["id"],
+            last_success_at=now,
+            last_error="",
+            fail_count=0,
+            updated_at=now,
+            last_seen_at=now,
+        )
+        return {"ok": True, "sent": 1, "skipped": 0, "errors": []}
+    except Exception as exc:
+        error_text = str(exc)
+        normalized = error_text.upper()
+        if "UNREGISTERED" in normalized or "REGISTRATION_TOKEN_NOT_REGISTERED" in normalized or "NOT_FOUND" in normalized:
+            db.execute("DELETE FROM push_subscriptions WHERE id = ?", (row["id"],))
+            db.commit()
+            return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Android-App war nicht mehr gueltig registriert und wurde entfernt. Bitte Push in der App neu aktivieren."]}
+        fail_count = int(row["fail_count"] or 0) + 1
+        _touch_push_subscription(
+            row["id"],
+            last_error=error_text[:500],
+            fail_count=fail_count,
+            updated_at=now,
+        )
+        return {"ok": False, "sent": 0, "skipped": 0, "errors": [error_text]}
 
+
+def send_push_to_subscription_row(row, title, body, url="/calendar"):
+    provider = _push_provider(row)
+    if provider == "fcm":
+        if not fcm_ready():
+            return {"ok": False, "sent": 0, "skipped": 0, "errors": ["FCM ist serverseitig noch nicht konfiguriert."]}
+        return fcm_send_to_subscription_row(row, title, body, url)
+    if not vapid_ready():
+        return {"ok": False, "sent": 0, "skipped": 0, "errors": ["VAPID ist serverseitig noch nicht konfiguriert."]}
+    return webpush_send_to_subscription_row(row, title, body, url)
+
+
+def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
     db = get_db()
     rows = db.execute(
         """
@@ -1184,7 +1360,7 @@ def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
     skipped = 0
     errors = []
     for row in rows:
-        result = webpush_send_to_subscription_row(row, title, body, url)
+        result = send_push_to_subscription_row(row, title, body, url)
         sent += int(result.get("sent") or 0)
         skipped += int(result.get("skipped") or 0)
         errors.extend(result.get("errors") or [])
@@ -2335,7 +2511,7 @@ def appointment_new(customer_id):
     db.commit()
     notify_result = notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name)
     flash_msg = "Termin wurde gespeichert."
-    if vapid_ready() and notify_result.get("sent", 0) > 0:
+    if push_delivery_ready() and notify_result.get("sent", 0) > 0:
         flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
     elif not vapid_ready():
         flash_msg += " Push ist noch nicht komplett aktiv – bitte VAPID-Keys in Render setzen."
@@ -2683,7 +2859,7 @@ def appointments_hub():
         flash_msg = "Termin wurde gespeichert."
         if not customer_id_raw.isdigit() and (manual_firstname or manual_lastname):
             flash_msg += " Manueller Kontakt wurde nicht in der Kundenliste gespeichert."
-        if vapid_ready() and notify_result.get("sent", 0) > 0:
+        if push_delivery_ready() and notify_result.get("sent", 0) > 0:
             flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
         elif not vapid_ready():
             flash_msg += " Push ist noch nicht komplett aktiv – bitte VAPID-Keys in Render setzen."
@@ -2810,7 +2986,7 @@ def appointments_feed():
 @app.route("/api/push/public-key")
 @login_required
 def push_public_key():
-    return {"public_key": vapid_public_key(), "enabled": vapid_ready(), "format": "base64url", "generated": bool(_get_app_setting("push:vapid_generated_at", ""))}
+    return {"public_key": vapid_public_key(), "enabled": vapid_ready(), "native_enabled": fcm_ready(), "delivery_enabled": push_delivery_ready(), "format": "base64url", "generated": bool(_get_app_setting("push:vapid_generated_at", ""))}
 
 
 @app.route("/api/push/status")
@@ -2819,7 +2995,7 @@ def push_status():
     staff_name = _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF)
     if staff_name == "Alle":
         staff_name = DEFAULT_STAFF
-    enabled = vapid_ready()
+    enabled = push_delivery_ready()
     permission = None
     count = 0
     try:
@@ -2848,7 +3024,9 @@ def push_overview():
         pass
     return {
         "ok": True,
-        "enabled": vapid_ready(),
+        "enabled": push_delivery_ready(),
+        "webpush_enabled": vapid_ready(),
+        "native_enabled": fcm_ready(),
         "generated_keys": bool(_get_app_setting("push:vapid_generated_at", "")),
         "total_devices": total_devices,
         "active_devices": total_active,
@@ -2875,7 +3053,7 @@ def push_test_device(subscription_id):
     if not row:
         return {"ok": False, "error": "Gerät nicht gefunden."}, 404
     label = _push_device_label(row)
-    result = webpush_send_to_subscription_row(
+    result = send_push_to_subscription_row(
         row,
         f"Test-Push für {label}",
         f"Dieses Gerät ist für {row['staff_name'] or 'Ute'} aktiv.",
@@ -2917,7 +3095,7 @@ def push_subscribe():
     staff_name = _normalize_staff_name(requested_staff, default=session.get("staff_name") or DEFAULT_STAFF)
     device_name = (payload.get("device_name") or "").strip()[:80]
     if not endpoint or not auth_key or not p256dh_key:
-        return {"ok": False, "error": "Unvollständige Push-Subscription empfangen."}, 400
+        return {"ok": False, "error": "Unvollstaendige Push-Subscription empfangen."}, 400
 
     now = datetime.now().isoformat(timespec="seconds")
     db = get_db()
@@ -2934,10 +3112,11 @@ def push_subscribe():
         )
     db.execute(
         """
-        INSERT INTO push_subscriptions(endpoint, subscription_json, staff_name, device_name, user_agent, created_at, updated_at, last_seen_at, last_error, fail_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO push_subscriptions(endpoint, subscription_json, provider, staff_name, device_name, user_agent, created_at, updated_at, last_seen_at, last_error, fail_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(endpoint) DO UPDATE SET
             subscription_json = excluded.subscription_json,
+            provider = excluded.provider,
             staff_name = excluded.staff_name,
             device_name = excluded.device_name,
             user_agent = excluded.user_agent,
@@ -2946,18 +3125,69 @@ def push_subscribe():
             last_error = '',
             fail_count = 0
         """,
-        (endpoint, json.dumps(subscription), staff_name, device_name, request.headers.get("User-Agent", "")[:500], now, now, now, "", 0),
+        (endpoint, json.dumps(subscription), "webpush", staff_name, device_name, request.headers.get("User-Agent", "")[:500], now, now, now, "", 0),
     )
     db.commit()
     row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?", (staff_name,)).fetchone()
-    return {"ok": True, "staff_name": staff_name, "device_name": device_name, "device_count": int(row["cnt"] or 0) if row else 0}
+    return {"ok": True, "staff_name": staff_name, "device_name": device_name, "device_count": int(row["cnt"] or 0) if row else 0, "provider": "webpush"}
+
+
+@app.route("/api/push/native-subscribe", methods=["POST"])
+@login_required
+def push_native_subscribe():
+    payload = request.get_json(silent=True) or {}
+    token = (payload.get("token") or "").strip()
+    if not token:
+        return {"ok": False, "error": "FCM-Token fehlt."}, 400
+    requested_staff = payload.get("staff_name") or session.get("staff_name")
+    staff_name = _normalize_staff_name(requested_staff, default=session.get("staff_name") or DEFAULT_STAFF)
+    device_name = (payload.get("device_name") or "").strip()[:80]
+    platform = (payload.get("platform") or "android").strip()[:40] or "android"
+    endpoint = f"fcm:{token}"
+    now = datetime.now().isoformat(timespec="seconds")
+    user_agent = request.headers.get("User-Agent", "")[:500]
+    db = get_db()
+    if device_name:
+        db.execute(
+            """
+            DELETE FROM push_subscriptions
+            WHERE endpoint <> ?
+              AND provider = 'fcm'
+              AND staff_name = ?
+              AND COALESCE(device_name, '') = ?
+            """,
+            (endpoint, staff_name, device_name),
+        )
+    db.execute(
+        """
+        INSERT INTO push_subscriptions(endpoint, subscription_json, provider, staff_name, device_name, user_agent, created_at, updated_at, last_seen_at, last_error, fail_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(endpoint) DO UPDATE SET
+            subscription_json = excluded.subscription_json,
+            provider = excluded.provider,
+            staff_name = excluded.staff_name,
+            device_name = excluded.device_name,
+            user_agent = excluded.user_agent,
+            updated_at = excluded.updated_at,
+            last_seen_at = excluded.last_seen_at,
+            last_error = '',
+            fail_count = 0
+        """,
+        (endpoint, json.dumps({"token": token, "platform": platform, "source": "capacitor"}), "fcm", staff_name, device_name, user_agent, now, now, now, "", 0),
+    )
+    db.commit()
+    row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?", (staff_name,)).fetchone()
+    return {"ok": True, "staff_name": staff_name, "device_name": device_name, "device_count": int(row["cnt"] or 0) if row else 0, "provider": "fcm", "native_enabled": fcm_ready()}
 
 
 @app.route("/api/push/unsubscribe", methods=["POST"])
 @login_required
 def push_unsubscribe():
     payload = request.get_json(silent=True) or {}
-    endpoint = ((payload.get("subscription") or {}).get("endpoint") or "").strip()
+    endpoint = ((payload.get("subscription") or {}).get("endpoint") or payload.get("endpoint") or "").strip()
+    token = (payload.get("token") or "").strip()
+    if not endpoint and token:
+        endpoint = f"fcm:{token}"
     if endpoint:
         db = get_db()
         db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
@@ -2978,7 +3208,7 @@ def push_ping():
         devices = push_devices_for_staff(staff_name)
         device_count = len(devices)
         result = webpush_send_to_staff(staff_name, "Salon Karola Push aktiv", f"Dieses Handy ist jetzt für {staff_name} registriert.", "/calendar")
-    return {"ok": True, "result": result, "enabled": vapid_ready(), "devices": devices, "device_count": device_count}
+    return {"ok": True, "result": result, "enabled": push_delivery_ready(), "webpush_enabled": vapid_ready(), "native_enabled": fcm_ready(), "devices": devices, "device_count": device_count}
 
 
 @app.route("/push")

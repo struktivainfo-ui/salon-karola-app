@@ -100,6 +100,13 @@
       const navPushToggle = document.getElementById("navPushToggle");
       const navPushPanel = document.getElementById("navPushPanel");
       const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
+      const loggedInStaff = {{ logged_in_staff|tojson }};
+      const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};
+      const capacitorBridge = window.Capacitor || null;
+      const nativePushPlugin = capacitorBridge && typeof capacitorBridge.isNativePlatform === "function" && capacitorBridge.isNativePlatform() && capacitorBridge.Plugins ? capacitorBridge.Plugins.PushNotifications : null;
+      const isNativeApp = !!nativePushPlugin;
+      let nativePushListenersBound = false;
+      let nativePushPending = null;
 
       function setPushPanelOpen(open) {
         if (!navPushGroup || !navPushPanel || !navPushToggle) return;
@@ -108,27 +115,16 @@
         navPushToggle.setAttribute("aria-expanded", open ? "true" : "false");
       }
 
-      function openDeviceStaffBar() {
-        setPushPanelOpen(true);
-      }
-
-      function closeDeviceStaffBar() {
-        setPushPanelOpen(false);
-      }
-
+      function openDeviceStaffBar() { setPushPanelOpen(true); }
+      function closeDeviceStaffBar() { setPushPanelOpen(false); }
       function toggleDeviceStaffBar() {
         if (!navPushGroup) return;
-        const isOpen = navPushGroup.classList.contains("open");
-        setPushPanelOpen(!isOpen);
+        setPushPanelOpen(!navPushGroup.classList.contains("open"));
       }
-
-      const loggedInStaff = {{ logged_in_staff|tojson }};
 
       function currentStaff() {
         return (loggedInStaff || localStorage.getItem(STORAGE_KEY_STAFF) || {{ default_staff|tojson }}).trim() || loggedInStaff || {{ default_staff|tojson }};
       }
-
-      const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};
 
       function currentPushTarget() {
         const storedTarget = (localStorage.getItem(STORAGE_KEY_PUSH_TARGET) || "").trim();
@@ -138,8 +134,8 @@
 
       function deviceNameFallback() {
         if ((navigator.userAgent || "").includes("iPhone")) return "iPhone";
-        if ((navigator.userAgent || "").includes("Android")) return "Android-Handy";
-        return "Dieses Gerät";
+        if ((navigator.userAgent || "").includes("Android")) return isNativeApp ? "Salon Karola App" : "Android-Handy";
+        return "Dieses Geraet";
       }
 
       function currentDeviceName() {
@@ -155,11 +151,10 @@
 
       function setPushUi(text, mode = "idle") {
         if (pushStatusMini) pushStatusMini.textContent = text;
-
         if (enablePushBtn) {
           if (mode === "working") {
             enablePushBtn.disabled = true;
-            enablePushBtn.textContent = "Aktiviere…";
+            enablePushBtn.textContent = "Aktiviere...";
           } else if (mode === "active") {
             enablePushBtn.disabled = false;
             enablePushBtn.textContent = "Push aktiv";
@@ -168,18 +163,9 @@
             enablePushBtn.textContent = "Push aktivieren";
           }
         }
-
-        if (pushStatusLabel) {
-          pushStatusLabel.textContent = `${currentStaff()} · ${currentDeviceName()}`;
-        }
-
-        if (pushTargetSelect && document.activeElement !== pushTargetSelect) {
-          pushTargetSelect.value = currentPushTarget();
-        }
-
-        if (deviceNameInput && document.activeElement !== deviceNameInput) {
-          deviceNameInput.value = currentDeviceName();
-        }
+        if (pushStatusLabel) pushStatusLabel.textContent = `${currentStaff()} - ${currentDeviceName()}`;
+        if (pushTargetSelect && document.activeElement !== pushTargetSelect) pushTargetSelect.value = currentPushTarget();
+        if (deviceNameInput && document.activeElement !== deviceNameInput) deviceNameInput.value = currentDeviceName();
       }
 
       function closeMobileMenu() {
@@ -221,22 +207,10 @@
           document.body.style.overflow = "";
           document.documentElement.style.overflow = "";
           closeMobileMenu();
-
           document.querySelectorAll("details[open]").forEach((el) => el.removeAttribute("open"));
           closeDeviceStaffBar();
           document.querySelectorAll("dialog[open]").forEach((el) => { try { el.close(); } catch (e) {} });
-
-          document.querySelectorAll(".app-menu.open, .app-menu.active, .mobile-menu.open, .mobile-menu.active, .drawer.open, .drawer.active, .overlay.show, .overlay.active, .modal.show, .modal.active").forEach((el) => {
-            el.classList.remove("open", "active", "show");
-            if (el.classList.contains("overlay") || el.classList.contains("modal") || el.classList.contains("drawer") || el.classList.contains("app-menu") || el.classList.contains("mobile-menu")) {
-              el.style.display = "none";
-              el.setAttribute("aria-hidden", "true");
-            }
-          });
-
-          if (document.activeElement && typeof document.activeElement.blur === "function") {
-            document.activeElement.blur();
-          }
+          if (document.activeElement && typeof document.activeElement.blur === "function") document.activeElement.blur();
         } catch (error) {}
       }
 
@@ -250,6 +224,7 @@
       });
 
       async function registerServiceWorker() {
+        if (isNativeApp) return null;
         if (!("serviceWorker" in navigator)) return null;
         const registration = await navigator.serviceWorker.register("/service-worker.js", { updateViaCache: "none" });
         try { await registration.update(); } catch (e) {}
@@ -264,10 +239,11 @@
 
       function isVapidMismatchError(message) {
         const text = String(message || "").toLowerCase();
-        return text.includes("vapid") && (text.includes("credential") || text.includes("403") || text.includes("alten push-schlüsseln"));
+        return text.includes("vapid") && (text.includes("credential") || text.includes("403") || text.includes("alten push-schluesseln"));
       }
 
       async function resetBrowserPushSubscription() {
+        if (isNativeApp) return false;
         if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
         try {
           const registration = await navigator.serviceWorker.ready;
@@ -292,13 +268,6 @@
       function vapidKeyToUint8Array(value) {
         const cleaned = (value || "").trim();
         if (!cleaned) throw new Error("VAPID Public Key fehlt.");
-        if (/^[0-9a-fA-F]+$/.test(cleaned) && cleaned.length % 2 === 0) {
-          const out = new Uint8Array(cleaned.length / 2);
-          for (let i = 0; i < cleaned.length; i += 2) {
-            out[i / 2] = parseInt(cleaned.slice(i, i + 2), 16);
-          }
-          return out;
-        }
         const padding = "=".repeat((4 - cleaned.length % 4) % 4);
         const base64 = (cleaned + padding).replace(/-/g, "+").replace(/_/g, "/");
         const rawData = atob(base64);
@@ -307,29 +276,111 @@
         return outputArray;
       }
 
-      async function registerPushSubscription(showMessage = true) {
-        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-          setPushUi("Dieser Browser unterstützt keine Hintergrund-Pushs.");
-          if (showMessage) alert("Dieser Browser unterstützt keine Hintergrund-Pushs.");
+      async function saveNativePushToken(tokenValue) {
+        const res = await fetch('/api/push/native-subscribe', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: tokenValue,
+            staff_name: currentStaff(),
+            device_name: currentDeviceName(),
+            platform: 'android',
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) throw new Error(data.error || 'Android-Push konnte nicht gespeichert werden.');
+        return data;
+      }
+
+      async function ensureNativePushListeners() {
+        if (!nativePushPlugin || nativePushListenersBound) return;
+        nativePushListenersBound = true;
+
+        await nativePushPlugin.addListener('registration', async (token) => {
+          const tokenValue = (token && (token.value || token.token)) || '';
+          try {
+            persistDeviceName();
+            await saveNativePushToken(tokenValue);
+            if (typeof window.refreshPushOverview === 'function') await window.refreshPushOverview();
+            setPushUi(`Push ist fuer ${currentStaff()} aktiv.`, 'active');
+            if (nativePushPending && nativePushPending.resolve) nativePushPending.resolve(tokenValue);
+          } catch (error) {
+            if (nativePushPending && nativePushPending.reject) nativePushPending.reject(error);
+            setPushUi(error.message || 'Android-Push konnte nicht gespeichert werden.');
+          } finally {
+            if (nativePushPending && nativePushPending.timer) clearTimeout(nativePushPending.timer);
+            nativePushPending = null;
+          }
+        });
+
+        await nativePushPlugin.addListener('registrationError', (error) => {
+          const message = (error && (error.error || error.message)) ? (error.error || error.message) : 'Android-Push konnte nicht registriert werden.';
+          if (nativePushPending && nativePushPending.timer) clearTimeout(nativePushPending.timer);
+          if (nativePushPending && nativePushPending.reject) nativePushPending.reject(new Error(message));
+          nativePushPending = null;
+          setPushUi(message);
+        });
+
+        await nativePushPlugin.addListener('pushNotificationActionPerformed', (event) => {
+          try {
+            const notification = event && event.notification ? event.notification : {};
+            const data = notification.data || {};
+            const targetUrl = data.url || '/calendar';
+            if (targetUrl) window.location.href = targetUrl;
+          } catch (error) {}
+        });
+      }
+
+      async function registerNativePush(showMessage = true) {
+        if (!nativePushPlugin) {
+          setPushUi('Nativer Push ist auf diesem Geraet nicht verfuegbar.');
+          if (showMessage) alert('Nativer Push ist auf diesem Geraet nicht verfuegbar.');
           return false;
         }
+        persistDeviceName();
+        await ensureNativePushListeners();
+        let permissions = await nativePushPlugin.checkPermissions();
+        if (permissions.receive === 'prompt') permissions = await nativePushPlugin.requestPermissions();
+        if (permissions.receive !== 'granted') {
+          setPushUi('Benachrichtigungen wurden nicht erlaubt.');
+          if (showMessage) alert('Benachrichtigungen wurden nicht erlaubt.');
+          return false;
+        }
+        setPushUi('Push wird aktiviert...', 'working');
+        const registrationPromise = new Promise((resolve, reject) => {
+          const timer = window.setTimeout(() => reject(new Error('Android-Push hat zu lange gebraucht. Bitte noch einmal versuchen.')), 15000);
+          nativePushPending = { resolve, reject, timer };
+        });
+        await nativePushPlugin.register();
+        await registrationPromise;
+        if (showMessage) {
+          alert(`Push ist fuer ${currentStaff()} aktiv.`);
+          setTimeout(() => { closeAppMenuAfterPush(); closeDeviceStaffBar(); }, 150);
+        }
+        return true;
+      }
 
+      async function registerBrowserPush(showMessage = true) {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+          setPushUi('Dieser Browser unterstuetzt keine Hintergrund-Pushs.');
+          if (showMessage) alert('Dieser Browser unterstuetzt keine Hintergrund-Pushs.');
+          return false;
+        }
         const config = await fetchPushConfig();
         if (!config.enabled || !config.public_key) {
-          setPushUi("Push ist serverseitig noch nicht fertig eingerichtet.");
-          if (showMessage) alert("Push ist serverseitig noch nicht vollständig eingerichtet. Bitte VAPID-Keys in Render setzen.");
+          setPushUi('Push ist serverseitig noch nicht fertig eingerichtet.');
+          if (showMessage) alert('Push ist serverseitig noch nicht vollstaendig eingerichtet. Bitte VAPID-Keys in Render setzen.');
           return false;
         }
-
         persistDeviceName();
-        setPushUi("Push wird aktiviert…", "working");
+        setPushUi('Push wird aktiviert...', 'working');
         const permission = await Notification.requestPermission();
-        if (permission !== "granted") {
-          setPushUi("Benachrichtigungen wurden nicht erlaubt.");
-          if (showMessage) alert("Benachrichtigungen wurden nicht erlaubt.");
+        if (permission !== 'granted') {
+          setPushUi('Benachrichtigungen wurden nicht erlaubt.');
+          if (showMessage) alert('Benachrichtigungen wurden nicht erlaubt.');
           return false;
         }
-
         await resetBrowserPushSubscription();
         await registerServiceWorker();
         const registration = await navigator.serviceWorker.ready;
@@ -337,103 +388,66 @@
           userVisibleOnly: true,
           applicationServerKey: vapidKeyToUint8Array(config.public_key),
         });
-
-        const subscriptionPayload = (subscription && typeof subscription.toJSON === "function") ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription || {}));
-
-        const saveRes = await fetch("/api/push/subscribe", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
+        const subscriptionPayload = (subscription && typeof subscription.toJSON === 'function') ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription || {}));
+        const saveRes = await fetch('/api/push/subscribe', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             staff_name: currentStaff(),
             device_name: currentDeviceName(),
             subscription: subscriptionPayload,
           }),
         });
-        let saveData = null;
-        try { saveData = await saveRes.json(); } catch (e) {}
-
+        const saveData = await saveRes.json().catch(() => null);
         if (!saveRes.ok || !saveData || saveData.ok === false) {
-          const backendError = (saveData && (saveData.error || saveData.message)) || "Push-Abo konnte nicht gespeichert werden.";
+          const backendError = (saveData && (saveData.error || saveData.message)) || 'Push-Abo konnte nicht gespeichert werden.';
           setPushUi(backendError);
           throw new Error(backendError);
         }
-
-        const pingRes = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(currentStaff())}`, { cache: "no-store", credentials: "same-origin" });
-        let pingData = null;
-        try { pingData = await pingRes.json(); } catch (e) {}
+        const pingRes = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(currentStaff())}`, { cache: 'no-store', credentials: 'same-origin' });
+        const pingData = await pingRes.json().catch(() => null);
         const sentCount = pingData && pingData.result ? Number(pingData.result.sent || 0) : 0;
-        const deviceCount = pingData && typeof pingData.device_count !== "undefined" ? Number(pingData.device_count || 0) : 0;
+        const deviceCount = pingData && typeof pingData.device_count !== 'undefined' ? Number(pingData.device_count || 0) : 0;
         const errors = (pingData && pingData.result && pingData.result.errors) || [];
-
-        const firstError = errors.length ? String(errors[0] || "") : "";
+        const firstError = errors.length ? String(errors[0] || '') : '';
         if (deviceCount > 0 && sentCount === 0 && isVapidMismatchError(firstError)) {
-          setPushUi("Alte Push-Registrierung erkannt. Gerät wird neu verbunden…", "working");
+          setPushUi('Alte Push-Registrierung erkannt. Geraet wird neu verbunden...', 'working');
           await resetBrowserPushSubscription();
-          const refreshedRegistration = await navigator.serviceWorker.ready;
-          const freshSubscription = await refreshedRegistration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: vapidKeyToUint8Array(config.public_key),
-          });
-          const freshPayload = (freshSubscription && typeof freshSubscription.toJSON === "function") ? freshSubscription.toJSON() : JSON.parse(JSON.stringify(freshSubscription || {}));
-          const resubscribeRes = await fetch("/api/push/subscribe", {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              staff_name: currentStaff(),
-              device_name: currentDeviceName(),
-              subscription: freshPayload,
-            }),
-          });
-          let resubscribeData = null;
-          try { resubscribeData = await resubscribeRes.json(); } catch (e) {}
-          if (!resubscribeRes.ok || !resubscribeData || resubscribeData.ok === false) {
-            throw new Error((resubscribeData && (resubscribeData.error || resubscribeData.message)) || "Push-Neuregistrierung fehlgeschlagen.");
-          }
-          const retryPingRes = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(currentStaff())}`, { cache: "no-store", credentials: "same-origin" });
-          let retryPingData = null;
-          try { retryPingData = await retryPingRes.json(); } catch (e) {}
-          const retrySent = retryPingData && retryPingData.result ? Number(retryPingData.result.sent || 0) : 0;
-          const retryErrors = (retryPingData && retryPingData.result && retryPingData.result.errors) || [];
-          if (typeof window.refreshPushOverview === "function") {
-            await window.refreshPushOverview();
-          }
-          if (retrySent > 0) {
-            setPushUi(`Push ist für ${currentStaff()} aktiv.`, "active");
-            if (showMessage) {
-              alert(`Push ist für ${currentStaff()} jetzt neu verknüpft und aktiv.`);
-              setTimeout(() => { closeAppMenuAfterPush(); closeDeviceStaffBar(); }, 150);
-            }
-            return true;
-          }
-          throw new Error(retryErrors.length ? retryErrors[0] : "Push konnte nach der Neuverknüpfung noch nicht zugestellt werden.");
+          throw new Error('Bitte Push jetzt noch einmal aktivieren.');
         }
-
-        if (typeof window.refreshPushOverview === "function") {
-          await window.refreshPushOverview();
-        }
-
+        if (typeof window.refreshPushOverview === 'function') await window.refreshPushOverview();
         if (deviceCount > 0) {
-          setPushUi(`Push ist für ${currentStaff()} aktiv.`, "active");
+          setPushUi(`Push ist fuer ${currentStaff()} aktiv.`, 'active');
         } else {
-          setPushUi(`Gerät wurde noch nicht sauber registriert. Bitte Seite neu laden und erneut aktivieren.`);
+          setPushUi('Geraet wurde noch nicht sauber registriert. Bitte Seite neu laden und erneut aktivieren.');
         }
-
         if (showMessage) {
-          if (deviceCount > 0 && sentCount > 0) {
-            alert(`Push ist für ${currentStaff()} aktiv.`);
-          } else if (deviceCount > 0) {
-            alert(`Gerät für ${currentStaff()} wurde gespeichert. Der Test-Push konnte aber noch nicht zugestellt werden.`);
-          }
+          if (deviceCount > 0 && sentCount > 0) alert(`Push ist fuer ${currentStaff()} aktiv.`);
+          else if (deviceCount > 0) alert(`Geraet fuer ${currentStaff()} wurde gespeichert. Der Test-Push konnte aber noch nicht zugestellt werden.`);
           setTimeout(() => { closeAppMenuAfterPush(); closeDeviceStaffBar(); }, 150);
         }
         return deviceCount > 0;
       }
 
+      async function registerPushSubscription(showMessage = true) {
+        if (isNativeApp) return registerNativePush(showMessage);
+        return registerBrowserPush(showMessage);
+      }
+
       async function syncExistingPushSubscriptionSilently() {
+        if (isNativeApp) {
+          try {
+            await ensureNativePushListeners();
+            const permissions = await nativePushPlugin.checkPermissions();
+            if (permissions.receive === 'granted') return registerNativePush(false);
+          } catch (error) {
+            return false;
+          }
+          return false;
+        }
         if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return false;
-        if (Notification.permission !== "granted") return false;
+        if (Notification.permission !== 'granted') return false;
         try {
           const config = await fetchPushConfig();
           if (!config.enabled || !config.public_key) return false;
@@ -446,11 +460,11 @@
               applicationServerKey: vapidKeyToUint8Array(config.public_key),
             });
           }
-          const subscriptionPayload = (subscription && typeof subscription.toJSON === "function") ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription || {}));
-          const saveRes = await fetch("/api/push/subscribe", {
-            method: "POST",
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
+          const subscriptionPayload = (subscription && typeof subscription.toJSON === 'function') ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription || {}));
+          const saveRes = await fetch('/api/push/subscribe', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               staff_name: currentStaff(),
               device_name: currentDeviceName(),
@@ -465,103 +479,109 @@
 
       async function triggerPushTest(showMessage = true) {
         const staff = currentPushTarget();
-        const res = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staff)}`, { cache: "no-store", credentials: "same-origin" });
+        const res = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staff)}`, { cache: 'no-store', credentials: 'same-origin' });
         const data = await res.json();
         const sent = (data.result && data.result.sent) || 0;
         const deviceCount = Number(data.device_count || 0);
         const errors = (data.result && data.result.errors) || [];
-        if (typeof window.refreshPushOverview === "function") {
-          await window.refreshPushOverview();
-        }
+        if (typeof window.refreshPushOverview === 'function') await window.refreshPushOverview();
         if (sent > 0) {
-          setPushUi(`Push-Test für ${staff} gesendet (${sent}).`, "active");
-          if (showMessage) alert(`Test-Push für ${staff} wurde gesendet.`);
+          setPushUi(`Push-Test fuer ${staff} gesendet (${sent}).`, 'active');
+          if (showMessage) alert(`Test-Push fuer ${staff} wurde gesendet.`);
         } else if (deviceCount > 0) {
-          const detail = errors.length ? ` Versandfehler: ${errors[0]}` : " Gerät ist registriert, aber der Versand ist fehlgeschlagen.";
-          setPushUi(`Push für ${staff} konnte nicht zugestellt werden.`);
-          if (showMessage) alert(`Gerät für ${staff} ist registriert, aber der Push konnte nicht zugestellt werden.${detail}`);
+          const detail = errors.length ? ` Versandfehler: ${errors[0]}` : ' Geraet ist registriert, aber der Versand ist fehlgeschlagen.';
+          setPushUi(`Push fuer ${staff} konnte nicht zugestellt werden.`);
+          if (showMessage) alert(`Geraet fuer ${staff} ist registriert, aber der Push konnte nicht zugestellt werden.${detail}`);
         } else {
-          setPushUi(`Kein registriertes Gerät für ${staff} gefunden.`);
-          if (showMessage) alert(`Für ${staff} wurde kein aktives Gerät gefunden.`);
+          setPushUi(`Kein registriertes Geraet fuer ${staff} gefunden.`);
+          if (showMessage) alert(`Fuer ${staff} wurde kein aktives Geraet gefunden.`);
         }
       }
 
       async function refreshPushStatus() {
         if (staffSelect) staffSelect.value = currentStaff();
-        if (!deviceNameInput || document.activeElement !== deviceNameInput) {
-          if (deviceNameInput) deviceNameInput.value = currentDeviceName();
+        if (deviceNameInput && document.activeElement !== deviceNameInput) deviceNameInput.value = currentDeviceName();
+        if (isNativeApp) {
+          try {
+            await ensureNativePushListeners();
+            const permissions = await nativePushPlugin.checkPermissions();
+            if (permissions.receive === 'granted') {
+              setPushUi(`Android-Push ist fuer ${currentStaff()} bereit.`, 'active');
+              return;
+            }
+            if (permissions.receive === 'denied') {
+              setPushUi('Android-Benachrichtigungen sind blockiert.');
+              return;
+            }
+            setPushUi('Push ist in der Android-App noch nicht aktiviert.');
+            return;
+          } catch (error) {
+            setPushUi(error.message || 'Android-Push konnte nicht geprueft werden.');
+            return;
+          }
         }
-
         if (!("Notification" in window)) {
-          setPushUi("Dieser Browser unterstützt keine Push-Benachrichtigungen.");
+          setPushUi('Dieser Browser unterstuetzt keine Push-Benachrichtigungen.');
           return;
         }
-
         try {
           const config = await fetchPushConfig();
           if (!config.enabled || !config.public_key) {
-            setPushUi("Push ist serverseitig noch nicht vollständig eingerichtet.");
+            setPushUi('Push ist serverseitig noch nicht vollstaendig eingerichtet.');
             return;
           }
           const registration = await navigator.serviceWorker.ready;
           const subscription = await registration.pushManager.getSubscription();
-          if (Notification.permission === "granted" && subscription) {
-            setPushUi(`Push ist für ${currentStaff()} aktiv.`, "active");
+          if (Notification.permission === 'granted' && subscription) {
+            setPushUi(`Push ist fuer ${currentStaff()} aktiv.`, 'active');
             return;
           }
-          if (Notification.permission === "granted") {
-            await registerPushSubscription(false);
+          if (Notification.permission === 'granted') {
+            await registerBrowserPush(false);
             return;
           }
-          if (Notification.permission === "denied") {
-            setPushUi("Push wurde im Browser blockiert.");
+          if (Notification.permission === 'denied') {
+            setPushUi('Push wurde im Browser blockiert.');
             return;
           }
-          setPushUi("Push ist noch nicht aktiviert.");
+          setPushUi('Push ist noch nicht aktiviert.');
         } catch (error) {
-          setPushUi(error.message || "Push-Status konnte nicht geladen werden.");
+          setPushUi(error.message || 'Push-Status konnte nicht geladen werden.');
         }
       }
-
 
       function applyResponsiveMenuState() {
         if (!mainNavLinks) return;
         if (isMobileView()) {
-          mainNavLinks.hidden = !mainNavLinks.classList.contains("mobile-open");
+          mainNavLinks.hidden = !mainNavLinks.classList.contains('mobile-open');
         } else {
           mainNavLinks.hidden = false;
-          mainNavLinks.classList.remove("mobile-open");
-          if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
-          document.body.classList.remove("mobile-menu-open");
-          if (menuToggle) menuToggle.setAttribute("aria-expanded", "false");
-          if (menuClose) menuClose.classList.remove("visible");
+          mainNavLinks.classList.remove('mobile-open');
+          if (menuOverlay) { menuOverlay.classList.remove('active'); menuOverlay.setAttribute('aria-hidden', 'true'); }
+          document.body.classList.remove('mobile-menu-open');
+          if (menuToggle) menuToggle.setAttribute('aria-expanded', 'false');
+          if (menuClose) menuClose.classList.remove('visible');
         }
       }
 
       applyResponsiveMenuState();
-      window.addEventListener("resize", applyResponsiveMenuState);
+      window.addEventListener('resize', applyResponsiveMenuState);
 
       if (staffSelect) {
         staffSelect.value = currentStaff();
-        staffSelect.addEventListener("change", async () => {
+        staffSelect.addEventListener('change', async () => {
           localStorage.setItem(STORAGE_KEY_STAFF, staffSelect.value);
           localStorage.setItem(STORAGE_KEY_PUSH_TARGET, staffSelect.value);
           if (pushTargetSelect) pushTargetSelect.value = staffSelect.value;
           await refreshPushStatus();
-          try {
-            if (Notification.permission === "granted") {
-              await registerPushSubscription(false);
-            }
-          } catch (e) {}
+          await syncExistingPushSubscriptionSilently();
         });
       }
 
       if (pushTargetSelect) {
         pushTargetSelect.value = currentPushTarget();
-        if (!localStorage.getItem(STORAGE_KEY_PUSH_TARGET)) {
-          localStorage.setItem(STORAGE_KEY_PUSH_TARGET, pushTargetSelect.value || {{ default_staff|tojson }});
-        }
-        pushTargetSelect.addEventListener("change", () => {
+        if (!localStorage.getItem(STORAGE_KEY_PUSH_TARGET)) localStorage.setItem(STORAGE_KEY_PUSH_TARGET, pushTargetSelect.value || {{ default_staff|tojson }});
+        pushTargetSelect.addEventListener('change', () => {
           const nextTarget = allowedTargets.includes(pushTargetSelect.value) ? pushTargetSelect.value : {{ default_staff|tojson }};
           localStorage.setItem(STORAGE_KEY_PUSH_TARGET, nextTarget);
           pushTargetSelect.value = nextTarget;
@@ -571,148 +591,91 @@
 
       if (deviceNameInput) {
         deviceNameInput.value = currentDeviceName();
-        deviceNameInput.addEventListener("change", () => {
+        deviceNameInput.addEventListener('change', () => {
           persistDeviceName();
-          setPushUi(pushStatusMini ? pushStatusMini.textContent : "Push-Status aktualisiert.");
+          setPushUi(pushStatusMini ? pushStatusMini.textContent : 'Push-Status aktualisiert.');
         });
       }
 
       if (menuToggle) {
-        const handleMenuToggle = (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          toggleMobileMenu();
-        };
-        menuToggle.addEventListener("click", handleMenuToggle, { passive: false });
+        menuToggle.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); toggleMobileMenu(); }, { passive: false });
       }
-
-      if (menuClose) {
-        menuClose.addEventListener("click", (event) => {
-          event.preventDefault();
-          closeMobileMenu();
-        });
-      }
-
-      if (menuOverlay) {
-        menuOverlay.addEventListener("click", () => closeMobileMenu());
-      }
-      if (navPushToggle) {
-        let pushToggleLockUntil = 0;
-        const handlePushToggle = (event) => {
-          const now = Date.now();
-          if (now < pushToggleLockUntil) return;
-          pushToggleLockUntil = now + 350;
-          event.preventDefault();
-          event.stopPropagation();
-          toggleDeviceStaffBar();
-          if (navPushGroup && navPushGroup.classList.contains("open")) {
-            setTimeout(() => {
-              if (deviceNameInput && isMobileView()) {
-                try { deviceNameInput.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) {}
-              }
-            }, 120);
-          }
-        };
-        navPushToggle.addEventListener("click", handlePushToggle);
-      }
+      if (menuClose) menuClose.addEventListener('click', (event) => { event.preventDefault(); closeMobileMenu(); });
+      if (menuOverlay) menuOverlay.addEventListener('click', () => closeMobileMenu());
+      if (navPushToggle) navPushToggle.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); toggleDeviceStaffBar(); });
 
       if (mainNavLinks) {
-        mainNavLinks.addEventListener("click", (event) => {
-          const target = event.target.closest("#navPushGroup, #navPushGroup *");
-          if (target) event.stopPropagation();
-        });
-      }
-
-
-      if (mainNavLinks) {
-        const navigateFromMenu = (link, event) => {
-          const href = link.getAttribute("href");
-          if (!href || href.startsWith("#")) return;
-          event.preventDefault();
-          event.stopPropagation();
-          closeMobileMenu();
-          window.setTimeout(() => { window.location.href = link.href || href; }, 10);
-        };
-
-        mainNavLinks.querySelectorAll("a[data-nav-link]").forEach((link) => {
-          link.style.touchAction = "manipulation";
-          link.style.pointerEvents = "auto";
-          link.addEventListener("click", (event) => navigateFromMenu(link, event), { passive: false });
+        mainNavLinks.querySelectorAll('a[data-nav-link]').forEach((link) => {
+          link.style.touchAction = 'manipulation';
+          link.style.pointerEvents = 'auto';
+          link.addEventListener('click', (event) => {
+            const href = link.getAttribute('href');
+            if (!href || href.startsWith('#')) return;
+            event.preventDefault();
+            event.stopPropagation();
+            closeMobileMenu();
+            window.setTimeout(() => { window.location.href = link.href || href; }, 10);
+          }, { passive: false });
         });
       }
 
       if (testPushBtn) {
-        testPushBtn.addEventListener("click", async () => {
-          try {
-            await triggerPushTest(true);
-          } catch (error) {
-            setPushUi(error.message || "Push-Test fehlgeschlagen.");
-            alert((error && error.message) ? error.message : "Push-Test fehlgeschlagen.");
+        testPushBtn.addEventListener('click', async () => {
+          try { await triggerPushTest(true); }
+          catch (error) {
+            setPushUi(error.message || 'Push-Test fehlgeschlagen.');
+            alert((error && error.message) ? error.message : 'Push-Test fehlgeschlagen.');
           }
         });
       }
 
       if (enablePushBtn) {
-        enablePushBtn.addEventListener("click", async () => {
-          try {
-            await registerPushSubscription(true);
-          } catch (error) {
-            setPushUi(error.message || "Push konnte nicht aktiviert werden.");
-            alert((error && error.message) ? error.message : "Push konnte nicht aktiviert werden. Bitte Handy-Seite neu laden und erneut versuchen.");
+        enablePushBtn.addEventListener('click', async () => {
+          try { await registerPushSubscription(true); }
+          catch (error) {
+            setPushUi(error.message || 'Push konnte nicht aktiviert werden.');
+            alert((error && error.message) ? error.message : 'Push konnte nicht aktiviert werden. Bitte noch einmal versuchen.');
           }
         });
       }
 
-      document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") closeMobileMenu();
-      });
-
-      window.addEventListener("resize", () => {
-        if (window.innerWidth > 768) closeMobileMenu();
-      });
-
-
+      document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMobileMenu(); });
+      window.addEventListener('resize', () => { if (window.innerWidth > 768) closeMobileMenu(); });
 
       function hideStartupSplash() {
-        const splash = document.getElementById("startupSplash");
+        const splash = document.getElementById('startupSplash');
         if (!splash) return;
-        splash.classList.add("fade-out");
-        window.setTimeout(() => {
-          try { splash.remove(); } catch (e) {}
-        }, 950);
+        splash.classList.add('fade-out');
+        window.setTimeout(() => { try { splash.remove(); } catch (e) {} }, 950);
       }
 
       async function playStartupSound() {
-        const sound = document.getElementById("startupSound");
+        const sound = document.getElementById('startupSound');
         if (!sound) return;
         try {
           sound.volume = 0.45;
           sound.currentTime = 0;
           await sound.play();
-        } catch (error) {
-          // Mobile browsers can block autoplay with sound until the first interaction.
-        }
+        } catch (error) {}
       }
 
       function runStartupSplash() {
-        const splash = document.getElementById("startupSplash");
+        const splash = document.getElementById('startupSplash');
         if (!splash) return;
-        const splashKey = "sk_startup_splash_seen";
+        const splashKey = 'sk_startup_splash_seen';
         try {
-          if (window.sessionStorage.getItem(splashKey) === "1") {
+          if (window.sessionStorage.getItem(splashKey) === '1') {
             splash.remove();
             return;
           }
-          window.sessionStorage.setItem(splashKey, "1");
-        } catch (error) {
-          // If sessionStorage is blocked, fall back to showing it once per page load.
-        }
-        splash.classList.add("visible");
+          window.sessionStorage.setItem(splashKey, '1');
+        } catch (error) {}
+        splash.classList.add('visible');
         playStartupSound();
         window.setTimeout(hideStartupSplash, 2200);
       }
 
-      window.addEventListener("load", async () => {
+      window.addEventListener('load', async () => {
         try {
           if (loggedInStaff) {
             localStorage.setItem(STORAGE_KEY_STAFF, loggedInStaff);
@@ -721,13 +684,15 @@
         } catch (e) {}
         try {
           const registration = await registerServiceWorker();
-          if (registration && registration.waiting) registration.waiting.postMessage({ type: "SKIP_WAITING" });
-          navigator.serviceWorker.addEventListener("controllerchange", () => {
-            if (!window.__skReloaded) {
-              window.__skReloaded = true;
-              window.location.reload();
-            }
-          });
+          if (registration && registration.waiting) registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          if (!isNativeApp && navigator.serviceWorker) {
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+              if (!window.__skReloaded) {
+                window.__skReloaded = true;
+                window.location.reload();
+              }
+            });
+          }
         } catch (e) {}
         runStartupSplash();
         closeMobileMenu();
@@ -736,14 +701,14 @@
         await syncExistingPushSubscriptionSilently();
       });
 
-      document.addEventListener("visibilitychange", () => {
+      document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
           refreshPushStatus();
           syncExistingPushSubscriptionSilently();
         }
       });
 
-      window.addEventListener("focus", () => {
+      window.addEventListener('focus', () => {
         refreshPushStatus();
         syncExistingPushSubscriptionSilently();
       });
