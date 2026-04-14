@@ -35,11 +35,11 @@
         <div class="brand-main">
           <div class="brand-title-row">
             <div class="brand-title">Salon Karola App</div>
-            <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks">Menue</button>
+            <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks" onclick="window.skToggleMenu && window.skToggleMenu(event)">Menue</button>
           </div>
         </div>
       </div>
-      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menue schliessen">Schliessen</button>
+      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menue schliessen" onclick="window.skCloseMenu && window.skCloseMenu(event)">Schliessen</button>
       <nav class="nav-links" id="mainNavLinks" hidden>
         <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>
@@ -751,5 +751,83 @@
       window.addEventListener('touchmove', updateTopbarOnScroll, { passive: true });
     })();
   </script>
+
+<script>
+(function () {
+  function getEls() {
+    return {
+      nav: document.getElementById('mainNavLinks'),
+      toggle: document.getElementById('menuToggle'),
+      close: document.getElementById('menuClose'),
+      overlay: document.getElementById('menuOverlay')
+    };
+  }
+
+  function openMenu() {
+    const { nav, toggle, close, overlay } = getEls();
+    if (!nav) return;
+    nav.hidden = false;
+    nav.removeAttribute('hidden');
+    nav.classList.add('mobile-open');
+    nav.style.display = 'grid';
+    nav.style.opacity = '1';
+    nav.style.visibility = 'visible';
+    nav.style.pointerEvents = 'auto';
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    if (close) close.classList.add('visible');
+    if (overlay) {
+      overlay.classList.add('active');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+    document.body.classList.add('mobile-menu-open');
+  }
+
+  function closeMenu() {
+    const { nav, toggle, close, overlay } = getEls();
+    if (!nav) return;
+    nav.classList.remove('mobile-open');
+    nav.hidden = true;
+    nav.setAttribute('hidden', 'hidden');
+    nav.style.opacity = '';
+    nav.style.visibility = '';
+    nav.style.pointerEvents = '';
+    nav.style.display = '';
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    if (close) close.classList.remove('visible');
+    if (overlay) {
+      overlay.classList.remove('active');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+    document.body.classList.remove('mobile-menu-open');
+  }
+
+  window.skToggleMenu = function (event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    const { nav } = getEls();
+    if (!nav) return false;
+    if (nav.classList.contains('mobile-open') || nav.hidden === false) closeMenu();
+    else openMenu();
+    return false;
+  };
+
+  window.skCloseMenu = function (event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    closeMenu();
+    return false;
+  };
+
+  window.addEventListener('load', function () {
+    const { overlay } = getEls();
+    if (overlay) overlay.addEventListener('click', window.skCloseMenu);
+  });
+})();
+</script>
+
 </body>
 </html>
