@@ -174,7 +174,10 @@
       function closeMobileMenu() {
         if (mainNavLinks) {
           mainNavLinks.classList.remove("mobile-open");
-          if (isMobileView()) mainNavLinks.hidden = true;
+          if (isMobileView()) {
+            mainNavLinks.hidden = true;
+            mainNavLinks.setAttribute("hidden", "hidden");
+          }
         }
         if (menuOverlay) { menuOverlay.classList.remove("active"); menuOverlay.setAttribute("aria-hidden", "true"); }
         document.body.classList.remove("mobile-menu-open");
@@ -185,6 +188,7 @@
       function openMobileMenu() {
         if (mainNavLinks) {
           mainNavLinks.hidden = false;
+          mainNavLinks.removeAttribute("hidden");
           requestAnimationFrame(() => mainNavLinks.classList.add("mobile-open"));
         }
         if (menuOverlay) { menuOverlay.classList.add("active"); menuOverlay.setAttribute("aria-hidden", "false"); }
@@ -556,7 +560,13 @@
       function applyResponsiveMenuState() {
         if (!mainNavLinks) return;
         if (isMobileView()) {
-          mainNavLinks.hidden = !mainNavLinks.classList.contains('mobile-open');
+          if (mainNavLinks.classList.contains('mobile-open')) {
+            mainNavLinks.hidden = false;
+            mainNavLinks.removeAttribute('hidden');
+          } else {
+            mainNavLinks.hidden = true;
+            mainNavLinks.setAttribute('hidden', 'hidden');
+          }
         } else {
           mainNavLinks.hidden = false;
           mainNavLinks.classList.remove('mobile-open');

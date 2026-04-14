@@ -4775,6 +4775,9 @@ th, td {
   }
 
   .topbar #mainNavLinks.mobile-open {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
     display: grid !important;
     position: fixed !important;
     top: calc(50px + env(safe-area-inset-top, 0px)) !important;
