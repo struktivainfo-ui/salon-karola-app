@@ -1,0 +1,12 @@
+﻿{
+  "appId": "com.salonkarola.app",
+  "appName": "Salon Karola App",
+  "webDir": "www",
+  "server": {
+    "url": "https://salon-karola-crm.onrender.com",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

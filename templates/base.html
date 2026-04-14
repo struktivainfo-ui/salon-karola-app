@@ -125,7 +125,7 @@
       const loggedInStaff = {{ logged_in_staff|tojson }};
 
       function currentStaff() {
-        return (localStorage.getItem(STORAGE_KEY_STAFF) || loggedInStaff || {{ default_staff|tojson }}).trim() || loggedInStaff || {{ default_staff|tojson }};
+        return (loggedInStaff || localStorage.getItem(STORAGE_KEY_STAFF) || {{ default_staff|tojson }}).trim() || loggedInStaff || {{ default_staff|tojson }};
       }
 
       const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};

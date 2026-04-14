@@ -1,0 +1,27 @@
+﻿{
+  "name": "salon-karola-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Android wrapper for the Salon Karola App hosted on Render.",
+  "main": "index.js",
+  "scripts": {
+    "cap:sync": "npx cap sync",
+    "cap:copy": "npx cap copy",
+    "cap:open:android": "npx cap open android",
+    "android:add": "npx cap add android"
+  },
+  "keywords": [
+    "salon",
+    "capacitor",
+    "android",
+    "flask"
+  ],
+  "author": "Salon Karola",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3"
+  }
+}

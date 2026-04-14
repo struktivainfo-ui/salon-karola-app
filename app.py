@@ -96,6 +96,7 @@ app = Flask(
 )
 app.secret_key = os.getenv("SECRET_KEY") or os.getenv("FLASK_SECRET_KEY") or os.urandom(32).hex()
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
+app.permanent_session_lifetime = timedelta(days=45)
 
 
 @app.after_request
@@ -195,8 +196,9 @@ def resolve_staff_name_for_user(user_row):
     return DEFAULT_STAFF
 
 
-def login_user(user, *, staff_name=None):
+def login_user(user, *, staff_name=None, remember_device=False):
     resolved_staff = staff_name or resolve_staff_name_for_user(user)
+    session.permanent = bool(remember_device)
     session["admin_logged_in"] = True
     session["admin_name"] = user["display_name"] or user["username"]
     session["staff_name"] = resolved_staff
@@ -1758,6 +1760,7 @@ def login():
         action = (request.form.get("action") or "login").strip().lower()
         selected_staff = _normalize_staff_name(request.form.get("staff_name"), default=DEFAULT_STAFF)
         user = fetch_user_for_staff(db, selected_staff)
+        remember_device = (request.form.get("remember_device") or "").strip().lower() in {"1", "true", "on", "yes"}
 
         if action == "setup":
             password = request.form.get("new_password", "")
@@ -1765,24 +1768,24 @@ def login():
             if not user:
                 flash("Benutzer konnte nicht vorbereitet werden.")
             elif len(password) < 4:
-                flash("Bitte ein Passwort mit mindestens 4 Zeichen w?hlen.")
+                flash("Bitte ein Passwort mit mindestens 4 Zeichen waehlen.")
             elif password != password_confirm:
-                flash("Die beiden Passw?rter stimmen nicht ?berein.")
+                flash("Die beiden Passwoerter stimmen nicht ueberein.")
             else:
                 db.execute(
                     "UPDATE staff_users SET password = ? WHERE id = ?",
                     (hash_password(password), user["id"]),
                 )
                 db.commit()
-                login_user(user, staff_name=selected_staff)
-                flash(f"Passwort f?r {selected_staff} gespeichert oder ersetzt. Willkommen, {selected_staff}.")
+                login_user(user, staff_name=selected_staff, remember_device=remember_device)
+                flash(f"Passwort fuer {selected_staff} gespeichert oder ersetzt. Willkommen, {selected_staff}.")
                 return redirect(request.args.get("next") or url_for("calendar_view"))
         else:
             password = request.form.get("password", "")
             if not user:
                 flash("Benutzer nicht gefunden.")
             elif not user_has_password(user):
-                flash(f"F?r {selected_staff} wurde noch kein Passwort angelegt. Bitte zuerst Passwort erstellen.")
+                flash(f"Fuer {selected_staff} wurde noch kein Passwort angelegt. Bitte zuerst registrieren.")
             elif verify_password(user["password"], password):
                 if not password_is_hashed(user["password"]):
                     db.execute(
@@ -1791,7 +1794,7 @@ def login():
                     )
                     db.commit()
                 staff_name = resolve_staff_name_for_user(user)
-                login_user(user, staff_name=staff_name)
+                login_user(user, staff_name=staff_name, remember_device=remember_device)
                 flash(f"Login erfolgreich: {staff_name}.")
                 return redirect(request.args.get("next") or url_for("calendar_view"))
             else:
@@ -1801,7 +1804,13 @@ def login():
     for option in login_options:
         user = fetch_user_for_staff(db, option["staff_name"])
         setup_states[option["staff_name"]] = {"has_password": user_has_password(user)}
-    return render_template("login.html", login_options=login_options, setup_states=setup_states, passkeys_ready=passkeys_ready())
+    return render_template(
+        "login.html",
+        login_options=login_options,
+        setup_states=setup_states,
+        passkeys_ready=passkeys_ready(),
+        current_endpoint="login",
+    )
 
 
 @app.route("/api/passkeys/register/options", methods=["POST"])
@@ -1904,6 +1913,7 @@ def passkey_auth_options():
     )
     session["passkey_auth_challenge"] = _b64url_encode(options.challenge)
     session["passkey_auth_staff"] = selected_staff
+    session["passkey_auth_remember"] = bool(payload.get("remember_device"))
     return Response(options_to_json(options), mimetype="application/json")
 
 
@@ -1946,9 +1956,10 @@ def passkey_auth_verify():
         (int(verification.new_sign_count or 0), datetime.now().isoformat(timespec="seconds"), row["id"]),
     )
     db.commit()
-    login_user(row, staff_name=selected_staff)
+    login_user(row, staff_name=selected_staff, remember_device=bool(session.get("passkey_auth_remember")))
     session.pop("passkey_auth_challenge", None)
     session.pop("passkey_auth_staff", None)
+    session.pop("passkey_auth_remember", None)
     return {"ok": True, "redirect_url": url_for("calendar_view")}
 
 

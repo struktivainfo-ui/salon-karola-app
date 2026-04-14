@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Push ? Salon Karola App{% endblock %}
+{% block title %}Push - Salon Karola App{% endblock %}
 {% block content %}
 <section class="premium-shell">
   <section class="premium-page-head">
     <div>
       <div class="premium-page-kicker">Admin</div>
       <h1 class="premium-page-title">Push</h1>
-      <div class="premium-page-subtitle">Ger?te, Fingerabdruck und Zustellung an einem Ort.</div>
+      <div class="premium-page-subtitle">Geraete, Fingerabdruck und Zustellung an einem Ort.</div>
     </div>
     <div class="premium-top-actions">
       <a class="premium-top-action primary" href="{{ url_for('calendar_view') }}">Kalender</a>
@@ -18,7 +18,7 @@
     <article class="premium-panel">
       <div class="premium-panel-head">
         <div>
-          <div class="premium-panel-kicker">Dieses Ger?t</div>
+          <div class="premium-panel-kicker">Dieses Geraet</div>
           <h2 class="premium-panel-title">Einrichten</h2>
         </div>
       </div>
@@ -30,7 +30,7 @@
           </select>
         </div>
         <div class="form-group premium-form-group">
-          <label for="deviceNameInput">Ger?tename</label>
+          <label for="deviceNameInput">Geraetename</label>
           <input type="text" id="deviceNameInput" placeholder="z. B. Handy Sven" maxlength="80">
         </div>
         <div class="form-group premium-form-group">
@@ -47,7 +47,7 @@
         <div class="premium-button-row compact">
           <button type="button" class="premium-button secondary" id="registerPasskeyBtn" {% if not passkeys_ready %}disabled{% endif %}>Fingerabdruck aktivieren</button>
         </div>
-        <div class="premium-note" id="passkeySetupStatus">{% if passkeys_ready %}Biometrischer Login f?r dieses Ger?t.{% else %}Fingerabdruck ist serverseitig noch nicht aktiv.{% endif %}</div>
+        <div class="premium-note" id="passkeySetupStatus">{% if passkeys_ready %}Biometrischer Login fuer dieses Geraet.{% else %}Fingerabdruck ist serverseitig noch nicht aktiv.{% endif %}</div>
         <div class="premium-note" id="pushStatusMini">Push ist noch nicht aktiviert.</div>
       </div>
     </article>
@@ -55,8 +55,8 @@
     <article class="premium-panel">
       <div class="premium-panel-head">
         <div>
-          <div class="premium-panel-kicker">?bersicht</div>
-          <h2 class="premium-panel-title">Ger?te</h2>
+          <div class="premium-panel-kicker">Uebersicht</div>
+          <h2 class="premium-panel-title">Geraete</h2>
         </div>
       </div>
       <div class="premium-stat-grid compact premium-space-top">
@@ -67,9 +67,9 @@
         <article class="premium-stat-card"><div class="premium-stat-label">Gesamt</div><div class="premium-stat-value" id="totalCount">0</div></article>
       </div>
       <div class="premium-button-row compact premium-space-top">
-        <button type="button" class="premium-button secondary" id="reloadDevicesBtn">Ger?te neu laden</button>
+        <button type="button" class="premium-button secondary" id="reloadDevicesBtn">Geraete neu laden</button>
       </div>
-      <div id="pushDevicesList" class="premium-list premium-space-top"><div class="premium-list-empty">Noch keine Ger?te registriert.</div></div>
+      <div id="pushDevicesList" class="premium-list premium-space-top"><div class="premium-list-empty">Noch keine Geraete registriert.</div></div>
     </article>
   </section>
 </section>
@@ -134,7 +134,7 @@
 
   async function registerPasskey() {
     if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) {
-      setPasskeyStatus('Fingerabdruck ist auf diesem Ger?t in diesem Browser nicht verf?gbar.');
+      setPasskeyStatus('Fingerabdruck ist auf diesem Geraet in diesem Browser nicht verfuegbar.');
       return;
     }
     passkeyBtn.disabled = true;
@@ -157,7 +157,7 @@
       });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok || verifyData.ok === false) throw new Error(verifyData.error || 'Fingerabdruck konnte nicht gespeichert werden.');
-      setPasskeyStatus(verifyData.message || 'Fingerabdruck wurde f?r dieses Ger?t gespeichert.');
+      setPasskeyStatus(verifyData.message || 'Fingerabdruck wurde fuer dieses Geraet gespeichert.');
     } catch (error) {
       setPasskeyStatus(error.message || 'Fingerabdruck konnte nicht aktiviert werden.');
     } finally {
@@ -178,13 +178,13 @@
 
   async function loadDevices() {
     if (!list) return;
-    list.innerHTML = '<div class="premium-list-empty">Lade Ger?te...</div>';
+    list.innerHTML = '<div class="premium-list-empty">Lade Geraete...</div>';
     try {
       const res = await fetch('/api/push/devices', { cache: 'no-store' });
       const data = await res.json();
       const items = data.items || [];
       if (!items.length) {
-        list.innerHTML = '<div class="premium-list-empty">Noch keine Ger?te registriert.</div>';
+        list.innerHTML = '<div class="premium-list-empty">Noch keine Geraete registriert.</div>';
         return;
       }
       list.innerHTML = items.map((item) => {
@@ -197,7 +197,7 @@
           </div>`;
       }).join('');
     } catch (e) {
-      list.innerHTML = '<div class="premium-list-empty">Ger?te konnten nicht geladen werden.</div>';
+      list.innerHTML = '<div class="premium-list-empty">Geraete konnten nicht geladen werden.</div>';
     }
   }
 

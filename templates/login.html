@@ -1,141 +1,171 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% block title %}Salon Karola App{% endblock %}
 {% block content %}
-<div class="auth-shell premium-auth-shell compact-auth-shell">
-  <section class="auth-landing premium-auth-hero compact-auth-hero">
-    <div class="compact-auth-hero-header">
-      <div class="compact-auth-brandline">
-        <img class="compact-auth-header-logo" src="{{ url_for('static', filename='icons/icon-512.png') }}" alt="Salon Karola Logo">
+<div class="auth-app-shell">
+  <section class="auth-hero-stage">
+    <div class="auth-topbar-mini">
+      <div class="auth-topbar-brand">
+        <img class="auth-topbar-logo" src="{{ url_for('static', filename='icon-512.png') }}" alt="Salon Karola Logo">
         <div>
-          <div class="compact-auth-brandname">Salon Karola App</div>
-          <div class="compact-auth-location">Calw-Wimberg</div>
+          <div class="auth-topbar-title">Salon Karola App</div>
+          <div class="auth-topbar-subtitle">Calw-Wimberg</div>
         </div>
       </div>
-      <div class="compact-auth-nav" role="tablist" aria-label="Anmeldung">
-        <button type="button" class="auth-switch-btn compact-auth-nav-btn active" data-auth-target="loginPanel">Anmelden</button>
-        <button type="button" class="auth-switch-btn compact-auth-nav-btn" data-auth-target="registerPanel">Registrieren</button>
+      <div class="auth-topbar-actions">
+        <button type="button" class="auth-top-action" data-open-auth="login">Anmelden</button>
+        <button type="button" class="auth-top-action secondary" data-open-auth="register">Registrieren</button>
       </div>
     </div>
 
-    <div class="compact-auth-copy">
-      <div class="premium-auth-kicker">Friseursalon in Calw-Wimberg</div>
-      <h1 class="premium-auth-title compact-auth-title">Schönheit beginnt mit einem Termin, der sich leicht anfühlt.</h1>
-      <p class="premium-auth-lead">Persönliche Beratung, entspanntes Ambiente und professionelle Schnitte für deinen Alltag.</p>
-    </div>
+    <div class="auth-stage-card">
+      <div class="auth-stage-copy">
+        <div class="auth-stage-kicker">Friseursalon in Calw-Wimberg</div>
+        <h1 class="auth-stage-title">Schoenheit beginnt mit einem Termin, der sich leicht anfuehlt.</h1>
+        <p class="auth-stage-text">Persoenliche Beratung, entspannte Atmosphaere und professionelle Schnitte fuer Damen, Herren und Kinder.</p>
+      </div>
 
-    <div class="premium-auth-chip-row compact-auth-chip-row">
-      <div class="premium-auth-chip">Jessi &amp; Ute</div>
-      <div class="premium-auth-chip">Persönlich</div>
-      <div class="premium-auth-chip">Kompetent</div>
-      <div class="premium-auth-chip">Herzlich</div>
-    </div>
+      <div class="auth-stage-chips">
+        <span>Jessi &amp; Ute</span>
+        <span>Persoenlich</span>
+        <span>Kompetent</span>
+        <span>Herzlich</span>
+      </div>
 
-    <div class="premium-auth-info-grid compact-auth-info-grid">
-      <div class="premium-auth-info-card">
-        <span>Telefon</span>
-        <strong>07051 / 6344</strong>
+      <div class="auth-stage-info-grid">
+        <article class="auth-stage-info-card">
+          <span>Telefon</span>
+          <strong>07051 / 6344</strong>
+        </article>
+        <article class="auth-stage-info-card">
+          <span>Ort</span>
+          <strong>Calw-Wimberg</strong>
+        </article>
+        <article class="auth-stage-info-card auth-stage-info-card-wide">
+          <span>Oeffnungszeiten</span>
+          <strong>Di-Fr 9-12 Uhr und 13:30-17:45 Uhr</strong>
+        </article>
+        <article class="auth-stage-info-card auth-stage-info-card-wide">
+          <span>Samstag</span>
+          <strong>8:30-12:45 Uhr</strong>
+        </article>
       </div>
-      <div class="premium-auth-info-card">
-        <span>Ort</span>
-        <strong>Calw-Wimberg</strong>
-      </div>
-      <div class="premium-auth-info-card premium-auth-info-card-wide">
-        <span>Öffnungszeiten</span>
-        <strong>Di–Fr 9–12 · 13:30–17:45</strong>
-      </div>
-      <div class="premium-auth-info-card premium-auth-info-card-wide">
-        <span>Samstag</span>
-        <strong>8:30–12:45</strong>
-      </div>
-    </div>
-  </section>
-
-  <section class="auth-card-wrap premium-auth-card-wrap compact-auth-card-wrap">
-    <div class="compact-auth-card-head">
-      <div class="premium-auth-brand-label">Willkommen</div>
-      <div class="premium-auth-brand-text">Melde dich an oder lege dein Passwort an.</div>
-    </div>
-
-    <div class="auth-panel active" id="loginPanel">
-      <div class="auth-panel-head">
-        <h2>Anmelden</h2>
-      </div>
-      <form method="post" class="space-top premium-auth-form">
-        <input type="hidden" name="action" value="login">
-        <div class="form-group">
-          <label for="staff_name_login">Name</label>
-          <select name="staff_name" id="staff_name_login" required>
-            {% for option in login_options %}
-            <option value="{{ option['staff_name'] }}">{{ option['label'] }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="password">Passwort</label>
-          <input type="password" id="password" name="password" autocomplete="current-password" required>
-        </div>
-        <button type="submit">Einloggen</button>
-      </form>
-      <div class="space-top auth-secondary-actions premium-auth-secondary-actions">
-        <button type="button" class="btn btn-secondary" id="passkeyLoginBtn" {% if not passkeys_ready %}disabled{% endif %}>Mit Fingerabdruck anmelden</button>
-        <div class="helper-text compact-helper" id="passkeyLoginStatus"></div>
-      </div>
-    </div>
-
-    <div class="auth-panel" id="registerPanel" hidden>
-      <div class="auth-panel-head">
-        <h2>Registrieren</h2>
-      </div>
-      <form method="post" class="space-top premium-auth-form">
-        <input type="hidden" name="action" value="setup">
-        <div class="form-group">
-          <label for="staff_name_setup">Name</label>
-          <select name="staff_name" id="staff_name_setup" required>
-            {% for option in login_options %}
-            <option value="{{ option['staff_name'] }}">{{ option['label'] }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="new_password">Neues Passwort</label>
-          <input type="password" id="new_password" name="new_password" autocomplete="new-password" required>
-        </div>
-        <div class="form-group">
-          <label for="new_password_confirm">Passwort wiederholen</label>
-          <input type="password" id="new_password_confirm" name="new_password_confirm" autocomplete="new-password" required>
-        </div>
-        <button type="submit">Passwort speichern</button>
-      </form>
     </div>
   </section>
 </div>
+
+<div class="auth-modal-layer" id="authModalLayer" hidden>
+  <div class="auth-modal-backdrop" data-close-auth></div>
+
+  <section class="auth-modal-card" id="loginModal" hidden aria-labelledby="loginModalTitle">
+    <button type="button" class="auth-modal-close" data-close-auth aria-label="Fenster schliessen">x</button>
+    <div class="auth-modal-head">
+      <div class="auth-modal-kicker">Willkommen zurueck</div>
+      <h2 id="loginModalTitle">Anmelden</h2>
+      <p>Waehle deinen Namen und melde dich auf diesem Geraet an.</p>
+    </div>
+    <form method="post" class="auth-modal-form">
+      <input type="hidden" name="action" value="login">
+      <div class="form-group">
+        <label for="staff_name_login">Name</label>
+        <select name="staff_name" id="staff_name_login" required>
+          {% for option in login_options %}
+          <option value="{{ option['staff_name'] }}">{{ option['label'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="password">Passwort</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <label class="auth-check-row">
+        <input type="checkbox" name="remember_device" value="1" id="rememberDeviceLogin" checked>
+        <span>Auf diesem Geraet angemeldet bleiben</span>
+      </label>
+      <button type="submit" class="auth-primary-button">Einloggen</button>
+    </form>
+    <div class="auth-secondary-block">
+      <button type="button" class="auth-secondary-button" id="passkeyLoginBtn" {% if not passkeys_ready %}disabled{% endif %}>Mit Fingerabdruck anmelden</button>
+      <div class="auth-status-text" id="passkeyLoginStatus"></div>
+    </div>
+  </section>
+
+  <section class="auth-modal-card" id="registerModal" hidden aria-labelledby="registerModalTitle">
+    <button type="button" class="auth-modal-close" data-close-auth aria-label="Fenster schliessen">x</button>
+    <div class="auth-modal-head">
+      <div class="auth-modal-kicker">Erster Start</div>
+      <h2 id="registerModalTitle">Registrieren</h2>
+      <p>Lege fuer deinen Namen ein eigenes Passwort an.</p>
+    </div>
+    <form method="post" class="auth-modal-form">
+      <input type="hidden" name="action" value="setup">
+      <div class="form-group">
+        <label for="staff_name_setup">Name</label>
+        <select name="staff_name" id="staff_name_setup" required>
+          {% for option in login_options %}
+          <option value="{{ option['staff_name'] }}">{{ option['label'] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="new_password">Neues Passwort</label>
+        <input type="password" id="new_password" name="new_password" autocomplete="new-password" required>
+      </div>
+      <div class="form-group">
+        <label for="new_password_confirm">Passwort wiederholen</label>
+        <input type="password" id="new_password_confirm" name="new_password_confirm" autocomplete="new-password" required>
+      </div>
+      <label class="auth-check-row">
+        <input type="checkbox" name="remember_device" value="1" checked>
+        <span>Auf diesem Geraet angemeldet bleiben</span>
+      </label>
+      <button type="submit" class="auth-primary-button">Passwort speichern</button>
+    </form>
+  </section>
+</div>
+
 <script>
-(function(){
-  const switchButtons = Array.from(document.querySelectorAll('[data-auth-target]'));
-  const panels = {
-    loginPanel: document.getElementById('loginPanel'),
-    registerPanel: document.getElementById('registerPanel'),
-  };
-
-  function activatePanel(targetId) {
-    switchButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.authTarget === targetId));
-    Object.entries(panels).forEach(([id, panel]) => {
-      if (!panel) return;
-      const active = id === targetId;
-      panel.hidden = !active;
-      panel.classList.toggle('active', active);
-    });
-  }
-
-  switchButtons.forEach((btn) => {
-    btn.addEventListener('click', () => activatePanel(btn.dataset.authTarget));
-  });
-
+(function () {
+  const layer = document.getElementById('authModalLayer');
+  const loginModal = document.getElementById('loginModal');
+  const registerModal = document.getElementById('registerModal');
+  const openButtons = Array.from(document.querySelectorAll('[data-open-auth]'));
+  const closeButtons = Array.from(document.querySelectorAll('[data-close-auth]'));
   const passkeyBtn = document.getElementById('passkeyLoginBtn');
   const staffSelect = document.getElementById('staff_name_login');
+  const rememberCheckbox = document.getElementById('rememberDeviceLogin');
   const statusEl = document.getElementById('passkeyLoginStatus');
 
-  function setStatus(text){ if (statusEl) statusEl.textContent = text || ''; }
+  function setStatus(text) {
+    if (statusEl) statusEl.textContent = text || '';
+  }
+
+  function showModal(target) {
+    if (!layer || !loginModal || !registerModal) return;
+    layer.hidden = false;
+    loginModal.hidden = target !== 'login';
+    registerModal.hidden = target !== 'register';
+    document.body.classList.add('auth-modal-open');
+  }
+
+  function closeModals() {
+    if (!layer || !loginModal || !registerModal) return;
+    layer.hidden = true;
+    loginModal.hidden = true;
+    registerModal.hidden = true;
+    document.body.classList.remove('auth-modal-open');
+  }
+
+  openButtons.forEach((btn) => {
+    btn.addEventListener('click', () => showModal(btn.dataset.openAuth));
+  });
+
+  closeButtons.forEach((btn) => {
+    btn.addEventListener('click', closeModals);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeModals();
+  });
 
   function bufferToBase64url(buffer) {
     const bytes = new Uint8Array(buffer);
@@ -182,12 +212,12 @@
       const res = await fetch('/api/passkeys/status', { cache: 'no-store', credentials: 'same-origin' });
       const data = await res.json();
       if (!data.ok || !data.enabled) {
-        setStatus('Fingerabdruck ist auf diesem Ger?t noch nicht aktiviert.');
+        setStatus('Fingerabdruck ist auf diesem Geraet noch nicht eingerichtet.');
         if (passkeyBtn) passkeyBtn.disabled = true;
         return;
       }
       if (passkeyBtn) passkeyBtn.disabled = false;
-      setStatus('Wenn bereits eingerichtet, kannst du dich hier direkt per Fingerabdruck anmelden.');
+      setStatus('Wenn dein Fingerabdruck schon gespeichert ist, kannst du dich damit direkt anmelden.');
     } catch (error) {
       setStatus('Fingerabdruck-Status konnte gerade nicht geladen werden.');
     }
@@ -195,19 +225,20 @@
 
   async function loginWithPasskey() {
     if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) {
-      setStatus('Fingerabdruck ist in diesem Browser oder auf diesem Ger?t nicht verf?gbar.');
+      setStatus('Fingerabdruck ist auf diesem Geraet oder in diesem Browser nicht verfuegbar.');
       return;
     }
     if (!passkeyBtn) return;
     passkeyBtn.disabled = true;
     try {
       const selectedStaff = staffSelect ? staffSelect.value : 'Sven';
-      setStatus(`Fingerabdruck-Anmeldung f?r ${selectedStaff} wird gestartet...`);
+      const rememberDevice = !!(rememberCheckbox && rememberCheckbox.checked);
+      setStatus(`Fingerabdruck-Anmeldung fuer ${selectedStaff} wird gestartet...`);
       const optionsRes = await fetch('/api/passkeys/auth/options', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staff_name: selectedStaff }),
+        body: JSON.stringify({ staff_name: selectedStaff, remember_device: rememberDevice }),
       });
       const raw = await optionsRes.json();
       if (!optionsRes.ok || raw.ok === false) throw new Error(raw.error || 'Fingerabdruck konnte nicht vorbereitet werden.');
