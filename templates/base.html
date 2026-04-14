@@ -106,7 +106,7 @@
       const loggedInStaff = {{ logged_in_staff|tojson }};
       const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};
       const capacitorBridge = window.Capacitor || null;
-      const nativePushPlugin = capacitorBridge && typeof capacitorBridge.isNativePlatform === "function" && capacitorBridge.isNativePlatform() && capacitorBridge.Plugins · capacitorBridge.Plugins.PushNotifications : null;
+      const nativePushPlugin = capacitorBridge && typeof capacitorBridge.isNativePlatform === "function" && capacitorBridge.isNativePlatform() && capacitorBridge.Plugins ? capacitorBridge.Plugins.PushNotifications : null;
       const isNativeApp = !!nativePushPlugin;
       let nativePushListenersBound = false;
       let nativePushPending = null;
@@ -115,7 +115,7 @@
         if (!navPushGroup || !navPushPanel || !navPushToggle) return;
         navPushGroup.classList.toggle("open", !!open);
         navPushPanel.hidden = !open;
-        navPushToggle.setAttribute("aria-expanded", open · "true" : "false");
+        navPushToggle.setAttribute("aria-expanded", open ? "true" : "false");
       }
 
       function openDeviceStaffBar() { setPushPanelOpen(true); }

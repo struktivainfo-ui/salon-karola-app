@@ -8,7 +8,7 @@
     <div class="calendar-hero-meta">
       <span class="calendar-meta-pill">{{ staff }}</span>
       <span class="calendar-meta-pill">{{ selected_date }}</span>
-      <span class="calendar-meta-pill">{{ view|capitalize }}</span>
+      <span class="calendar-meta-pill">{% if view == "day" %}Tag{% elif view == "week" %}Woche{% elif view == "month" %}Monat{% else %}{{ view|capitalize }}{% endif %}</span>
     </div>
   </div>
   <div class="calendar-hero-actions premium-hero-actions">
