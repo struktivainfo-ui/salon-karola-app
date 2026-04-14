@@ -6,7 +6,7 @@
     <div>
       <div class="premium-page-kicker">Admin</div>
       <h1 class="premium-page-title">Push</h1>
-      <div class="premium-page-subtitle">Geraete, Fingerabdruck und Zustellung an einem Ort.</div>
+      <div class="premium-page-subtitle">Geraete und Zustellung an einem Ort.</div>
     </div>
     <div class="premium-top-actions">
       <a class="premium-top-action primary" href="{{ url_for('calendar_view') }}">Kalender</a>
@@ -44,10 +44,7 @@
           <button type="button" class="premium-button" id="enablePushBtn">Push aktivieren</button>
           <button type="button" class="premium-button secondary" id="testPushBtn">Push testen</button>
         </div>
-        <div class="premium-button-row compact">
-          <button type="button" class="premium-button secondary" id="registerPasskeyBtn" {% if not passkeys_ready %}disabled{% endif %}>Fingerabdruck aktivieren</button>
-        </div>
-        <div class="premium-note" id="passkeySetupStatus">{% if passkeys_ready %}Biometrischer Login fuer dieses Geraet.{% else %}Fingerabdruck ist serverseitig noch nicht aktiv.{% endif %}</div>
+        <div class="premium-note">Push wird direkt diesem Geraet und der ausgewaehlten Person zugeordnet.</div>
         <div class="premium-note" id="pushStatusMini">Push ist noch nicht aktiviert.</div>
       </div>
     </article>
@@ -83,89 +80,8 @@
   };
   const activeCount = document.getElementById('activeCount');
   const totalCount = document.getElementById('totalCount');
-  const passkeyBtn = document.getElementById('registerPasskeyBtn');
-  const passkeyStatus = document.getElementById('passkeySetupStatus');
-
-  function setPasskeyStatus(text) {
-    if (passkeyStatus) passkeyStatus.textContent = text;
-  }
-
-  function bufferToBase64url(buffer) {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    bytes.forEach((b) => binary += String.fromCharCode(b));
-    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-  }
-
-  function base64urlToBuffer(value) {
-    const padding = '='.repeat((4 - value.length % 4) % 4);
-    const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-    return bytes.buffer;
-  }
-
-  function normalizeCreationOptions(options) {
-    options.challenge = base64urlToBuffer(options.challenge);
-    options.user.id = base64urlToBuffer(options.user.id);
-    if (Array.isArray(options.excludeCredentials)) {
-      options.excludeCredentials = options.excludeCredentials.map((item) => ({ ...item, id: base64urlToBuffer(item.id) }));
-    }
-    return options;
-  }
-
-  function serializeCredential(credential) {
-    const response = credential.response || {};
-    return {
-      id: credential.id,
-      rawId: bufferToBase64url(credential.rawId),
-      type: credential.type,
-      response: {
-        attestationObject: response.attestationObject ? bufferToBase64url(response.attestationObject) : undefined,
-        authenticatorData: response.authenticatorData ? bufferToBase64url(response.authenticatorData) : undefined,
-        clientDataJSON: response.clientDataJSON ? bufferToBase64url(response.clientDataJSON) : undefined,
-        publicKeyAlgorithm: response.publicKeyAlgorithm,
-        transports: response.getTransports ? response.getTransports() : [],
-      },
-      clientExtensionResults: credential.getClientExtensionResults ? credential.getClientExtensionResults() : {},
-    };
-  }
-
-  async function registerPasskey() {
-    if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) {
-      setPasskeyStatus('Fingerabdruck ist auf diesem Geraet in diesem Browser nicht verfuegbar.');
-      return;
-    }
-    passkeyBtn.disabled = true;
-    try {
-      setPasskeyStatus('Fingerabdruck wird vorbereitet...');
-      const optionsRes = await fetch('/api/passkeys/register/options', {
-        method: 'POST',
-        credentials: 'same-origin',
-      });
-      const raw = await optionsRes.json();
-      if (!optionsRes.ok || raw.ok === false) throw new Error(raw.error || 'Fingerabdruck konnte nicht vorbereitet werden.');
-      const options = normalizeCreationOptions(raw.publicKey || raw);
-      const credential = await navigator.credentials.create({ publicKey: options });
-      if (!credential) throw new Error('Fingerabdruck-Einrichtung wurde abgebrochen.');
-      const verifyRes = await fetch('/api/passkeys/register/verify', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(serializeCredential(credential)),
-      });
-      const verifyData = await verifyRes.json();
-      if (!verifyRes.ok || verifyData.ok === false) throw new Error(verifyData.error || 'Fingerabdruck konnte nicht gespeichert werden.');
-      setPasskeyStatus(verifyData.message || 'Fingerabdruck wurde fuer dieses Geraet gespeichert.');
-    } catch (error) {
-      setPasskeyStatus(error.message || 'Fingerabdruck konnte nicht aktiviert werden.');
-    } finally {
-      passkeyBtn.disabled = false;
-    }
-  }
-
   async function loadOverview() {
+
     try {
       const res = await fetch('/api/push/overview', { cache: 'no-store' });
       const data = await res.json();
@@ -208,9 +124,6 @@
     });
   }
 
-  if (passkeyBtn) {
-    passkeyBtn.addEventListener('click', registerPasskey);
-  }
 
   window.refreshPushOverview = async function () {
     await loadOverview();

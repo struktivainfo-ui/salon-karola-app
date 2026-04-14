@@ -4407,3 +4407,240 @@ th, td {
     border-radius: 20px;
   }
 }
+
+
+/* Final compact menu and calendar readability */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  background: rgba(250, 243, 236, 0.97);
+}
+
+.topbar-inner {
+  align-items: center;
+  gap: 12px;
+}
+
+.brand {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.brand-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.brand-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.brand-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.menu-toggle {
+  width: auto;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(143, 92, 51, 0.16);
+  background: rgba(255,255,255,0.92);
+  color: #4a2a18;
+  box-shadow: none;
+  font-size: 0.82rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.menu-close {
+  width: 38px;
+  min-height: 38px;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.94);
+  color: #4a2a18;
+  border: 1px solid rgba(143, 92, 51, 0.16);
+  box-shadow: none;
+}
+
+.nav-links {
+  gap: 8px;
+}
+
+.nav-links a,
+.nav-admin-summary {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.96);
+  color: #3c2417;
+  border: 1px solid rgba(143, 92, 51, 0.14);
+}
+
+.nav-admin-group {
+  position: relative;
+}
+
+.nav-admin-links {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.nav-admin-links a {
+  background: rgba(255, 250, 245, 0.98);
+  color: #3e2415;
+  border: 1px solid rgba(143, 92, 51, 0.12);
+}
+
+.day-timeline,
+.compact-timeline {
+  gap: 8px;
+}
+
+.day-slot {
+  grid-template-columns: 78px 1fr;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.day-slot-time,
+.day-slot-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fff9f3 0%, #f3dfca 100%);
+  border: 1px solid rgba(143, 92, 51, 0.18);
+  color: #4a2815;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
+.day-slot-content {
+  display: grid;
+  gap: 8px;
+}
+
+.day-slot-item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.94);
+  border: 1px solid rgba(143, 92, 51, 0.14);
+  color: #2f1d13;
+  line-height: 1.4;
+}
+
+.day-slot-item strong {
+  color: #402314;
+}
+
+.day-slot-empty {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.72);
+  border: 1px dashed rgba(143, 92, 51, 0.16);
+  color: #7c5d4a;
+  font-weight: 600;
+}
+
+.helper-text,
+.week-day-label,
+.week-event-meta,
+.premium-page-subtitle,
+.premium-note,
+.premium-list-sub,
+.premium-list-meta {
+  color: #6b4a38;
+}
+
+@media (max-width: 768px) {
+  .topbar-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .brand-title-row {
+    gap: 8px;
+  }
+
+  .brand-title {
+    font-size: 0.96rem;
+  }
+
+  .mobile-only-inline {
+    display: inline-flex;
+  }
+
+  .nav-links {
+    position: fixed;
+    top: calc(58px + env(safe-area-inset-top, 0px));
+    left: 10px;
+    right: 10px;
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 18px;
+    background: rgba(250, 244, 238, 0.98);
+    border: 1px solid rgba(143, 92, 51, 0.16);
+    box-shadow: 0 18px 50px rgba(74, 42, 24, 0.14);
+    max-height: calc(100vh - 84px);
+    overflow: auto;
+  }
+
+  .nav-links.mobile-open {
+    display: grid;
+  }
+
+  .nav-admin-links {
+    padding-top: 6px;
+  }
+
+  .nav-admin-links a {
+    min-height: 38px;
+    font-size: 0.88rem;
+  }
+
+  .day-slot {
+    grid-template-columns: 68px 1fr;
+    gap: 8px;
+  }
+
+  .day-slot-time,
+  .day-slot-link {
+    min-height: 48px;
+    font-size: 0.94rem;
+    padding: 8px 6px;
+  }
+
+  .day-slot-item,
+  .day-slot-empty {
+    min-height: 48px;
+    padding: 9px 10px;
+    font-size: 0.92rem;
+  }
+}
