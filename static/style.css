@@ -5262,3 +5262,36 @@ th, td {
     border-radius: 16px;
   }
 }
+
+
+.customer-picker-group {
+  gap: 10px;
+}
+
+.customer-search-input {
+  width: 100%;
+}
+
+.customer-search-hint {
+  margin-top: 6px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  color: #8b7159;
+}
+
+.customer-picker-group select[size] {
+  min-height: 230px;
+  padding: 10px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.95);
+}
+
+.customer-picker-group option {
+  padding: 10px 12px;
+}
+
+@media (max-width: 640px) {
+  .customer-picker-group select[size] {
+    min-height: 190px;
+  }
+}

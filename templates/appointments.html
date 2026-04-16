@@ -31,12 +31,14 @@
         <input type="hidden" name="service_summary" class="service-summary-field" value="">
 
         <div class="premium-form-grid premium-form-grid-2">
-          <div class="form-group premium-form-group premium-form-span-2">
-            <label for="customer_id">Kontakt</label>
-            <select name="customer_id" id="customer_id">
+          <div class="form-group premium-form-group premium-form-span-2 customer-picker-group">
+            <label for="customerSearchInput">Kontakt</label>
+            <input type="text" id="customerSearchInput" class="customer-search-input" placeholder="Vorname oder Nachname eingeben" autocomplete="off">
+            <div class="customer-search-hint">Beispiel: A zeigt nur Namen mit A, AL nur Namen mit AL.</div>
+            <select name="customer_id" id="customer_id" size="8">
               <option value="">Kontakt ausw?hlen</option>
               {% for customer in customers %}
-              <option value="{{ customer['_id'] }}">{{ customer['lastname'] }}{% if customer['firstname'] %}, {{ customer['firstname'] }}{% endif %}{% if customer['phone'] %} - {{ customer['phone'] }}{% endif %}</option>
+              <option value="{{ customer['_id'] }}" data-firstname="{{ (customer['firstname'] or '')|lower }}" data-lastname="{{ (customer['lastname'] or '')|lower }}">{{ customer['lastname'] }}{% if customer['firstname'] %}, {{ customer['firstname'] }}{% endif %}{% if customer['phone'] %} - {{ customer['phone'] }}{% endif %}</option>
               {% endfor %}
             </select>
           </div>
@@ -226,6 +228,51 @@ document.addEventListener("DOMContentLoaded", function () {
       syncStaffPills(targetId, value);
     });
   });
+
+  const customerSearchInput = document.getElementById("customerSearchInput");
+  const customerSelect = document.getElementById("customer_id");
+  if (customerSearchInput && customerSelect) {
+    const allOptions = Array.from(customerSelect.querySelectorAll("option"));
+    function customerMatches(option, query) {
+      if (!option.value) return true;
+      if (!query) return true;
+      const first = String(option.dataset.firstname || "").trim().toLowerCase();
+      const last = String(option.dataset.lastname || "").trim().toLowerCase();
+      return first.startsWith(query) || last.startsWith(query);
+    }
+    function filterCustomerOptions() {
+      const query = customerSearchInput.value.trim().toLowerCase();
+      let visibleCount = 0;
+      allOptions.forEach((option) => {
+        const visible = customerMatches(option, query);
+        option.hidden = !visible;
+        if (visible && option.value) {
+          visibleCount += 1;
+        }
+      });
+      const selectedOption = customerSelect.options[customerSelect.selectedIndex];
+      if (selectedOption && selectedOption.hidden) {
+        customerSelect.value = "";
+      }
+      if (query && visibleCount === 1) {
+        const firstMatch = allOptions.find((option) => !option.hidden && option.value);
+        if (firstMatch) {
+          customerSelect.value = firstMatch.value;
+        }
+      }
+    }
+    customerSearchInput.addEventListener("input", filterCustomerOptions);
+    customerSelect.addEventListener("change", () => {
+      const selected = customerSelect.options[customerSelect.selectedIndex];
+      if (!selected || !selected.value) {
+        return;
+      }
+      const first = String(selected.dataset.firstname || "").trim();
+      const last = String(selected.dataset.lastname || "").trim();
+      customerSearchInput.value = [first, last].filter(Boolean).join(" ").trim();
+    });
+    filterCustomerOptions();
+  }
 
   document.querySelectorAll("[data-service-form]").forEach((form) => {
     const chips = Array.from(form.querySelectorAll(".service-chip"));
