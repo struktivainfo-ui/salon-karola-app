@@ -10,8 +10,8 @@
     </div>
     <div class="premium-top-actions">
       <a class="premium-top-action" href="{{ url_for('calendar_view') }}">Kalender</a>
-      {% if customer and (customer['Customer_Mobiltelefon'] or customer['Customer_Pers?nlichesTelefon']) %}
-      <a class="premium-top-action primary" href="{{ (customer['Customer_Mobiltelefon'] or customer['Customer_Pers?nlichesTelefon'])|phone_href }}">Anrufen</a>
+      {% if customer and customer_phone(customer) %}
+      <a class="premium-top-action primary" href="{{ customer_phone(customer)|phone_href }}">Anrufen</a>
       {% elif customer %}
       <a class="premium-top-action primary" href="#termin-hinzufuegen">Termin anlegen</a>
       {% else %}
@@ -22,7 +22,7 @@
 
   {% if customer %}
   <section class="premium-action-grid premium-space-top">
-    {% if customer['Customer_Mobiltelefon'] or customer['Customer_Pers?nlichesTelefon'] %}<a class="premium-action-card" href="{{ (customer['Customer_Mobiltelefon'] or customer['Customer_Pers?nlichesTelefon'])|phone_href }}">Anrufen</a>{% endif %}
+    {% if customer['Customer_Mobiltelefon'] or customer['Customer_Pers?nlichesTelefon'] %}<a class="premium-action-card" href="{{ customer_phone(customer)|phone_href }}">Anrufen</a>{% endif %}
     {% if wa_link %}<a class="premium-action-card" href="{{ wa_link }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
     <a class="premium-action-card" href="#termin-hinzufuegen">Termin anlegen</a>
     {% if wa_next_appt_link %}<a class="premium-action-card" href="{{ wa_next_appt_link }}" target="_blank" rel="noopener">Termin senden</a>{% endif %}
@@ -42,8 +42,8 @@
         <div class="form-group premium-form-group"><label>Nachname</label><input type="text" name="name" value="{{ customer['_name'] if customer else '' }}"></div>
         <div class="form-group premium-form-group"><label>E-Mail</label><input type="email" name="mail" value="{{ customer['_mail'] if customer else '' }}"></div>
         <div class="form-group premium-form-group"><label>Geburtstag</label><input type="date" name="birthdate" value="{{ customer['_birthdate'] if customer else '' }}"></div>
-        <div class="form-group premium-form-group"><label>Telefon</label><input type="text" name="phone" value="{{ customer['Customer_Pers?nlichesTelefon'] if customer else '' }}"></div>
-        <div class="form-group premium-form-group"><label>Mobil</label><input type="text" name="mobile" value="{{ customer['Customer_Mobiltelefon'] if customer else '' }}"></div>
+        <div class="form-group premium-form-group"><label>Telefon</label><input type="text" name="phone" value="{{ row_value(customer, 'Customer_PersoenlichesTelefon') if customer else '' }}"></div>
+        <div class="form-group premium-form-group"><label>Mobil</label><input type="text" name="mobile" value="{{ row_value(customer, 'Customer_Mobiltelefon') if customer else '' }}"></div>
         <div class="form-group premium-form-group"><label>Adresse</label><input type="text" name="address" value="{{ customer['Customer_Adresse'] if customer else '' }}"></div>
         <div class="form-group premium-form-group"><label>PLZ</label><input type="text" name="zip" value="{{ customer['Customer_Postleitzahl'] if customer else '' }}"></div>
         <div class="form-group premium-form-group"><label>Stadt</label><input type="text" name="city" value="{{ customer['Customer_Stadt'] if customer else '' }}"></div>

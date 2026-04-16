@@ -34,7 +34,7 @@
       <div class="premium-list-row">
         <div>
           <h3>{{ customer['_firstname'] }} {{ customer['_name'] }}</h3>
-          <div class="premium-contact-meta">{{ customer['Customer_Mobiltelefon'] or customer['Customer_Pers?nlichesTelefon'] }}</div>
+          <div class="premium-contact-meta">{{ customer_phone(customer) }}</div>
         </div>
         <a class="premium-inline-link" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">Karte ?ffnen</a>
       </div>

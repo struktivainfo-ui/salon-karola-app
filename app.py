@@ -872,12 +872,46 @@ def send_email(to_email, subject, body):
 
 
 # ---------- Utilities ----------
+def _row_value(row, *keys, default=""):
+    if row is None:
+        return default
+    aliases = {
+        "Customer_PersoenlichesTelefon": [
+            "Customer_PersoenlichesTelefon",
+            "Customer_Pers?nlichesTelefon",
+            "Customer_Pers??nlichesTelefon",
+            "Customer_Pers?nlichesTelefon",
+        ],
+        "Customer_Pers?nlichesTelefon": [
+            "Customer_PersoenlichesTelefon",
+            "Customer_Pers?nlichesTelefon",
+            "Customer_Pers??nlichesTelefon",
+            "Customer_Pers?nlichesTelefon",
+        ],
+    }
+    available = set(row.keys()) if hasattr(row, "keys") else set()
+    for key in keys:
+        for candidate in aliases.get(key, [key]):
+            if candidate in available:
+                value = row[candidate]
+                if value is None:
+                    continue
+                if isinstance(value, str):
+                    if value.strip():
+                        return value
+                else:
+                    return value
+    return default
+
+
 def customer_full_name(customer):
-    return f"{customer['_firstname'] or ''} {customer['_name'] or ''}".strip() or "Kunde"
+    first_name = _row_value(customer, "_firstname") or ""
+    last_name = _row_value(customer, "_name") or ""
+    return f"{first_name} {last_name}".strip() or "Kunde"
 
 
 def customer_phone(customer):
-    return customer["Customer_Mobiltelefon"] or customer["Customer_PersönlichesTelefon"] or ""
+    return _row_value(customer, "Customer_Mobiltelefon", "Customer_PersoenlichesTelefon") or ""
 
 
 def sync_default_mail_templates(conn):
@@ -3665,6 +3699,8 @@ def inject_globals():
         "customer_activity_status": customer_activity_status,
         "whatsapp_link": whatsapp_link,
         "phone_href": phone_href,
+        "customer_phone": customer_phone,
+        "row_value": _row_value,
         "app_version": APP_VERSION,
         "staff_members": get_staff_members(),
         "default_staff": get_default_staff(),

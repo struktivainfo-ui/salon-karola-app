@@ -131,7 +131,7 @@
           <span class="premium-status-pill premium-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
         </div>
         <div class="premium-list-sub">{{ appt['appointment_at']|dt if appt['appointment_at'] else 'Kein Termin gespeichert' }}</div>
-        <div class="premium-list-meta">{{ appt['Customer_Mobiltelefon'] or appt['Customer_Pers?nlichesTelefon'] or '-' }}</div>
+        <div class="premium-list-meta">{{ customer_phone(appt) or '-' }}</div>
       </div>
       {% else %}
       <div class="premium-list-empty">Keine Termine vorhanden.</div>

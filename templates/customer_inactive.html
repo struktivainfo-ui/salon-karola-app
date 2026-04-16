@@ -25,7 +25,7 @@
       {% for customer in inactive %}
       <div class="premium-list-item">
         <div class="premium-list-row"><strong>{{ customer['_name'] }}{% if customer['_firstname'] %}, {{ customer['_firstname'] }}{% endif %}</strong><span class="premium-badge">{{ customer['last_appointment_at']|dt if customer['last_appointment_at'] else 'Noch kein Termin' }}</span></div>
-        <div class="premium-list-sub">{{ customer['_mail'] or customer['Customer_Mobiltelefon'] or customer['Customer_Pers?nlichesTelefon'] or 'Kein Kontaktkanal' }}</div>
+        <div class="premium-list-sub">{{ customer['_mail'] or customer_phone(customer) or 'Kein Kontaktkanal' }}</div>
         <div class="premium-button-row compact"><a class="premium-button secondary" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">?ffnen</a></div>
       </div>
       {% else %}

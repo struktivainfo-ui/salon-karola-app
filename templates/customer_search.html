@@ -61,7 +61,7 @@
             <span class="premium-status-pill premium-activity-{{ customer_activity_status(customer['last_appointment_at'])|lower|replace(' ', '-') }}">{{ customer_activity_status(customer['last_appointment_at']) }}</span>
           </div>
           <div class="premium-contact-meta">{{ customer['_mail'] or 'Keine E-Mail' }}</div>
-          <div class="premium-contact-meta">{{ customer['Customer_Mobiltelefon'] or customer['Customer_Pers?nlichesTelefon'] or 'Keine Nummer' }}</div>
+          <div class="premium-contact-meta">{{ customer_phone(customer) or 'Keine Nummer' }}</div>
           <div class="premium-contact-meta">{{ customer['Customer_Stadt'] or 'Kein Ort' }}</div>
         </article>
       </a>

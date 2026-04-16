@@ -18,7 +18,7 @@
       {% for item in birthdays %}
       <div class="premium-list-item">
         <div class="premium-list-row"><strong>{{ item['_name'] }}{% if item['_firstname'] %}, {{ item['_firstname'] }}{% endif %}</strong><span class="premium-badge">{{ item['_birthdate']|birthday }}</span></div>
-        <div class="premium-list-sub">{{ item['_mail'] or item['Customer_Mobiltelefon'] or item['Customer_Pers?nlichesTelefon'] or 'Kein Kontaktkanal' }}</div>
+        <div class="premium-list-sub">{{ item['_mail'] or customer_phone(item) or 'Kein Kontaktkanal' }}</div>
         <div class="premium-button-row compact"><a class="premium-button secondary" href="{{ url_for('customer_detail', customer_id=item['_id']) }}">?ffnen</a></div>
       </div>
       {% else %}
