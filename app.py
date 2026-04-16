@@ -117,7 +117,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-04-16-services-2"
+APP_VERSION = "Salon Karola App 2026-04-16-startup-guard-1"
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 SERVICE_PRESETS = [
     {"id": "schneiden", "label": "Schneiden", "active": 30, "processing": 0},
@@ -148,6 +148,30 @@ def login_required(view):
             return redirect(url_for("login", next=request.path))
         return view(*args, **kwargs)
     return wrapped
+
+
+@app.errorhandler(500)
+def handle_internal_server_error(exc):
+    try:
+        app.logger.exception("500 auf %s", request.path, exc_info=exc)
+    except Exception:
+        pass
+
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Interner Serverfehler."}), 500
+
+    if session.get("admin_logged_in") and request.endpoint != "calendar_view":
+        try:
+            flash("Die zuletzt geoeffnete Seite konnte nicht geladen werden. Wir haben den Kalender fuer dich geoeffnet.")
+        except Exception:
+            pass
+        return redirect(url_for("calendar_view"))
+
+    return (
+        "<h1>Interner Serverfehler</h1><p>Die Seite konnte gerade nicht geladen werden.</p>",
+        500,
+        {"Content-Type": "text/html; charset=utf-8"},
+    )
 
 
 def hash_password(password):
