@@ -2816,7 +2816,7 @@ def _calendar_event_dict(appt):
         "firstname": appt["_firstname"],
         "lastname": appt["_name"],
         "customer_name": f"{appt['_firstname'] or ''} {appt['_name'] or ''}".strip(),
-        "phone": appt["Customer_Mobiltelefon"] or appt["Customer_Pers??nlichesTelefon"] or "-",
+        "phone": appt["Customer_Mobiltelefon"] or appt["Customer_Pers?nlichesTelefon"] or "-",
         "notes": appt["notes"] or "",
     }
 
@@ -3028,7 +3028,7 @@ def appointments_hub():
     customers = db.execute(
         """
         SELECT _id, COALESCE(_firstname, '') AS firstname, COALESCE(_name, '') AS lastname,
-               COALESCE(Customer_Mobiltelefon, Customer_Pers??nlichesTelefon, '') AS phone
+               COALESCE(Customer_Mobiltelefon, '') AS phone
         FROM _Customers
         WHERE COALESCE(_name, '') <> '__MANUELLER_TERMIN__'
         ORDER BY COALESCE(_name, '') COLLATE NOCASE ASC, COALESCE(_firstname, '') COLLATE NOCASE ASC
