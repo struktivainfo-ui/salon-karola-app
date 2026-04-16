@@ -117,7 +117,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-04-16-push-visible-1"
+APP_VERSION = "Salon Karola App 2026-04-16-day-compact-1"
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 STAFF_MEMBERS = list(CONFIGURED_STAFF_MEMBERS)
 STAFF_OPTIONS = ["Alle", *STAFF_MEMBERS]
@@ -2964,7 +2964,11 @@ def calendar_view():
     month_view = _build_month_view(selected_date, staff) if view == "month" else None
     split_day_views = None
     if view == "day" and staff == "Alle":
-        split_day_views = {name: _build_day_view(selected_date, name) for name in get_staff_members(db)}
+        members = get_staff_members(db)
+        preferred_members = [name for name in ["Ute", "Jessi"] if name in members]
+        remaining_members = [name for name in members if name not in preferred_members]
+        ordered_members = preferred_members + remaining_members
+        split_day_views = {name: _build_day_view(selected_date, name) for name in ordered_members}
 
     return render_template(
         "calendar.html",

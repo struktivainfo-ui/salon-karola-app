@@ -4892,3 +4892,174 @@ th, td {
     font-size: 0.82rem;
   }
 }
+
+
+/* 2026-04-16 compact day view */
+.split-day-section .badge,
+.premium-calendar-panel .badge {
+  font-size: 0.82rem;
+  padding: 6px 10px;
+}
+
+.day-timeline {
+  gap: 8px;
+}
+
+.day-slot {
+  grid-template-columns: 64px 1fr;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.day-slot-time {
+  padding: 8px 6px;
+  min-height: 46px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.day-slot-content {
+  min-height: 46px;
+  padding: 6px;
+  border-radius: 12px;
+  gap: 6px;
+}
+
+.day-slot-item.compact-day-item {
+  padding: 8px 10px;
+  border-radius: 10px;
+  display: grid;
+  gap: 2px;
+  line-height: 1.25;
+}
+
+.day-slot-item.compact-day-item strong {
+  font-size: 0.92rem;
+  color: #2b170d;
+}
+
+.day-slot-item.compact-day-item span {
+  font-size: 0.82rem;
+  color: #6d4b38;
+}
+
+.day-slot-empty {
+  padding: 8px 10px;
+  font-size: 0.88rem;
+}
+
+.split-day-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.split-day-card {
+  padding: 14px;
+}
+
+.split-day-card h3 {
+  font-size: 1.08rem;
+}
+
+.split-day-card-head {
+  gap: 8px;
+}
+
+.compact-timeline .day-slot {
+  grid-template-columns: 58px 1fr;
+  gap: 7px;
+}
+
+.compact-timeline .day-slot-time {
+  min-height: 42px;
+  padding: 7px 4px;
+  font-size: 0.84rem;
+}
+
+.compact-timeline .day-slot-content {
+  min-height: 42px;
+  padding: 5px;
+}
+
+.compact-timeline .day-slot-item.compact-day-item {
+  padding: 7px 8px;
+}
+
+.compact-timeline .day-slot-item.compact-day-item strong {
+  font-size: 0.84rem;
+}
+
+.compact-timeline .day-slot-item.compact-day-item span {
+  font-size: 0.76rem;
+}
+
+@media (max-width: 768px) {
+  .calendar-hero-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .calendar-hero-action {
+    min-height: 48px;
+    padding: 10px 12px;
+    font-size: 0.92rem;
+  }
+
+  .split-day-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .split-day-card {
+    padding: 10px;
+  }
+
+  .split-day-card h3 {
+    font-size: 0.98rem;
+  }
+
+  .split-day-card .helper-text {
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .compact-timeline {
+    gap: 6px;
+  }
+
+  .compact-timeline .day-slot {
+    grid-template-columns: 50px 1fr;
+    gap: 6px;
+  }
+
+  .compact-timeline .day-slot-time {
+    min-height: 38px;
+    font-size: 0.78rem;
+    border-radius: 10px;
+  }
+
+  .compact-timeline .day-slot-content {
+    min-height: 38px;
+    border-radius: 10px;
+  }
+
+  .compact-timeline .day-slot-item.compact-day-item {
+    padding: 6px 7px;
+    border-radius: 9px;
+  }
+
+  .compact-timeline .day-slot-item.compact-day-item strong {
+    font-size: 0.79rem;
+  }
+
+  .compact-timeline .day-slot-item.compact-day-item span {
+    font-size: 0.72rem;
+  }
+
+  .day-slot {
+    grid-template-columns: 58px 1fr;
+  }
+}

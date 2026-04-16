@@ -69,7 +69,7 @@
   <div class="split-day-grid space-top">
     {% for staff_name, staff_day in split_day_views.items() %}
     <section class="card split-day-card premium-split-card">
-      <div class="row-between wrap-mobile">
+      <div class="row-between wrap-mobile split-day-card-head">
         <div>
           <h3>{{ staff_name }}</h3>
           <div class="helper-text">{{ staff_day['timeline']['open_label'] }}</div>
@@ -83,8 +83,9 @@
           <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff_name, source='slot') }}">{{ slot['time'] }}</a>
           <div class="day-slot-content">
             {% for appt in slot['items'] %}
-            <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-              <strong>{{ appt['customer_name'] }}</strong> Â· {{ appt['title'] }}
+            <a class="day-slot-item mobile-summary-{{ appt['status_class'] }} compact-day-item" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+              <strong>{{ appt['customer_name'] }}</strong>
+              <span>{{ appt['title'] }}</span>
             </a>
             {% else %}
             <div class="day-slot-empty">frei</div>
@@ -102,7 +103,7 @@
 </section>
 {% endif %}
 
-{% if view == 'day' and day_view %}
+{% if view == 'day' and day_view and not (staff == 'Alle' and split_day_views) %}
 <section class="card space-top premium-calendar-panel">
   <div class="row-between wrap-mobile">
     <div>
@@ -119,8 +120,9 @@
       <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff if staff != 'Alle' else default_staff, source='slot') }}">{{ slot['time'] }}</a>
       <div class="day-slot-content">
         {% for appt in slot['items'] %}
-        <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-          <strong>{{ appt['customer_name'] }}</strong> Â· {{ appt['title'] }} Â· {{ appt['staff_name'] }}
+        <a class="day-slot-item mobile-summary-{{ appt['status_class'] }} compact-day-item" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+          <strong>{{ appt['customer_name'] }}</strong>
+          <span>{{ appt['title'] }} | {{ appt['staff_name'] }}</span>
         </a>
         {% else %}
         <div class="day-slot-empty">frei</div>
