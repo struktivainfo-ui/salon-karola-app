@@ -611,11 +611,9 @@
         });
       }
 
-      if (menuToggle) {
-        menuToggle.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); toggleMobileMenu(); }, { passive: false });
-      }
-      if (menuClose) menuClose.addEventListener('click', (event) => { event.preventDefault(); closeMobileMenu(); });
-      if (menuOverlay) menuOverlay.addEventListener('click', () => closeMobileMenu());
+      if (menuToggle) menuToggle.setAttribute('data-menu-inline', 'true');
+      if (menuClose) menuClose.setAttribute('data-menu-inline', 'true');
+      if (menuOverlay) menuOverlay.addEventListener('click', () => window.skCloseMenu && window.skCloseMenu());
       if (navPushToggle) navPushToggle.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); toggleDeviceStaffBar(); });
 
       if (mainNavLinks) {
