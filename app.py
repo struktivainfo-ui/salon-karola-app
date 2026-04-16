@@ -117,7 +117,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-04-16-startup-guard-1"
+APP_VERSION = "Salon Karola App 2026-04-16-stability-pass-1"
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 SERVICE_PRESETS = [
     {"id": "schneiden", "label": "Schneiden", "active": 30, "processing": 0},
@@ -504,17 +504,56 @@ def customer_has_column(column_name):
     return column_name in customer_columns()
 
 
-def customer_contact_select_sql():
+CUSTOMER_PERSONAL_PHONE_ALIASES = [
+    "Customer_PersoenlichesTelefon",
+    "Customer_Pers?nlichesTelefon",
+    "Customer_Pers??nlichesTelefon",
+    "Customer_Pers?nlichesTelefon",
+]
+
+
+def customer_personal_phone_column(cols=None):
+    cols = list(cols or customer_columns())
+    for column_name in CUSTOMER_PERSONAL_PHONE_ALIASES:
+        if column_name in cols:
+            return column_name
+    for column_name in cols:
+        lowered = str(column_name).lower()
+        if lowered.startswith("customer_pers") and "telefon" in lowered:
+            return column_name
+    return CUSTOMER_PERSONAL_PHONE_ALIASES[0]
+
+
+def customer_column_reference(column_name, prefix=""):
     cols = customer_columns()
-    email_sql = "COALESCE(_mail, '')" if "_mail" in cols else "''"
-    mobile_sql = "COALESCE(Customer_Mobiltelefon, '')" if "Customer_Mobiltelefon" in cols else "''"
-    phone_sql = "COALESCE(Customer_PersönlichesTelefon, '')" if "Customer_PersönlichesTelefon" in cols else "''"
-    city_sql = "COALESCE(Customer_Stadt, '')" if "Customer_Stadt" in cols else "''"
+    if column_name not in cols:
+        return None
+    qualifier = f"{prefix}." if prefix else ""
+    return f'{qualifier}"{column_name}"'
+
+
+def customer_mobile_reference(prefix=""):
+    return customer_column_reference("Customer_Mobiltelefon", prefix)
+
+
+def customer_personal_phone_reference(prefix=""):
+    column_name = customer_personal_phone_column()
+    return customer_column_reference(column_name, prefix)
+
+
+def customer_contact_select_sql(prefix=""):
+    email_ref = customer_column_reference("_mail", prefix)
+    mobile_ref = customer_mobile_reference(prefix)
+    phone_ref = customer_personal_phone_reference(prefix)
+    city_ref = customer_column_reference("Customer_Stadt", prefix)
+    email_sql = f"COALESCE({email_ref}, '')" if email_ref else "''"
+    mobile_sql = f"COALESCE({mobile_ref}, '')" if mobile_ref else "''"
+    phone_sql = f"COALESCE({phone_ref}, '')" if phone_ref else "''"
+    city_sql = f"COALESCE({city_ref}, '')" if city_ref else "''"
     return email_sql, mobile_sql, phone_sql, city_sql
 
 
-
-
+# ---------- Setup ----------
 # ---------- Setup ----------
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -2005,13 +2044,15 @@ def staff_dashboard_counts():
 def today_appointments(limit=20):
     start_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     end_dt = start_dt + timedelta(days=1)
+    mobile_sql = customer_mobile_reference("c") or "''"
+    phone_sql = customer_personal_phone_reference("c") or "''"
     return get_db().execute(
-        """
+        f"""
         SELECT a.*,
                COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
                COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
-               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
-               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
+               COALESCE(NULLIF(a.manual_phone, ''), {mobile_sql}) AS Customer_Mobiltelefon,
+               COALESCE(NULLIF(a.manual_phone, ''), {phone_sql}) AS Customer_PersoenlichesTelefon
         FROM appointments a
         JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ? AND a.appointment_at < ?
@@ -2025,14 +2066,16 @@ def today_appointments(limit=20):
 def due_reminders(limit=20):
     now = datetime.now()
     upcoming_limit = now + timedelta(hours=24)
+    mobile_sql = customer_mobile_reference("c") or "''"
+    phone_sql = customer_personal_phone_reference("c") or "''"
     return get_db().execute(
-        """
+        f"""
         SELECT a.*,
                COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
                COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
                COALESCE(NULLIF(a.manual_email, ''), c._mail) AS _mail,
-               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
-               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
+               COALESCE(NULLIF(a.manual_phone, ''), {mobile_sql}) AS Customer_Mobiltelefon,
+               COALESCE(NULLIF(a.manual_phone, ''), {phone_sql}) AS Customer_PersoenlichesTelefon
         FROM appointments a
         JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ? AND a.appointment_at <= ?
@@ -2101,13 +2144,15 @@ def customer_activity_status(last_appointment_at):
 
 
 def next_appointments(limit=12):
+    mobile_sql = customer_mobile_reference("c") or "''"
+    phone_sql = customer_personal_phone_reference("c") or "''"
     return get_db().execute(
-        """
+        f"""
         SELECT a.*,
                COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
                COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
-               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
-               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
+               COALESCE(NULLIF(a.manual_phone, ''), {mobile_sql}) AS Customer_Mobiltelefon,
+               COALESCE(NULLIF(a.manual_phone, ''), {phone_sql}) AS Customer_PersoenlichesTelefon
         FROM appointments a
         JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ?
@@ -2118,6 +2163,7 @@ def next_appointments(limit=12):
     ).fetchall()
 
 
+# ---------- PWA ----------
 # ---------- PWA ----------
 @app.route("/manifest.webmanifest")
 def manifest():
@@ -2534,9 +2580,10 @@ def customer_inactive_page():
 def customer_new():
     if request.method == "POST":
         db = get_db()
+        phone_column = customer_personal_phone_column()
         cur = db.execute(
-            """
-            INSERT INTO _Customers(_name, _firstname, _mail, _birthdate, _notes, Customer_Adresse, Customer_PersönlichesTelefon, Customer_Mobiltelefon, Customer_Postleitzahl, Customer_Stadt)
+            f"""
+            INSERT INTO _Customers(_name, _firstname, _mail, _birthdate, _notes, Customer_Adresse, "{phone_column}", Customer_Mobiltelefon, Customer_Postleitzahl, Customer_Stadt)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
@@ -2554,21 +2601,23 @@ def customer_new():
         )
         db.commit()
         save_tags(cur.lastrowid, request.form.get("tags", ""))
-        flash("Kontakt wurde hinzugefügt.")
+        flash("Kontakt wurde hinzugefuegt.")
         return redirect(url_for("customer_detail", customer_id=cur.lastrowid))
     return render_template("customer_form.html", customer=None, appointments=[], logs=[], tags_text="", wa_link="", current_endpoint="customer_new", customer_status="neu", app_version=APP_VERSION)
 
 
 @app.route("/customer/<int:customer_id>", methods=["GET", "POST"])
+@app.route("/customer/<int:customer_id>", methods=["GET", "POST"])
 @login_required
 def customer_detail(customer_id):
     db = get_db()
     if request.method == "POST":
+        phone_column = customer_personal_phone_column()
         db.execute(
-            """
+            f"""
             UPDATE _Customers
             SET _name=?, _firstname=?, _mail=?, _birthdate=?, _notes=?,
-                Customer_Adresse=?, Customer_PersönlichesTelefon=?, Customer_Mobiltelefon=?, Customer_Postleitzahl=?, Customer_Stadt=?
+                Customer_Adresse=?, "{phone_column}"=?, Customer_Mobiltelefon=?, Customer_Postleitzahl=?, Customer_Stadt=?
             WHERE _id=?
             """,
             (
@@ -2630,8 +2679,7 @@ def customer_detail(customer_id):
     )
 
 
-
-
+@app.route("/api/customer/<int:customer_id>/summary")
 @app.route("/api/customer/<int:customer_id>/summary")
 @login_required
 def customer_summary_api(customer_id):
@@ -2882,12 +2930,14 @@ def _calendar_event_dict(appt):
 
 def _fetch_calendar_appointments(start_dt, end_dt, staff="Alle"):
     db = get_db()
-    query = """
+    mobile_sql = customer_mobile_reference("c") or "''"
+    phone_sql = customer_personal_phone_reference("c") or "''"
+    query = f"""
         SELECT a.*,
                COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
                COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
-               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_Mobiltelefon) AS Customer_Mobiltelefon,
-               COALESCE(NULLIF(a.manual_phone, ''), c.Customer_PersönlichesTelefon) AS Customer_PersönlichesTelefon
+               COALESCE(NULLIF(a.manual_phone, ''), {mobile_sql}) AS Customer_Mobiltelefon,
+               COALESCE(NULLIF(a.manual_phone, ''), {phone_sql}) AS Customer_PersoenlichesTelefon
         FROM appointments a
         JOIN _Customers c ON c._id = a.customer_id
         WHERE a.appointment_at >= ? AND a.appointment_at < ?
@@ -3521,17 +3571,23 @@ def staff_management():
 def whatsapp_hub():
     db = get_db()
     q = request.args.get("q", "").strip()
-    query = """
+    mobile_sql = customer_mobile_reference("c") or "''"
+    phone_sql = customer_personal_phone_reference("c") or "''"
+    query = f"""
         SELECT c.*, MAX(a.appointment_at) AS last_appointment_at
         FROM _Customers c
         LEFT JOIN appointments a ON a.customer_id = c._id
     """
     params = []
-    conditions = ["COALESCE(c.Customer_Mobiltelefon, c.Customer_PersönlichesTelefon, '') <> ''"]
+    conditions = [f"COALESCE({mobile_sql}, {phone_sql}, '') <> ''"]
     if q:
         like = f"%{q}%"
-        conditions.append("(c._name LIKE ? OR c._firstname LIKE ? OR c.Customer_Mobiltelefon LIKE ? OR c.Customer_PersönlichesTelefon LIKE ?)")
-        params.extend([like, like, like, like])
+        search_parts = ["c._name LIKE ?", "c._firstname LIKE ?", f"{mobile_sql} LIKE ?"]
+        params.extend([like, like, like])
+        if phone_sql != "''":
+            search_parts.append(f"{phone_sql} LIKE ?")
+            params.append(like)
+        conditions.append("(" + " OR ".join(search_parts) + ")")
     query += " WHERE " + " AND ".join(conditions)
     query += " GROUP BY c._id ORDER BY c._name, c._firstname LIMIT 200"
     customers = db.execute(query, params).fetchall()
@@ -3554,6 +3610,7 @@ def whatsapp_hub():
     )
 
 
+@app.route("/api/templates/live")
 @app.route("/api/templates/live")
 @login_required
 def templates_live_api():

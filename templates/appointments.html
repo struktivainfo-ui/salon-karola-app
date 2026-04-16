@@ -36,7 +36,7 @@
             <input type="text" id="customerSearchInput" class="customer-search-input" placeholder="Vorname oder Nachname eingeben" autocomplete="off">
             <div class="customer-search-hint">Beispiel: A zeigt nur Namen mit A, AL nur Namen mit AL.</div>
             <select name="customer_id" id="customer_id" size="8">
-              <option value="">Kontakt ausw?hlen</option>
+              <option value="">Kontakt auswaehlen</option>
               {% for customer in customers %}
               <option value="{{ customer['_id'] }}" data-firstname="{{ (customer['firstname'] or '')|lower }}" data-lastname="{{ (customer['lastname'] or '')|lower }}">{{ customer['lastname'] }}{% if customer['firstname'] %}, {{ customer['firstname'] }}{% endif %}{% if customer['phone'] %} - {{ customer['phone'] }}{% endif %}</option>
               {% endfor %}
@@ -46,7 +46,7 @@
           <div class="service-selector premium-form-span-2">
             <div class="service-selector-head">
               <label>Leistungen</label>
-              <span class="service-selector-note">Mehrfachauswahl m?glich</span>
+              <span class="service-selector-note">Mehrfachauswahl moeglich</span>
             </div>
             <div class="service-chip-grid">
               {% for service in service_presets %}
@@ -64,8 +64,8 @@
               {% endfor %}
             </div>
             <div class="service-summary-card">
-              <div class="service-summary-label">Gew?hlte Leistungen</div>
-              <div class="service-summary-value">Noch nichts ausgew?hlt</div>
+              <div class="service-summary-label">Gewaehlte Leistungen</div>
+              <div class="service-summary-value">Noch nichts ausgewaehlt</div>
             </div>
           </div>
 
@@ -100,7 +100,7 @@
             <label for="status">Status</label>
             <select name="status" id="status">
               <option value="geplant">geplant</option>
-              <option value="best?tigt">best?tigt</option>
+              <option value="bestaetigt">bestaetigt</option>
               <option value="erledigt">erledigt</option>
               <option value="nicht erschienen">nicht erschienen</option>
             </select>
@@ -112,12 +112,12 @@
         </div>
 
         <div class="service-timeline-hint">
-          Arbeitszeit blockiert den Kalender klar. Einwirkzeit wird sichtbar markiert, damit die L?cke nicht wie komplett frei aussieht - du kannst dort bei Bedarf trotzdem einen kurzen Zwischentermin eintragen.
+          Arbeitszeit blockiert den Kalender klar. Einwirkzeit wird sichtbar markiert, damit die Luecke nicht wie komplett frei aussieht - du kannst dort bei Bedarf trotzdem einen kurzen Zwischentermin eintragen.
         </div>
 
         <div class="form-group premium-form-group">
           <label for="notes">Notizen</label>
-          <textarea id="notes" name="notes" placeholder="Zum Beispiel Farbe zuerst, danach schneiden und f?hnen."></textarea>
+          <textarea id="notes" name="notes" placeholder="Zum Beispiel Farbe zuerst, danach schneiden und foehnen."></textarea>
         </div>
 
         <div class="premium-subpanel premium-space-top">
@@ -135,7 +135,7 @@
 
         <div class="premium-button-row">
           <button type="submit" class="premium-button">Termin speichern</button>
-          <a class="premium-button secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender ?ffnen</a>
+          <a class="premium-button secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender oeffnen</a>
         </div>
       </form>
     </article>
@@ -144,7 +144,7 @@
       <div class="premium-panel-head">
         <div>
           <div class="premium-panel-kicker">Heute</div>
-          <h2 class="premium-panel-title">Team?berblick</h2>
+          <h2 class="premium-panel-title">Teamueberblick</h2>
         </div>
       </div>
       <div class="premium-team-columns compact-team-columns">
@@ -177,7 +177,7 @@
     <div class="premium-panel-head">
       <div>
         <div class="premium-panel-kicker">Ausblick</div>
-        <h2 class="premium-panel-title">N?chste Termine</h2>
+        <h2 class="premium-panel-title">Naechste Termine</h2>
       </div>
       <a class="premium-inline-link" href="{{ url_for('calendar_view', view='week', staff='Alle') }}">Wochenkalender</a>
     </div>
@@ -189,10 +189,10 @@
           <span class="premium-status-pill premium-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
         </div>
         <div class="premium-list-sub">{{ appt['appointment_at']|dt }}</div>
-        <div class="premium-list-meta">{{ appt['service_summary'] or appt['title'] }} ? {{ appt['staff_name'] or default_staff }}</div>
+        <div class="premium-list-meta">{{ appt['service_summary'] or appt['title'] }} - {{ appt['staff_name'] or default_staff }}</div>
       </a>
       {% else %}
-      <div class="premium-list-empty">Noch keine n?chsten Termine vorhanden.</div>
+      <div class="premium-list-empty">Noch keine naechsten Termine vorhanden.</div>
       {% endfor %}
     </div>
   </section>
@@ -294,13 +294,13 @@ document.addEventListener("DOMContentLoaded", function () {
       selectedField.value = ids.join(",");
       summaryField.value = summary;
       titleField.value = summary || "Salon-Termin";
-      summaryValue.textContent = summary || "Noch nichts ausgew?hlt";
+      summaryValue.textContent = summary || "Noch nichts ausgewaehlt";
 
       if (!durationField.dataset.touched) {
-        durationField.value = activeMinutes > 0 ? activeMinutes : 30;
+        durationField.value = activeMinutes > 0 - activeMinutes : 30;
       }
       if (!processingField.dataset.touched) {
-        processingField.value = processingMinutes > 0 ? processingMinutes : 0;
+        processingField.value = processingMinutes > 0 - processingMinutes : 0;
       }
     }
 
