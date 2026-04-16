@@ -15,6 +15,8 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=app_version) }}" />
 </head>
 <body class="app-body endpoint-{{ current_endpoint|default('public') }}">
+  <div class="app-ambient app-ambient-one" aria-hidden="true"></div>
+  <div class="app-ambient app-ambient-two" aria-hidden="true"></div>
   {% if session.get('admin_logged_in') and current_endpoint == 'calendar_view' %}
   <div id="startupSplash" class="startup-splash" aria-hidden="true">
     <div class="startup-splash-inner">
@@ -33,13 +35,17 @@
       <div class="brand">
         <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
         <div class="brand-main">
+          <div class="brand-overline">Salonsteuerung</div>
           <div class="brand-title-row">
             <div class="brand-title">Salon Karola App</div>
-            <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks" onclick="window.skToggleMenu && window.skToggleMenu(event)">Menü</button>
+            <span class="brand-staff-badge">{{ logged_in_staff or default_staff }}</span>
           </div>
         </div>
       </div>
-      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menü schließen" onclick="window.skCloseMenu && window.skCloseMenu(event)">Schließen</button>
+      <div class="topbar-actions">
+        <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks" onclick="window.skToggleMenu && window.skToggleMenu(event)">Men?</button>
+      </div>
+      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Men? schlie?en" onclick="window.skCloseMenu && window.skCloseMenu(event)">Schlie?en</button>
       <nav class="nav-links" id="mainNavLinks" hidden>
         <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>
@@ -70,7 +76,7 @@
     <div class="menu-overlay" id="menuOverlay" aria-hidden="true"></div>
   </header>
   {% endif %}
-  <main class="container">
+  <main class="container app-main">
     {% with messages = get_flashed_messages() %}
       {% if messages %}
         {% for message in messages %}
@@ -80,6 +86,15 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  {% if session.get('admin_logged_in') %}
+  <nav class="mobile-app-dock" aria-label="Schnellnavigation">
+    <a class="mobile-app-link {% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}">Kalender</a>
+    <a class="mobile-app-link {% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}">Termine</a>
+    <a class="mobile-app-link {% if current_endpoint in ['customer_new', 'customer_detail', 'customer_search_page', 'customer_birthdays_page', 'customer_inactive_page'] %}active{% endif %}" href="{{ url_for('customer_search_page') }}">Kunden</a>
+    <a class="mobile-app-link {% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('push_center') }}">Push</a>
+    <button type="button" class="mobile-app-link mobile-app-link-button" onclick="window.skToggleMenu && window.skToggleMenu(event)">Mehr</button>
+  </nav>
+  {% endif %}
     <script>
     (function () {
       const isLoggedIn = {{ 'true' if session.get('admin_logged_in') else 'false' }};
