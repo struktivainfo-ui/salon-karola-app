@@ -117,7 +117,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-04-16-stability-pass-1"
+APP_VERSION = "Salon Karola App 2026-04-16-calendar-start-fix-1"
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 SERVICE_PRESETS = [
     {"id": "schneiden", "label": "Schneiden", "active": 30, "processing": 0},
@@ -2922,7 +2922,7 @@ def _calendar_event_dict(appt):
         "firstname": appt["_firstname"],
         "lastname": appt["_name"],
         "customer_name": f"{appt['_firstname'] or ''} {appt['_name'] or ''}".strip(),
-        "phone": appt["Customer_Mobiltelefon"] or appt["Customer_Pers?nlichesTelefon"] or "-",
+        "phone": customer_phone(appt) or "-",
         "notes": appt["notes"] or "",
     }
 
