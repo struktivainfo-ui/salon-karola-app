@@ -117,7 +117,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-04-16-calendar-start-fix-1"
+APP_VERSION = "Salon Karola App 2026-04-16-appointment-flow-1"
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 SERVICE_PRESETS = [
     {"id": "schneiden", "label": "Schneiden", "active": 30, "processing": 0},
@@ -276,6 +276,16 @@ def appointment_payload_from_form(form, *, db=None):
     computed_summary = service_summary_from_selection(selected_services)
     service_summary = (form.get("service_summary") or computed_summary).strip() or computed_summary
     default_active, default_processing = service_time_defaults(selected_services)
+    if not selected_services:
+        default_active, default_processing = 30, 0
+
+    appointment_at = (form.get("appointment_at") or "").strip()
+    active_until = (form.get("active_until") or "").strip()
+    finish_at = (form.get("finish_at") or "").strip()
+    start_dt = _parse_dt_safe(appointment_at)
+    active_until_dt = _parse_dt_safe(active_until)
+    finish_dt = _parse_dt_safe(finish_at)
+
     duration_minutes = rounded_duration(
         form.get("duration_minutes"),
         default=default_active,
@@ -288,6 +298,18 @@ def appointment_payload_from_form(form, *, db=None):
         minimum=0,
         maximum=480,
     )
+
+    if start_dt and active_until_dt and active_until_dt > start_dt:
+        active_minutes = int((active_until_dt - start_dt).total_seconds() // 60)
+        duration_minutes = rounded_duration(active_minutes, default=default_active, minimum=15, maximum=480)
+
+    if start_dt and finish_dt and finish_dt > start_dt:
+        total_minutes = int((finish_dt - start_dt).total_seconds() // 60)
+        remaining_minutes = max(0, total_minutes - duration_minutes)
+        processing_minutes = rounded_duration(remaining_minutes, default=default_processing, minimum=0, maximum=480)
+    elif start_dt and active_until_dt and active_until_dt <= start_dt:
+        duration_minutes = rounded_duration(default_active, default=30, minimum=15, maximum=480)
+
     raw_title = (form.get("title") or "").strip()
     title = raw_title if raw_title and raw_title != "Salon-Termin" else (service_summary or "Salon-Termin")
     return {
@@ -3133,10 +3155,11 @@ def appointments_hub():
         flash(flash_msg)
         return redirect(url_for("appointments_hub"))
 
+    email_sql, mobile_sql, phone_sql, _ = customer_contact_select_sql()
     customers = db.execute(
-        """
+        f"""
         SELECT _id, COALESCE(_firstname, '') AS firstname, COALESCE(_name, '') AS lastname,
-               COALESCE(Customer_Mobiltelefon, '') AS phone
+               COALESCE({mobile_sql}, {phone_sql}, '') AS phone
         FROM _Customers
         WHERE COALESCE(_name, '') <> '__MANUELLER_TERMIN__'
         ORDER BY COALESCE(_name, '') COLLATE NOCASE ASC, COALESCE(_firstname, '') COLLATE NOCASE ASC

@@ -46,7 +46,7 @@
           <div class="service-selector premium-form-span-2">
             <div class="service-selector-head">
               <label>Leistungen</label>
-              <span class="service-selector-note">Mehrfachauswahl moeglich</span>
+              <span class="service-selector-note">Mehrere Leistungen antippen</span>
             </div>
             <div class="service-chip-grid">
               {% for service in service_presets %}
@@ -59,12 +59,11 @@
                 data-processing="{{ service['processing'] }}"
               >
                 <span>{{ service['label'] }}</span>
-                <small>{{ service['active'] }} Min{% if service['processing'] %} + {{ service['processing'] }} Min Einwirkzeit{% endif %}</small>
-              </button>
+                              </button>
               {% endfor %}
             </div>
             <div class="service-summary-card">
-              <div class="service-summary-label">Gewaehlte Leistungen</div>
+              <div class="service-summary-label">Leistungen</div>
               <div class="service-summary-value">Noch nichts ausgewaehlt</div>
             </div>
           </div>
@@ -87,13 +86,16 @@
             </div>
           </div>
 
-          <div class="form-group premium-form-group duration-field">
-            <label for="duration_minutes">Arbeitszeit</label>
-            <input type="number" id="duration_minutes" name="duration_minutes" value="30" min="15" max="480" step="15">
+          <input type="hidden" id="duration_minutes" name="duration_minutes" value="30">
+          <input type="hidden" id="processing_minutes" name="processing_minutes" value="0">
+
+          <div class="form-group premium-form-group">
+            <label for="active_until">Aktiv bis</label>
+            <input type="datetime-local" id="active_until" name="active_until">
           </div>
-          <div class="form-group premium-form-group duration-field">
-            <label for="processing_minutes">Einwirkzeit / Reserve</label>
-            <input type="number" id="processing_minutes" name="processing_minutes" value="0" min="0" max="480" step="15">
+          <div class="form-group premium-form-group">
+            <label for="finish_at">Fertig um</label>
+            <input type="datetime-local" id="finish_at" name="finish_at">
           </div>
 
           <div class="form-group premium-form-group">
@@ -112,7 +114,7 @@
         </div>
 
         <div class="service-timeline-hint">
-          Arbeitszeit blockiert den Kalender klar. Einwirkzeit wird sichtbar markiert, damit die Luecke nicht wie komplett frei aussieht - du kannst dort bei Bedarf trotzdem einen kurzen Zwischentermin eintragen.
+          Start, Aktiv-bis und Fertig-um steuern den Ablauf. Alles zwischen Aktiv bis und Fertig um wird als Zwischenzeit markiert, damit ihr dort bei Bedarf noch jemanden dazwischen eintragen koennt.
         </div>
 
         <div class="form-group premium-form-group">
@@ -232,46 +234,49 @@ document.addEventListener("DOMContentLoaded", function () {
   const customerSearchInput = document.getElementById("customerSearchInput");
   const customerSelect = document.getElementById("customer_id");
   if (customerSearchInput && customerSelect) {
-    const allOptions = Array.from(customerSelect.querySelectorAll("option"));
-    function customerMatches(option, query) {
-      if (!option.value) return true;
-      if (!query) return true;
-      const first = String(option.dataset.firstname || "").trim().toLowerCase();
-      const last = String(option.dataset.lastname || "").trim().toLowerCase();
-      return first.startsWith(query) || last.startsWith(query);
-    }
-    function filterCustomerOptions() {
+    const customerItems = Array.from(customerSelect.querySelectorAll("option"))
+      .filter((option) => option.value)
+      .map((option) => ({
+        value: option.value,
+        label: option.textContent,
+        firstname: String(option.dataset.firstname || "").trim().toLowerCase(),
+        lastname: String(option.dataset.lastname || "").trim().toLowerCase(),
+      }));
+
+    function renderCustomerOptions() {
       const query = customerSearchInput.value.trim().toLowerCase();
-      let visibleCount = 0;
-      allOptions.forEach((option) => {
-        const visible = customerMatches(option, query);
-        option.hidden = !visible;
-        if (visible && option.value) {
-          visibleCount += 1;
+      const currentValue = customerSelect.value;
+      const matches = !query
+        ? customerItems
+        : customerItems.filter((item) => item.firstname.startsWith(query) || item.lastname.startsWith(query));
+
+      customerSelect.innerHTML = "";
+      const emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = matches.length ? "Kontakt auswaehlen" : "Kein passender Kontakt";
+      customerSelect.appendChild(emptyOption);
+
+      matches.forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item.value;
+        option.textContent = item.label;
+        option.dataset.firstname = item.firstname;
+        option.dataset.lastname = item.lastname;
+        if (item.value === currentValue) {
+          option.selected = true;
         }
+        customerSelect.appendChild(option);
       });
-      const selectedOption = customerSelect.options[customerSelect.selectedIndex];
-      if (selectedOption && selectedOption.hidden) {
+
+      if (matches.length === 1) {
+        customerSelect.value = matches[0].value;
+      } else if (!matches.some((item) => item.value === currentValue)) {
         customerSelect.value = "";
       }
-      if (query && visibleCount === 1) {
-        const firstMatch = allOptions.find((option) => !option.hidden && option.value);
-        if (firstMatch) {
-          customerSelect.value = firstMatch.value;
-        }
-      }
     }
-    customerSearchInput.addEventListener("input", filterCustomerOptions);
-    customerSelect.addEventListener("change", () => {
-      const selected = customerSelect.options[customerSelect.selectedIndex];
-      if (!selected || !selected.value) {
-        return;
-      }
-      const first = String(selected.dataset.firstname || "").trim();
-      const last = String(selected.dataset.lastname || "").trim();
-      customerSearchInput.value = [first, last].filter(Boolean).join(" ").trim();
-    });
-    filterCustomerOptions();
+
+    customerSearchInput.addEventListener("input", renderCustomerOptions);
+    renderCustomerOptions();
   }
 
   document.querySelectorAll("[data-service-form]").forEach((form) => {
@@ -282,26 +287,75 @@ document.addEventListener("DOMContentLoaded", function () {
     const summaryValue = form.querySelector(".service-summary-value");
     const durationField = form.querySelector('[name="duration_minutes"]');
     const processingField = form.querySelector('[name="processing_minutes"]');
+    const startField = form.querySelector('[name="appointment_at"]');
+    const activeUntilField = form.querySelector('[name="active_until"]');
+    const finishAtField = form.querySelector('[name="finish_at"]');
+
+    function toDate(value) {
+      return value ? new Date(value) : null;
+    }
+
+    function toLocalValue(date) {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    function roundQuarter(minutes) {
+      if (!minutes || minutes <= 0) return 0;
+      return Math.max(15, Math.round(minutes / 15) * 15);
+    }
+
+    function syncTimesFromFields() {
+      const start = toDate(startField ? startField.value : "");
+      const activeUntil = toDate(activeUntilField ? activeUntilField.value : "");
+      const finishAt = toDate(finishAtField ? finishAtField.value : "");
+
+      if (!start) {
+        durationField.value = 30;
+        processingField.value = 0;
+        return;
+      }
+
+      if (activeUntil && activeUntil > start) {
+        durationField.value = roundQuarter((activeUntil - start) / 60000) || 30;
+      } else if (finishAt && finishAt > start) {
+        durationField.value = roundQuarter((finishAt - start) / 60000) || 30;
+      } else {
+        durationField.value = 30;
+      }
+
+      if (finishAt && activeUntil && finishAt > activeUntil) {
+        processingField.value = roundQuarter((finishAt - activeUntil) / 60000);
+      } else {
+        processingField.value = 0;
+      }
+    }
+
+    function setDefaultTimes() {
+      const start = toDate(startField ? startField.value : "");
+      if (!start) return;
+      if (activeUntilField && !activeUntilField.dataset.touched) {
+        activeUntilField.value = toLocalValue(new Date(start.getTime() + 30 * 60000));
+      }
+      if (finishAtField && !finishAtField.dataset.touched) {
+        const activeDate = toDate(activeUntilField ? activeUntilField.value : "") || new Date(start.getTime() + 30 * 60000);
+        finishAtField.value = toLocalValue(activeDate);
+      }
+      syncTimesFromFields();
+    }
 
     function syncServiceForm() {
       const activeChips = chips.filter((chip) => chip.classList.contains("active"));
       const labels = activeChips.map((chip) => chip.dataset.label);
       const ids = activeChips.map((chip) => chip.dataset.serviceId);
-      const activeMinutes = activeChips.reduce((sum, chip) => sum + Number(chip.dataset.active || 0), 0);
-      const processingMinutes = activeChips.reduce((sum, chip) => sum + Number(chip.dataset.processing || 0), 0);
       const summary = labels.join(" + ");
 
       selectedField.value = ids.join(",");
       summaryField.value = summary;
       titleField.value = summary || "Salon-Termin";
       summaryValue.textContent = summary || "Noch nichts ausgewaehlt";
-
-      if (!durationField.dataset.touched) {
-        durationField.value = activeMinutes > 0 - activeMinutes : 30;
-      }
-      if (!processingField.dataset.touched) {
-        processingField.value = processingMinutes > 0 - processingMinutes : 0;
-      }
+      syncTimesFromFields();
     }
 
     chips.forEach((chip) => {
@@ -311,12 +365,21 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
 
-    [durationField, processingField].forEach((field) => {
+    [activeUntilField, finishAtField].forEach((field) => {
+      if (!field) return;
       field.addEventListener("input", () => {
         field.dataset.touched = "1";
+        syncTimesFromFields();
       });
     });
 
+    if (startField) {
+      startField.addEventListener("input", () => {
+        setDefaultTimes();
+      });
+    }
+
+    setDefaultTimes();
     syncServiceForm();
   });
 });
