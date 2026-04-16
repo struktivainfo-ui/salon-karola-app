@@ -3245,15 +3245,24 @@ def push_unsubscribe():
 @login_required
 def push_ping():
     staff_name = _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF)
+    actor_name = _normalize_staff_name(session.get("staff_name"), default=DEFAULT_STAFF)
     if staff_name == "Alle":
-        result = webpush_send_to_all_staff("Salon Karola Push aktiv", "Test-Push an alle registrierten Geräte.", "/calendar")
+        result = webpush_send_to_all_staff(
+            "Salon Karola Test-Push",
+            f"Test-Push von {actor_name} an alle registrierten Geraete.",
+            "/calendar",
+        )
         devices = push_devices_for_staff(None)
         device_count = len(devices)
     else:
-
         devices = push_devices_for_staff(staff_name)
         device_count = len(devices)
-        result = webpush_send_to_staff(staff_name, "Salon Karola Push aktiv", f"Dieses Handy ist jetzt für {staff_name} registriert.", "/calendar")
+        result = webpush_send_to_staff(
+            staff_name,
+            f"Salon Karola Test-Push fuer {staff_name}",
+            f"Test-Push von {actor_name} an {staff_name}.",
+            "/calendar",
+        )
     return {"ok": True, "result": result, "enabled": push_delivery_ready(), "webpush_enabled": vapid_ready(), "native_enabled": fcm_ready(), "devices": devices, "device_count": device_count}
 
 
