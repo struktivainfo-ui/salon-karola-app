@@ -330,11 +330,29 @@
           setPushUi(message);
         });
 
+        await nativePushPlugin.addListener('pushNotificationReceived', (notification) => {
+          try {
+            const data = (notification && notification.data) || {};
+            const title = (notification && notification.title) || 'Salon Karola Push';
+            const body = (notification && notification.body) || 'Neue Nachricht eingegangen.';
+            const targetUrl = data.url || '/calendar';
+            setPushUi(`${title}: ${body}`, 'active');
+            window.setTimeout(() => {
+              try {
+                alert(`${title}
+
+${body}`);
+              } catch (error) {}
+            }, 60);
+            window.__skLastPushUrl = targetUrl;
+          } catch (error) {}
+        });
+
         await nativePushPlugin.addListener('pushNotificationActionPerformed', (event) => {
           try {
             const notification = event && event.notification ? event.notification : {};
             const data = notification.data || {};
-            const targetUrl = data.url || '/calendar';
+            const targetUrl = data.url || window.__skLastPushUrl || '/calendar';
             if (targetUrl) window.location.href = targetUrl;
           } catch (error) {}
         });
