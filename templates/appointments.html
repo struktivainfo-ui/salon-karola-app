@@ -1,50 +1,78 @@
 {% extends 'base.html' %}
 {% block title %}Termine - Salon Karola App{% endblock %}
 {% block content %}
-<section class="premium-shell">
-  <section class="premium-page-head">
+<section class="premium-shell appointments-shell">
+  <section class="premium-page-head appointments-hero">
     <div>
       <div class="premium-page-kicker">Termine</div>
-      <h1 class="premium-page-title">Planen</h1>
-      <div class="premium-page-subtitle">Schnell anlegen, heute prüfen, nächste Termine im Blick.</div>
+      <h1 class="premium-page-title">Planen mit Ablauf</h1>
+      <div class="premium-page-subtitle">Leistungen antippen, Zeiten festlegen und den Tag realistischer steuern.</div>
     </div>
-    <div class="premium-top-actions">
-      <a class="premium-top-action primary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Tageskalender</a>
-      <a class="premium-top-action" href="{{ url_for('customer_search_page') }}">Kunden</a>
+    <div class="premium-top-actions compact-actions">
+      <a class="premium-top-action primary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Tag</a>
+      <a class="premium-top-action" href="{{ url_for('calendar_view', view='week', staff='Alle') }}">Woche</a>
     </div>
   </section>
 
-  <section class="premium-grid-2 premium-grid-2-wide">
-    <article class="premium-panel">
+  <section class="premium-grid-2 premium-grid-2-wide appointments-main-grid">
+    <article class="premium-panel appointment-builder-panel soft-gradient-panel">
       <div class="premium-panel-head">
         <div>
           <div class="premium-panel-kicker">Neu</div>
           <h2 class="premium-panel-title">Termin anlegen</h2>
         </div>
+        <span class="premium-badge">mit Service-Ablauf</span>
       </div>
-      <form method="post" class="premium-form appointment-sync-form premium-space-top">
+      <form method="post" class="premium-form appointment-sync-form premium-space-top service-form" data-service-form>
         <input type="hidden" name="source" value="{{ prefill_source }}">
         <input type="hidden" name="actor_name" class="actor-name-field" value="">
+        <input type="hidden" name="title" class="service-title-field" value="Salon-Termin">
+        <input type="hidden" name="selected_services" class="selected-services-field" value="">
+        <input type="hidden" name="service_summary" class="service-summary-field" value="">
+
         <div class="premium-form-grid premium-form-grid-2">
-          <div class="form-group premium-form-group">
+          <div class="form-group premium-form-group premium-form-span-2">
             <label for="customer_id">Kontakt</label>
             <select name="customer_id" id="customer_id">
-              <option value="">Kontakt auswählen</option>
+              <option value="">Kontakt ausw?hlen</option>
               {% for customer in customers %}
               <option value="{{ customer['_id'] }}">{{ customer['lastname'] }}{% if customer['firstname'] %}, {{ customer['firstname'] }}{% endif %}{% if customer['phone'] %} - {{ customer['phone'] }}{% endif %}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="form-group premium-form-group">
-            <label for="title">Titel</label>
-            <input type="text" id="title" name="title" value="Salon-Termin">
+
+          <div class="service-selector premium-form-span-2">
+            <div class="service-selector-head">
+              <label>Leistungen</label>
+              <span class="service-selector-note">Mehrfachauswahl m?glich</span>
+            </div>
+            <div class="service-chip-grid">
+              {% for service in service_presets %}
+              <button
+                type="button"
+                class="service-chip"
+                data-service-id="{{ service['id'] }}"
+                data-label="{{ service['label'] }}"
+                data-active="{{ service['active'] }}"
+                data-processing="{{ service['processing'] }}"
+              >
+                <span>{{ service['label'] }}</span>
+                <small>{{ service['active'] }} Min{% if service['processing'] %} + {{ service['processing'] }} Min Einwirkzeit{% endif %}</small>
+              </button>
+              {% endfor %}
+            </div>
+            <div class="service-summary-card">
+              <div class="service-summary-label">Gew?hlte Leistungen</div>
+              <div class="service-summary-value">Noch nichts ausgew?hlt</div>
+            </div>
           </div>
+
           <div class="form-group premium-form-group">
-            <label for="appointment_at">Termin</label>
+            <label for="appointment_at">Start</label>
             <input type="datetime-local" id="appointment_at" name="appointment_at" value="{{ prefill_at }}" required>
           </div>
           <div class="form-group premium-form-group">
-            <label for="newAppointmentStaff">Team</label>
+            <label for="newAppointmentStaff">Mitarbeiterin</label>
             <select name="staff_name" id="newAppointmentStaff">
               {% for member in staff_members %}
               <option value="{{ member }}" {% if prefill_staff == member %}selected{% endif %}>{{ member }}</option>
@@ -56,23 +84,38 @@
               {% endfor %}
             </div>
           </div>
+
+          <div class="form-group premium-form-group duration-field">
+            <label for="duration_minutes">Arbeitszeit</label>
+            <input type="number" id="duration_minutes" name="duration_minutes" value="30" min="15" max="480" step="15">
+          </div>
+          <div class="form-group premium-form-group duration-field">
+            <label for="processing_minutes">Einwirkzeit / Reserve</label>
+            <input type="number" id="processing_minutes" name="processing_minutes" value="0" min="0" max="480" step="15">
+          </div>
+
           <div class="form-group premium-form-group">
             <label for="status">Status</label>
             <select name="status" id="status">
               <option value="geplant">geplant</option>
-              <option value="bestätigt">bestätigt</option>
+              <option value="best?tigt">best?tigt</option>
               <option value="erledigt">erledigt</option>
               <option value="nicht erschienen">nicht erschienen</option>
             </select>
           </div>
           <div class="form-group premium-form-group">
-            <label for="reminder_hours">Erinnerung</label>
+            <label for="reminder_hours">Erinnerung (Stunden vorher)</label>
             <input type="number" id="reminder_hours" name="reminder_hours" value="24">
           </div>
         </div>
+
+        <div class="service-timeline-hint">
+          Arbeitszeit blockiert den Kalender klar. Einwirkzeit wird sichtbar markiert, damit die L?cke nicht wie komplett frei aussieht - du kannst dort bei Bedarf trotzdem einen kurzen Zwischentermin eintragen.
+        </div>
+
         <div class="form-group premium-form-group">
           <label for="notes">Notizen</label>
-          <textarea id="notes" name="notes"></textarea>
+          <textarea id="notes" name="notes" placeholder="Zum Beispiel Farbe zuerst, danach schneiden und f?hnen."></textarea>
         </div>
 
         <div class="premium-subpanel premium-space-top">
@@ -90,21 +133,21 @@
 
         <div class="premium-button-row">
           <button type="submit" class="premium-button">Termin speichern</button>
-          <a class="premium-button secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender öffnen</a>
+          <a class="premium-button secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender ?ffnen</a>
         </div>
       </form>
     </article>
 
-    <article class="premium-panel">
+    <article class="premium-panel daily-overview-panel">
       <div class="premium-panel-head">
         <div>
           <div class="premium-panel-kicker">Heute</div>
-          <h2 class="premium-panel-title">Team</h2>
+          <h2 class="premium-panel-title">Team?berblick</h2>
         </div>
       </div>
-      <div class="premium-team-columns">
+      <div class="premium-team-columns compact-team-columns">
         {% for staff_name, items in today_split.items() %}
-        <section class="premium-subpanel">
+        <section class="premium-subpanel overview-subpanel">
           <div class="premium-subpanel-head">
             <h3>{{ staff_name }}</h3>
             <span class="premium-badge">{{ items|length }}</span>
@@ -116,7 +159,7 @@
                 <strong>{{ appt['_firstname'] }} {{ appt['_name'] }}</strong>
                 <span class="premium-badge">{{ appt['appointment_at']|dt }}</span>
               </div>
-              <div class="premium-list-sub">{{ appt['title'] }}</div>
+              <div class="premium-list-sub">{{ appt['service_summary'] or appt['title'] }}</div>
             </a>
             {% else %}
             <div class="premium-list-empty">Keine Termine.</div>
@@ -132,7 +175,7 @@
     <div class="premium-panel-head">
       <div>
         <div class="premium-panel-kicker">Ausblick</div>
-        <h2 class="premium-panel-title">Nächste Termine</h2>
+        <h2 class="premium-panel-title">N?chste Termine</h2>
       </div>
       <a class="premium-inline-link" href="{{ url_for('calendar_view', view='week', staff='Alle') }}">Wochenkalender</a>
     </div>
@@ -144,10 +187,10 @@
           <span class="premium-status-pill premium-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
         </div>
         <div class="premium-list-sub">{{ appt['appointment_at']|dt }}</div>
-        <div class="premium-list-meta">{{ appt['title'] }} - {{ appt['staff_name'] or default_staff }}</div>
+        <div class="premium-list-meta">{{ appt['service_summary'] or appt['title'] }} ? {{ appt['staff_name'] or default_staff }}</div>
       </a>
       {% else %}
-      <div class="premium-list-empty">Noch keine nächsten Termine vorhanden.</div>
+      <div class="premium-list-empty">Noch keine n?chsten Termine vorhanden.</div>
       {% endfor %}
     </div>
   </section>
@@ -160,12 +203,17 @@ document.addEventListener("DOMContentLoaded", function () {
   const defaultStaff = {{ default_staff|tojson }};
   const deviceStaff = (storedDeviceStaff && storedDeviceStaff.trim()) || templatePrefillStaff || defaultStaff;
   document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
+
+  function syncStaffPills(selectId, value) {
+    document.querySelectorAll('.staff-pill[data-target="' + selectId + '"]').forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.value === value);
+    });
+  }
+
   const newStaff = document.getElementById("newAppointmentStaff");
   if (newStaff) {
     newStaff.value = deviceStaff;
-    document.querySelectorAll('.staff-pill[data-target="newAppointmentStaff"]').forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.value === deviceStaff);
-    });
+    syncStaffPills("newAppointmentStaff", deviceStaff);
   }
 
   document.querySelectorAll(".staff-pill").forEach(function (button) {
@@ -175,13 +223,54 @@ document.addEventListener("DOMContentLoaded", function () {
       const select = document.getElementById(targetId);
       if (!select) return;
       select.value = value;
-      const wrapper = button.closest('.staff-quick-switch');
-      if (wrapper) {
-        wrapper.querySelectorAll('.staff-pill').forEach(function (pill) {
-          pill.classList.toggle('active', pill === button);
-        });
-      }
+      syncStaffPills(targetId, value);
     });
+  });
+
+  document.querySelectorAll("[data-service-form]").forEach((form) => {
+    const chips = Array.from(form.querySelectorAll(".service-chip"));
+    const selectedField = form.querySelector(".selected-services-field");
+    const summaryField = form.querySelector(".service-summary-field");
+    const titleField = form.querySelector(".service-title-field");
+    const summaryValue = form.querySelector(".service-summary-value");
+    const durationField = form.querySelector('[name="duration_minutes"]');
+    const processingField = form.querySelector('[name="processing_minutes"]');
+
+    function syncServiceForm() {
+      const activeChips = chips.filter((chip) => chip.classList.contains("active"));
+      const labels = activeChips.map((chip) => chip.dataset.label);
+      const ids = activeChips.map((chip) => chip.dataset.serviceId);
+      const activeMinutes = activeChips.reduce((sum, chip) => sum + Number(chip.dataset.active || 0), 0);
+      const processingMinutes = activeChips.reduce((sum, chip) => sum + Number(chip.dataset.processing || 0), 0);
+      const summary = labels.join(" + ");
+
+      selectedField.value = ids.join(",");
+      summaryField.value = summary;
+      titleField.value = summary || "Salon-Termin";
+      summaryValue.textContent = summary || "Noch nichts ausgew?hlt";
+
+      if (!durationField.dataset.touched) {
+        durationField.value = activeMinutes > 0 ? activeMinutes : 30;
+      }
+      if (!processingField.dataset.touched) {
+        processingField.value = processingMinutes > 0 ? processingMinutes : 0;
+      }
+    }
+
+    chips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        chip.classList.toggle("active");
+        syncServiceForm();
+      });
+    });
+
+    [durationField, processingField].forEach((field) => {
+      field.addEventListener("input", () => {
+        field.dataset.touched = "1";
+      });
+    });
+
+    syncServiceForm();
   });
 });
 </script>

@@ -117,8 +117,18 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-04-16-day-compact-1"
+APP_VERSION = "Salon Karola App 2026-04-16-services-2"
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
+SERVICE_PRESETS = [
+    {"id": "schneiden", "label": "Schneiden", "active": 30, "processing": 0},
+    {"id": "foehnen", "label": "Foehnen", "active": 30, "processing": 0},
+    {"id": "waschen", "label": "Waschen", "active": 15, "processing": 0},
+    {"id": "legen", "label": "Legen", "active": 30, "processing": 0},
+    {"id": "dauerwelle", "label": "Dauerwelle", "active": 45, "processing": 45},
+    {"id": "farbe", "label": "Farbe", "active": 30, "processing": 45},
+    {"id": "straehnen", "label": "Straehnen", "active": 45, "processing": 45},
+]
+SERVICE_PRESET_MAP = {item["id"]: item for item in SERVICE_PRESETS}
 STAFF_MEMBERS = list(CONFIGURED_STAFF_MEMBERS)
 STAFF_OPTIONS = ["Alle", *STAFF_MEMBERS]
 DEFAULT_STAFF = STAFF_MEMBERS[0]
@@ -195,6 +205,78 @@ def get_staff_options(db=None):
 def get_default_staff(db=None):
     members = get_staff_members(db)
     return members[0] if members else DEFAULT_STAFF
+
+
+def normalize_service_selection(raw_value):
+    if isinstance(raw_value, (list, tuple)):
+        items = raw_value
+    else:
+        items = str(raw_value or "").split(",")
+    selected = []
+    for item in items:
+        key = re.sub(r"[^a-z0-9_-]+", "", str(item).strip().lower())
+        if key and key in SERVICE_PRESET_MAP and key not in selected:
+            selected.append(key)
+    return selected
+
+
+def service_summary_from_selection(selected_services):
+    labels = [SERVICE_PRESET_MAP[item]["label"] for item in selected_services if item in SERVICE_PRESET_MAP]
+    return " + ".join(labels)
+
+
+def service_time_defaults(selected_services):
+    active = 0
+    processing = 0
+    for item in selected_services:
+        preset = SERVICE_PRESET_MAP.get(item)
+        if not preset:
+            continue
+        active += int(preset.get("active") or 0)
+        processing += int(preset.get("processing") or 0)
+    return active or 30, processing
+
+
+def rounded_duration(value, default=30, minimum=0, maximum=480):
+    minutes = _safe_int(value, default=default, minimum=minimum, maximum=maximum)
+    if minutes <= 0:
+        return 0
+    return max(15, int((minutes + 14) // 15) * 15)
+
+
+def appointment_payload_from_form(form, *, db=None):
+    default_staff = get_default_staff(db)
+    selected_services = normalize_service_selection(
+        form.getlist("selected_services") or form.get("selected_services")
+    )
+    computed_summary = service_summary_from_selection(selected_services)
+    service_summary = (form.get("service_summary") or computed_summary).strip() or computed_summary
+    default_active, default_processing = service_time_defaults(selected_services)
+    duration_minutes = rounded_duration(
+        form.get("duration_minutes"),
+        default=default_active,
+        minimum=15,
+        maximum=480,
+    )
+    processing_minutes = rounded_duration(
+        form.get("processing_minutes"),
+        default=default_processing,
+        minimum=0,
+        maximum=480,
+    )
+    raw_title = (form.get("title") or "").strip()
+    title = raw_title if raw_title and raw_title != "Salon-Termin" else (service_summary or "Salon-Termin")
+    return {
+        "title": title,
+        "service_codes": ",".join(selected_services),
+        "service_summary": service_summary,
+        "duration_minutes": duration_minutes,
+        "processing_minutes": processing_minutes,
+        "status": (form.get("status") or "geplant").strip() or "geplant",
+        "staff_name": _normalize_staff_name(form.get("staff_name"), default=default_staff, db=db),
+        "notes": (form.get("notes") or "").strip(),
+        "reminder_hours": _safe_int(form.get("reminder_hours", "24") or 24, default=24, minimum=0, maximum=720),
+    }
 
 
 def default_login_options(db=None):
@@ -577,6 +659,10 @@ def init_db():
         add_column_if_missing("appointments", "manual_lastname", "TEXT DEFAULT ''")
         add_column_if_missing("appointments", "manual_phone", "TEXT DEFAULT ''")
         add_column_if_missing("appointments", "manual_email", "TEXT DEFAULT ''")
+        add_column_if_missing("appointments", "service_codes", "TEXT DEFAULT ''")
+        add_column_if_missing("appointments", "service_summary", "TEXT DEFAULT ''")
+        add_column_if_missing("appointments", "duration_minutes", "INTEGER DEFAULT 30")
+        add_column_if_missing("appointments", "processing_minutes", "INTEGER DEFAULT 0")
         add_column_if_missing(
             "push_subscriptions",
             "provider",
@@ -1491,8 +1577,25 @@ def build_day_timeline(selected_date, staff="Alle"):
                 appt_dt = datetime.fromisoformat(str(row["appointment_at"]))
             except Exception:
                 continue
-            if pointer <= appt_dt < slot_end:
-                slot_items.append(_calendar_event_dict(row))
+            active_minutes = rounded_duration(row["duration_minutes"] if "duration_minutes" in row.keys() else 30, default=30, minimum=15)
+            processing_minutes = rounded_duration(row["processing_minutes"] if "processing_minutes" in row.keys() else 0, default=0, minimum=0)
+            active_end = appt_dt + timedelta(minutes=active_minutes)
+            processing_end = active_end + timedelta(minutes=processing_minutes)
+            phase = None
+            if appt_dt < slot_end and active_end > pointer:
+                phase = "active"
+            elif processing_minutes and active_end < slot_end and processing_end > pointer:
+                phase = "processing"
+            elif processing_minutes and active_end == pointer and processing_end > pointer:
+                phase = "processing"
+            if not phase:
+                continue
+            item = _calendar_event_dict(row).copy()
+            item["slot_phase"] = phase
+            item["slot_label"] = item.get("service_summary") or item["title"]
+            item["duration_label"] = f"{active_minutes} Min aktiv"
+            item["processing_label"] = f"{processing_minutes} Min Einwirkzeit" if processing_minutes else ""
+            slot_items.append(item)
         slots.append({
             "time": pointer.strftime("%H:%M"),
             "items": slot_items,
@@ -1503,8 +1606,9 @@ def build_day_timeline(selected_date, staff="Alle"):
     return {
         "open": True,
         "slots": slots,
-        "open_label": f"Geöffnet: {start_str} – {end_str} Uhr",
+        "open_label": f"Geoeffnet: {start_str} - {end_str} Uhr",
     }
+
 
 
 # ---------- Automated jobs ----------
@@ -2522,39 +2626,41 @@ def save_tags(customer_id, tags_text):
 @login_required
 def appointment_new(customer_id):
     db = get_db()
-    title = request.form.get("title", "Salon-Termin").strip() or "Salon-Termin"
+    payload = appointment_payload_from_form(request.form, db=db)
     appointment_at = (request.form.get("appointment_at") or "").strip()
-    status = request.form.get("status", "geplant").strip() or "geplant"
-    staff_name = _normalize_staff_name(request.form.get("staff_name"), default="Ute")
-    actor_name = _normalize_staff_name(request.form.get("actor_name") or staff_name, default=staff_name)
+    actor_name = _normalize_staff_name(request.form.get("actor_name") or payload["staff_name"], default=payload["staff_name"], db=db)
     if not appointment_at or not _parse_dt_safe(appointment_at):
-        flash("Bitte ein g?ltiges Datum und eine Uhrzeit f?r den Termin angeben.")
+        flash("Bitte ein gueltiges Datum und eine Uhrzeit fuer den Termin angeben.")
         return redirect(url_for("customer_detail", customer_id=customer_id))
     db.execute(
         """
-        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at, service_codes, service_summary, duration_minutes, processing_minutes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             customer_id,
-            title,
+            payload["title"],
             appointment_at,
-            request.form.get("notes", "").strip(),
-            int(request.form.get("reminder_hours", "24") or 24),
+            payload["notes"],
+            payload["reminder_hours"],
             datetime.now().isoformat(timespec="seconds"),
-            status,
-            staff_name,
+            payload["status"],
+            payload["staff_name"],
             actor_name,
             datetime.now().isoformat(timespec="seconds"),
+            payload["service_codes"],
+            payload["service_summary"],
+            payload["duration_minutes"],
+            payload["processing_minutes"],
         ),
     )
     db.commit()
-    notify_result = notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name)
+    notify_result = notify_other_staff_for_appointment(customer_id, payload["title"], appointment_at, payload["staff_name"], actor_name)
     flash_msg = "Termin wurde gespeichert."
     if push_delivery_ready() and notify_result.get("sent", 0) > 0:
         flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
     elif not vapid_ready():
-        flash_msg += " Push ist noch nicht komplett aktiv – bitte VAPID-Keys in Render setzen."
+        flash_msg += " Push ist noch nicht komplett aktiv - bitte VAPID-Keys in Render setzen."
     flash(flash_msg)
     return redirect(url_for("customer_detail", customer_id=customer_id))
 
@@ -2570,29 +2676,35 @@ def appointment_edit(appointment_id):
 
     appointment_at = request.form.get("appointment_at", "").strip()
     if not appointment_at:
-        flash("Bitte ein Datum und eine Uhrzeit für den Termin angeben.")
+        flash("Bitte ein Datum und eine Uhrzeit fuer den Termin angeben.")
         return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
 
+    payload = appointment_payload_from_form(request.form, db=db)
     db.execute(
         """
         UPDATE appointments
-        SET title = ?, appointment_at = ?, notes = ?, reminder_hours = ?, status = ?, staff_name = ?, updated_at = ?
+        SET title = ?, appointment_at = ?, notes = ?, reminder_hours = ?, status = ?, staff_name = ?, updated_at = ?, service_codes = ?, service_summary = ?, duration_minutes = ?, processing_minutes = ?
         WHERE id = ?
         """,
         (
-            request.form.get("title", "Salon-Termin").strip() or "Salon-Termin",
+            payload["title"],
             appointment_at,
-            request.form.get("notes", "").strip(),
-            int(request.form.get("reminder_hours", "24") or 24),
-            request.form.get("status", "geplant").strip() or "geplant",
-            request.form.get("staff_name", "Ute").strip() or "Ute",
+            payload["notes"],
+            payload["reminder_hours"],
+            payload["status"],
+            payload["staff_name"],
             datetime.now().isoformat(timespec="seconds"),
+            payload["service_codes"],
+            payload["service_summary"],
+            payload["duration_minutes"],
+            payload["processing_minutes"],
             appointment_id,
         ),
     )
     db.commit()
     flash("Termin wurde aktualisiert.")
     return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
+
 
 
 @app.route("/appointment/delete/<int:appointment_id>", methods=["POST"])
@@ -2686,10 +2798,16 @@ def _calendar_event_dict(appt):
         time_short = datetime.fromisoformat(str(appt["appointment_at"])).strftime("%H:%M")
     except Exception:
         time_short = str(appt["appointment_at"])[11:16]
+    duration_minutes = int(appt["duration_minutes"] or 30) if "duration_minutes" in appt.keys() else 30
+    processing_minutes = int(appt["processing_minutes"] or 0) if "processing_minutes" in appt.keys() else 0
     return {
         "id": appt["id"],
         "customer_id": appt["customer_id"],
         "title": appt["title"],
+        "service_codes": (appt["service_codes"] or "") if "service_codes" in appt.keys() else "",
+        "service_summary": (appt["service_summary"] or "") if "service_summary" in appt.keys() else "",
+        "duration_minutes": duration_minutes,
+        "processing_minutes": processing_minutes,
         "appointment_at": appt["appointment_at"],
         "time_short": time_short,
         "status": status,
@@ -2698,9 +2816,10 @@ def _calendar_event_dict(appt):
         "firstname": appt["_firstname"],
         "lastname": appt["_name"],
         "customer_name": f"{appt['_firstname'] or ''} {appt['_name'] or ''}".strip(),
-        "phone": appt["Customer_Mobiltelefon"] or appt["Customer_PersönlichesTelefon"] or "-",
+        "phone": appt["Customer_Mobiltelefon"] or appt["Customer_Pers??nlichesTelefon"] or "-",
         "notes": appt["notes"] or "",
     }
+
 
 
 def _fetch_calendar_appointments(start_dt, end_dt, staff="Alle"):
@@ -2825,12 +2944,8 @@ def appointments_hub():
     if request.method == "POST":
         customer_id_raw = (request.form.get("customer_id") or "").strip()
         appointment_at = (request.form.get("appointment_at") or "").strip()
-        title = (request.form.get("title") or "Salon-Termin").strip() or "Salon-Termin"
-        status = (request.form.get("status") or "geplant").strip() or "geplant"
-        staff_name = _normalize_staff_name(request.form.get("staff_name"), default="Ute")
-        actor_name = _normalize_staff_name(request.form.get("actor_name") or staff_name, default=staff_name)
-        notes = (request.form.get("notes") or "").strip()
-        reminder_hours = _safe_int(request.form.get("reminder_hours", "24") or 24, default=24, minimum=0, maximum=720)
+        payload = appointment_payload_from_form(request.form, db=db)
+        actor_name = _normalize_staff_name(request.form.get("actor_name") or payload["staff_name"], default=payload["staff_name"], db=db)
         manual_firstname = (request.form.get("manual_firstname") or "").strip()
         manual_lastname = (request.form.get("manual_lastname") or "").strip()
         manual_phone = (request.form.get("manual_phone") or "").strip()
@@ -2839,10 +2954,10 @@ def appointments_hub():
         manual_placeholder_customer_id = None
 
         if not appointment_at:
-            flash("Bitte Datum und Uhrzeit für den Termin angeben.")
+            flash("Bitte Datum und Uhrzeit fuer den Termin angeben.")
             return redirect(url_for("appointments_hub"))
         if not _parse_dt_safe(appointment_at):
-            flash("Das Termin-Datum ist ungültig. Bitte Datum und Uhrzeit neu wählen.")
+            flash("Das Termin-Datum ist ungueltig. Bitte Datum und Uhrzeit neu waehlen.")
             return redirect(url_for("appointments_hub"))
 
         customer_id = None
@@ -2852,44 +2967,48 @@ def appointments_hub():
             notify_customer_id = customer_id
             customer_row = db.execute("SELECT _id FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
             if not customer_row:
-                flash("Der ausgewählte Kontakt wurde nicht gefunden.")
+                flash("Der ausgewaehlte Kontakt wurde nicht gefunden.")
                 return redirect(url_for("appointments_hub"))
         else:
             if not (manual_firstname or manual_lastname):
-                flash("Bitte einen Kontakt aus der Datenbank wählen oder Name für den manuellen Termin eintragen.")
+                flash("Bitte einen Kontakt aus der Datenbank waehlen oder Name fuer den manuellen Termin eintragen.")
                 return redirect(url_for("appointments_hub"))
             manual_placeholder_customer_id = ensure_manual_placeholder_customer(db)
             customer_id = manual_placeholder_customer_id
 
         db.execute(
             """
-            INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at, manual_firstname, manual_lastname, manual_phone, manual_email)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at, manual_firstname, manual_lastname, manual_phone, manual_email, service_codes, service_summary, duration_minutes, processing_minutes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 customer_id,
-                title,
+                payload["title"],
                 appointment_at,
-                notes,
-                reminder_hours,
+                payload["notes"],
+                payload["reminder_hours"],
                 datetime.now().isoformat(timespec="seconds"),
-                status,
-                staff_name,
+                payload["status"],
+                payload["staff_name"],
                 actor_name,
                 datetime.now().isoformat(timespec="seconds"),
                 manual_firstname,
                 manual_lastname,
                 manual_phone,
                 manual_email,
+                payload["service_codes"],
+                payload["service_summary"],
+                payload["duration_minutes"],
+                payload["processing_minutes"],
             ),
         )
         db.commit()
         try:
             notify_result = notify_other_staff_for_appointment(
                 notify_customer_id,
-                title,
+                payload["title"],
                 appointment_at,
-                staff_name,
+                payload["staff_name"],
                 actor_name,
                 manual_name=manual_name,
             )
@@ -2902,14 +3021,14 @@ def appointments_hub():
         if push_delivery_ready() and notify_result.get("sent", 0) > 0:
             flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
         elif not vapid_ready():
-            flash_msg += " Push ist noch nicht komplett aktiv – bitte VAPID-Keys in Render setzen."
+            flash_msg += " Push ist noch nicht komplett aktiv - bitte VAPID-Keys in Render setzen."
         flash(flash_msg)
         return redirect(url_for("appointments_hub"))
 
     customers = db.execute(
         """
         SELECT _id, COALESCE(_firstname, '') AS firstname, COALESCE(_name, '') AS lastname,
-               COALESCE(Customer_Mobiltelefon, Customer_PersönlichesTelefon, '') AS phone
+               COALESCE(Customer_Mobiltelefon, Customer_Pers??nlichesTelefon, '') AS phone
         FROM _Customers
         WHERE COALESCE(_name, '') <> '__MANUELLER_TERMIN__'
         ORDER BY COALESCE(_name, '') COLLATE NOCASE ASC, COALESCE(_firstname, '') COLLATE NOCASE ASC
@@ -2942,7 +3061,9 @@ def appointments_hub():
         prefill_at=prefill_at,
         prefill_staff=prefill_staff,
         prefill_source=prefill_source,
+        service_presets=SERVICE_PRESETS,
     )
+
 
 
 @app.route("/calendar")
@@ -3548,6 +3669,7 @@ def inject_globals():
         "staff_members": get_staff_members(),
         "default_staff": get_default_staff(),
         "passkeys_ready": passkeys_ready(),
+        "service_presets": SERVICE_PRESETS,
     }
 
 
