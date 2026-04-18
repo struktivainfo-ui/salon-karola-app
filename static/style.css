@@ -6335,3 +6335,93 @@ textarea {
     border-radius: 22px;
   }
 }
+
+/* 2026-04-18 save-button safety and in-app update prompt */
+.app-update-prompt {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 26, 43, 0.18);
+  backdrop-filter: blur(8px);
+  z-index: 180;
+}
+
+.app-update-prompt[hidden] {
+  display: none !important;
+}
+
+.app-update-card {
+  width: min(420px, calc(100vw - 28px));
+  padding: 24px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,249,255,0.96));
+  border: 1px solid rgba(59, 95, 143, 0.12);
+  box-shadow: 0 28px 60px rgba(55, 72, 108, 0.18);
+  text-align: center;
+}
+
+.app-update-kicker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f5f8fd 0%, #ecf2fb 100%);
+  color: var(--accent-blue, #3b5f8f);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.app-update-card h2 {
+  margin: 0 0 10px;
+  color: #2f1f20;
+  font-size: 1.45rem;
+}
+
+.app-update-card p {
+  margin: 0 0 18px;
+  color: #6c5c62;
+  line-height: 1.55;
+}
+
+.customer-profile-form {
+  padding-bottom: 20px;
+}
+
+.customer-save-row {
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .app-main {
+    padding-bottom: calc(166px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .customer-profile-form {
+    padding-bottom: calc(126px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .customer-save-row {
+    position: sticky;
+    bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+    z-index: 14;
+    margin-top: 18px;
+    padding: 12px;
+    border-radius: 24px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,249,255,0.96));
+    border: 1px solid rgba(59, 95, 143, 0.1);
+    box-shadow: 0 18px 34px rgba(72, 86, 125, 0.14);
+    backdrop-filter: blur(10px);
+  }
+
+  .customer-save-row .premium-button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}

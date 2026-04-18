@@ -117,7 +117,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-04-18-red-white-elegant-1"
+APP_VERSION = "Salon Karola App 2026-04-18-update-flow-1"
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 SERVICE_PRESETS = [
     {"id": "schneiden", "label": "Schneiden", "active": 30, "processing": 0},
@@ -2194,7 +2194,13 @@ def manifest():
 
 @app.route("/service-worker.js")
 def service_worker():
-    return send_from_directory(app.static_folder, "service-worker.js", mimetype="application/javascript")
+    service_worker_path = Path(app.static_folder) / "service-worker.js"
+    content = service_worker_path.read_text(encoding="utf-8").replace("__APP_VERSION__", APP_VERSION)
+    response = Response(content, mimetype="application/javascript")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 # ---------- Routes ----------

@@ -36,7 +36,7 @@
         <h2 class="premium-panel-title">Stammdaten</h2>
       </div>
     </div>
-    <form method="post" class="premium-form premium-space-top">
+    <form method="post" class="premium-form premium-space-top customer-profile-form">
       <div class="premium-form-grid premium-form-grid-3">
         <div class="form-group premium-form-group"><label>Vorname</label><input type="text" name="firstname" value="{{ customer['_firstname'] if customer else '' }}"></div>
         <div class="form-group premium-form-group"><label>Nachname</label><input type="text" name="name" value="{{ customer['_name'] if customer else '' }}"></div>
@@ -50,7 +50,7 @@
         <div class="form-group premium-form-group premium-form-span-3"><label>Tags</label><input type="text" name="tags" value="{{ tags_text or '' }}"></div>
       </div>
       <div class="form-group premium-form-group"><label>Notizen</label><textarea name="notes">{{ customer['_notes'] if customer else '' }}</textarea></div>
-      <div class="premium-button-row">
+      <div class="premium-button-row customer-save-row">
         <button type="submit" class="premium-button">Speichern</button>
         {% if customer %}
         <a class="premium-button secondary" href="{{ url_for('send_test', customer_id=customer['_id'], template_id='appointment') }}">Test Terminmail</a>
@@ -119,7 +119,7 @@
           </div>
         </div>
         <div class="form-group premium-form-group"><label>Notizen</label><textarea name="notes"></textarea></div>
-        <div class="premium-button-row">
+        <div class="premium-button-row customer-save-row">
           <button type="submit" class="premium-button">Termin speichern</button>
         </div>
       </form>
@@ -194,7 +194,7 @@
                 </div>
               </div>
               <div class="form-group premium-form-group"><label>Notizen</label><textarea name="notes">{{ appt['notes'] or '' }}</textarea></div>
-              <div class="premium-button-row">
+              <div class="premium-button-row customer-save-row">
                 <button class="premium-button secondary" type="submit">Aenderungen speichern</button>
               </div>
             </form>

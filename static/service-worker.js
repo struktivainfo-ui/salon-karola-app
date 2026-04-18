@@ -1,4 +1,4 @@
-const CACHE_NAME = "salon-karola-v7-3-final-clean-2026-04-08";
+const CACHE_NAME = "salon-karola-__APP_VERSION__";
 const STATIC_URLS = [
   "/static/style.css",
   "/static/icon-192.png",
@@ -11,7 +11,6 @@ const STATIC_URLS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_URLS)));
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -80,16 +79,20 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl = (event.notification.data && event.notification.data.url) || "/calendar";
-  event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+  event.waitUntil((async () => {
+    const clientList = await clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const client of clientList) {
       const sameOrigin = client.url && client.url.startsWith(self.location.origin);
       if (sameOrigin && "focus" in client) {
-        try { await client.navigate(targetUrl); } catch (e) {}
+        try {
+          if ("navigate" in client) await client.navigate(targetUrl);
+        } catch (e) {}
         return client.focus();
       }
     }
     if (clients.openWindow) {
       return clients.openWindow(targetUrl);
     }
-  }));
+    return undefined;
+  })());
 });
