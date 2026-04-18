@@ -117,7 +117,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-04-16-appointment-flow-1"
+APP_VERSION = "Salon Karola App 2026-04-18-red-white-elegant-1"
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 SERVICE_PRESETS = [
     {"id": "schneiden", "label": "Schneiden", "active": 30, "processing": 0},

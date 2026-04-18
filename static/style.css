@@ -5865,3 +5865,310 @@ textarea {
     border-radius: 22px;
   }
 }
+
+/* 2026-04-18 elegant red-white app polish */
+:root {
+  --bg: #fffaf8;
+  --bg-soft: #fff2ef;
+  --card: rgba(255, 255, 255, 0.94);
+  --card-2: rgba(255, 245, 243, 0.96);
+  --text: #2f1f20;
+  --muted: #8f6f73;
+  --gold: #c83b43;
+  --gold-soft: #b92d38;
+  --border: rgba(186, 61, 72, 0.12);
+  --danger: #c83b43;
+  --success: #2d8f5a;
+  --shadow: 0 18px 40px rgba(110, 38, 46, 0.08);
+  --radius: 24px;
+}
+
+html {
+  background:
+    radial-gradient(circle at top left, rgba(255, 215, 219, 0.85), transparent 28%),
+    radial-gradient(circle at top right, rgba(255, 236, 238, 0.92), transparent 32%),
+    linear-gradient(180deg, #fffefe 0%, #fff5f3 100%);
+}
+
+body,
+body.app-body {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  background: transparent;
+  color: var(--text);
+}
+
+body.app-body::before {
+  background: rgba(255, 215, 220, 0.56);
+  opacity: 0.42;
+}
+
+body.app-body::after {
+  background: rgba(255, 233, 236, 0.68);
+  opacity: 0.38;
+}
+
+.app-ambient-one {
+  background: rgba(255, 212, 218, 0.52);
+}
+
+.app-ambient-two {
+  background: rgba(255, 232, 234, 0.48);
+}
+
+a {
+  color: #b92d38;
+}
+
+.startup-splash {
+  background:
+    radial-gradient(circle at top, rgba(222, 76, 88, 0.18) 0%, rgba(255,255,255,0.92) 42%, #fff7f5 100%);
+}
+
+.startup-splash-title {
+  color: #b92d38;
+  text-shadow: 0 10px 26px rgba(185, 45, 56, 0.12);
+}
+
+.startup-splash-logo {
+  border-color: rgba(185, 45, 56, 0.16);
+  box-shadow: 0 16px 40px rgba(173, 58, 68, 0.12);
+  background: rgba(255,255,255,0.88);
+}
+
+.startup-splash-subtitle {
+  color: #9a7074;
+}
+
+.topbar {
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom: 1px solid rgba(186, 61, 72, 0.1);
+  box-shadow: 0 14px 34px rgba(116, 38, 48, 0.06);
+}
+
+.brand-logo {
+  border: 1px solid rgba(186, 61, 72, 0.12);
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(143, 40, 50, 0.08);
+}
+
+.brand-title,
+.premium-page-title,
+.calendar-hero-title,
+.card h1,
+.card h2,
+.card h3 {
+  color: #3a1f22;
+}
+
+.brand-overline,
+.brand-subtitle,
+.helper-text,
+.premium-page-subtitle,
+.week-day-label,
+.calendar-group-label {
+  color: #9a7074;
+}
+
+.brand-staff-badge,
+.badge,
+.premium-badge,
+.calendar-meta-pill {
+  background: rgba(255, 239, 241, 0.96);
+  border: 1px solid rgba(186, 61, 72, 0.1);
+  color: #a72d38;
+  box-shadow: none;
+}
+
+.menu-toggle,
+.menu-close,
+.nav-links a,
+.nav-admin-summary {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(186, 61, 72, 0.08);
+  color: #5c2d31;
+  box-shadow: 0 10px 24px rgba(113, 41, 49, 0.05);
+}
+
+.nav-links a.active,
+.nav-admin-summary.active,
+.mobile-app-link.active,
+.view-chip.active {
+  background: linear-gradient(180deg, #d84b55 0%, #ba2f3a 100%);
+  border-color: rgba(154, 31, 43, 0.18);
+  color: #fffdfd;
+  box-shadow: 0 14px 28px rgba(186, 47, 58, 0.18);
+}
+
+.mobile-app-dock {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(186, 61, 72, 0.08);
+  box-shadow: 0 18px 40px rgba(111, 37, 47, 0.12);
+}
+
+.mobile-app-link {
+  background: rgba(255, 246, 246, 0.92);
+  color: #7a4045;
+}
+
+.hero-card,
+.card,
+.premium-page-head,
+.premium-panel,
+.premium-subpanel,
+.calendar-hero,
+.premium-calendar-panel,
+.premium-split-card,
+.premium-week-day,
+.mobile-card,
+.week-day,
+.month-cell {
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,248,247,0.94));
+  border: 1px solid rgba(186, 61, 72, 0.08);
+  box-shadow: 0 20px 44px rgba(110, 38, 46, 0.08);
+}
+
+.calendar-hero,
+.premium-page-head {
+  background:
+    radial-gradient(circle at top right, rgba(255, 224, 228, 0.76), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,247,245,0.96));
+}
+
+.calendar-hero-kicker,
+.premium-page-kicker,
+.premium-panel-kicker {
+  background: rgba(255, 239, 241, 0.98);
+  border-color: rgba(186, 61, 72, 0.08);
+  color: #a72d38;
+}
+
+.calendar-hero-title {
+  letter-spacing: -0.035em;
+}
+
+.calendar-hero-action,
+.premium-top-action,
+.premium-button,
+.btn,
+button,
+.month-cell-day,
+.mobile-day-link,
+.day-slot-link {
+  border-radius: 18px;
+  border: 1px solid rgba(186, 61, 72, 0.08);
+  box-shadow: 0 12px 28px rgba(110, 38, 46, 0.07);
+}
+
+.calendar-hero-action.primary,
+.premium-top-action.primary,
+.premium-button,
+button[type="submit"],
+.btn-primary {
+  background: linear-gradient(180deg, #d84b55 0%, #ba2f3a 100%);
+  color: #fffdfd;
+}
+
+.calendar-hero-action,
+.premium-top-action,
+.premium-button.secondary,
+.btn-secondary,
+button.secondary {
+  background: rgba(255,255,255,0.96);
+  color: #623136;
+}
+
+.view-chip,
+.service-chip,
+.nav-admin-links a {
+  background: rgba(255, 250, 250, 0.96);
+  border: 1px solid rgba(186, 61, 72, 0.08);
+  color: #623136;
+}
+
+input,
+select,
+textarea {
+  background: rgba(255,255,255,0.98);
+  border: 1px solid rgba(186, 61, 72, 0.1);
+  color: #352022;
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.86);
+}
+
+.week-event,
+.month-item,
+.premium-list-item,
+.day-slot-item {
+  background: rgba(255,255,255,0.95);
+  border: 1px solid rgba(186, 61, 72, 0.08);
+  box-shadow: 0 10px 22px rgba(110, 38, 46, 0.05);
+}
+
+.week-event-time,
+.day-slot-time,
+.day-slot-link,
+.week-event-title,
+.month-item,
+.day-slot-item strong {
+  color: #3a1f22;
+}
+
+.week-event-meta,
+.day-slot-empty,
+.week-empty,
+.premium-list-empty {
+  color: #8f6f73;
+}
+
+.flash {
+  background: rgba(255, 244, 245, 0.98);
+  border: 1px solid rgba(186, 61, 72, 0.12);
+  color: #8f2530;
+  box-shadow: 0 10px 24px rgba(128, 38, 48, 0.06);
+}
+
+.premium-calendar-panel,
+.premium-panel,
+.premium-subpanel,
+.card {
+  border-radius: 26px;
+}
+
+.calendar-control-head,
+.row-between,
+.split-day-card-head {
+  gap: 10px;
+}
+
+.premium-page-head::after,
+.calendar-hero::after {
+  background: radial-gradient(circle, rgba(231, 86, 97, 0.16), transparent 68%);
+}
+
+@media (max-width: 768px) {
+  .topbar {
+    background: rgba(255,255,255,0.92);
+  }
+
+  .topbar-inner {
+    padding: 10px 12px;
+  }
+
+  .brand-title {
+    font-size: 1rem;
+  }
+
+  .calendar-hero,
+  .premium-page-head,
+  .premium-panel,
+  .card {
+    border-radius: 20px;
+  }
+
+  .calendar-hero-action,
+  .premium-top-action,
+  .btn,
+  button {
+    border-radius: 16px;
+  }
+}
