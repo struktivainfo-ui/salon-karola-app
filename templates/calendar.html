@@ -13,25 +13,25 @@
   </div>
   <div class="calendar-hero-actions premium-hero-actions">
     <a class="calendar-hero-action primary" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else default_staff, source='calendar_quick') }}">Termin anlegen</a>
-    <a class="calendar-hero-action" href="{{ url_for('calendar_view', view=view, date=today_date, staff=staff) }}">Heute</a>
+    <a class="calendar-hero-action" href="{{ url_for('calendar_view', view=view, date=today_date, staff=staff) }}#calendar-results">Heute</a>
     <a class="calendar-hero-action" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
     <a class="calendar-hero-action" href="{{ url_for('appointments_hub') }}">Terminliste</a>
   </div>
 </section>
 
-<section class="card premium-calendar-panel">
+<section class="card premium-calendar-panel calendar-controls-panel">
   <div class="calendar-control-head">
     <h2>Steuerung</h2>
     <span class="badge">{{ staff }} - {{ selected_date }}</span>
   </div>
 
-  <form method="get" class="calendar-toolbar premium-calendar-toolbar space-top">
+  <form method="get" action="{{ url_for('calendar_view') }}#calendar-results" class="calendar-toolbar premium-calendar-toolbar space-top">
     <div class="calendar-control-group">
       <div class="calendar-group-label">Team</div>
       <div class="view-switch premium-chip-row">
-        <a class="view-chip premium-chip {% if staff == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Alle') }}">Alle</a>
+        <a class="view-chip premium-chip {% if staff == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Alle') }}#calendar-results">Alle</a>
         {% for member in staff_members %}
-        <a class="view-chip premium-chip {% if staff == member %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff=member) }}">{{ member }}</a>
+        <a class="view-chip premium-chip {% if staff == member %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff=member) }}#calendar-results">{{ member }}</a>
         {% endfor %}
       </div>
     </div>
@@ -39,9 +39,9 @@
     <div class="calendar-control-group">
       <div class="calendar-group-label">Ansicht</div>
       <div class="view-switch premium-chip-row">
-        <a class="view-chip premium-chip {% if view == 'day' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=staff) }}">Tag</a>
-        <a class="view-chip premium-chip {% if view == 'week' %}active{% endif %}" href="{{ url_for('calendar_view', view='week', date=selected_date, staff=staff) }}">Woche</a>
-        <a class="view-chip premium-chip {% if view == 'month' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', date=selected_date, staff=staff) }}">Monat</a>
+        <a class="view-chip premium-chip {% if view == 'day' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=staff) }}#calendar-results">Tag</a>
+        <a class="view-chip premium-chip {% if view == 'week' %}active{% endif %}" href="{{ url_for('calendar_view', view='week', date=selected_date, staff=staff) }}#calendar-results">Woche</a>
+        <a class="view-chip premium-chip {% if view == 'month' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', date=selected_date, staff=staff) }}#calendar-results">Monat</a>
       </div>
     </div>
 
@@ -59,7 +59,7 @@
   </form>
 </section>
 {% if view == 'day' and staff == 'Alle' and split_day_views %}
-<section class="split-day-section space-top">
+<section id="calendar-results" class="split-day-section space-top">
   <div class="row-between wrap-mobile split-day-header">
     <div>
       <h2>Tagesansicht</h2>
@@ -105,7 +105,7 @@
 {% endif %}
 
 {% if view == 'day' and day_view and not (staff == 'Alle' and split_day_views) %}
-<section class="card space-top premium-calendar-panel">
+<section id="calendar-results" class="card space-top premium-calendar-panel">
   <div class="row-between wrap-mobile">
     <div>
       <h2>{{ day_view['label'] }}</h2>
@@ -140,7 +140,7 @@
 {% endif %}
 
 {% if view == 'week' and week_view %}
-<section class="card space-top premium-calendar-panel">
+<section id="calendar-results" class="card space-top premium-calendar-panel">
   <div class="row-between wrap-mobile">
     <h2>Woche</h2>
     <span class="badge">{{ week_view['label'] }}</span>
@@ -170,7 +170,7 @@
 {% endif %}
 
 {% if view == 'month' and month_view %}
-<section class="card space-top premium-calendar-panel">
+<section id="calendar-results" class="card space-top premium-calendar-panel">
   <div class="row-between wrap-mobile">
     <h2>Monat</h2>
     <span class="badge">{{ month_view['month_label'] }}</span>
@@ -214,4 +214,26 @@
   </div>
 </section>
 {% endif %}
+<script>
+  (function () {
+    const calendarTargetId = "calendar-results";
+    const calendarTarget = document.getElementById(calendarTargetId);
+    const toolbar = document.querySelector(".premium-calendar-toolbar");
+    if (!toolbar) return;
+
+    toolbar.querySelectorAll("a[href]").forEach((link) => {
+      if (!link.getAttribute("href").includes("#")) {
+        link.setAttribute("href", `${link.getAttribute("href")}#${calendarTargetId}`);
+      }
+    });
+
+    if (window.location.hash === `#${calendarTargetId}` && calendarTarget) {
+      window.requestAnimationFrame(() => {
+        const offset = 92;
+        const top = calendarTarget.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+      });
+    }
+  })();
+</script>
 {% endblock %}
