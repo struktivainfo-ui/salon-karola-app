@@ -867,6 +867,26 @@ def mail_ready():
     return smtp_ready()
 
 
+def sms_delivery_mode():
+    requested = (os.getenv("SMS_PROVIDER") or "auto").strip().lower()
+    if requested in {"twilio", "none", "off", "disabled"}:
+        return requested
+    if (os.getenv("TWILIO_ACCOUNT_SID") or "").strip() and (os.getenv("TWILIO_AUTH_TOKEN") or "").strip():
+        return "twilio"
+    return "none"
+
+
+def sms_ready():
+    mode = sms_delivery_mode()
+    if mode != "twilio":
+        return False
+    account_sid = (os.getenv("TWILIO_ACCOUNT_SID") or "").strip()
+    auth_token = (os.getenv("TWILIO_AUTH_TOKEN") or "").strip()
+    from_number = (os.getenv("TWILIO_FROM_NUMBER") or "").strip()
+    messaging_service_sid = (os.getenv("TWILIO_MESSAGING_SERVICE_SID") or "").strip()
+    return bool(account_sid and auth_token and (from_number or messaging_service_sid))
+
+
 def send_email_via_resend(to_email, subject, body):
     api_key = (os.getenv("RESEND_API_KEY") or "").strip()
     sender = (os.getenv("RESEND_FROM") or "").strip()
@@ -954,6 +974,51 @@ def send_email(to_email, subject, body):
     if mode == "smtp":
         return send_email_via_smtp(to_email, subject, body)
     raise RuntimeError("Kein gültiger Mail-Provider konfiguriert.")
+
+
+def send_sms_via_twilio(to_number, body):
+    account_sid = (os.getenv("TWILIO_ACCOUNT_SID") or "").strip()
+    auth_token = (os.getenv("TWILIO_AUTH_TOKEN") or "").strip()
+    from_number = (os.getenv("TWILIO_FROM_NUMBER") or "").strip()
+    messaging_service_sid = (os.getenv("TWILIO_MESSAGING_SERVICE_SID") or "").strip()
+
+    if not account_sid or not auth_token:
+        raise RuntimeError("Twilio ist nicht vollstÃ¤ndig konfiguriert. TWILIO_ACCOUNT_SID oder TWILIO_AUTH_TOKEN fehlt.")
+    if not from_number and not messaging_service_sid:
+        raise RuntimeError("Twilio ist nicht vollstÃ¤ndig konfiguriert. Bitte TWILIO_FROM_NUMBER oder TWILIO_MESSAGING_SERVICE_SID setzen.")
+
+    normalized_to = normalized_phone_number(to_number)
+    if not normalized_to:
+        raise RuntimeError("Es ist keine gÃ¼ltige Mobil- oder Telefonnummer fÃ¼r SMS vorhanden.")
+
+    payload = {
+        "To": normalized_to,
+        "Body": body,
+    }
+    if messaging_service_sid:
+        payload["MessagingServiceSid"] = messaging_service_sid
+    else:
+        payload["From"] = from_number
+
+    try:
+        response = requests.post(
+            f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json",
+            auth=(account_sid, auth_token),
+            data=payload,
+            timeout=30,
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(f"Twilio Fehler: HTTP {response.status_code} {response.text}")
+        return response.json()
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(f"Twilio Netzwerkfehler: {exc}") from exc
+
+
+def send_sms(to_number, body):
+    mode = sms_delivery_mode()
+    if mode == "twilio":
+        return send_sms_via_twilio(to_number, body)
+    raise RuntimeError("Kein SMS-Provider konfiguriert. Bitte TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN und TWILIO_FROM_NUMBER oder TWILIO_MESSAGING_SERVICE_SID setzen.")
 
 
 # ---------- Utilities ----------
@@ -1130,6 +1195,31 @@ def log_email(customer_id, email_type, subject, body, recipient, status, error_m
             ),
         )
         conn.commit()
+
+
+def delivery_already_sent_today(message_type, customer_id=None, recipient="", subject=""):
+    recipient = (recipient or "").strip()
+    subject = (subject or "").strip()
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM email_log
+            WHERE email_type = ?
+              AND (? IS NULL OR customer_id = ?)
+              AND recipient = ?
+              AND (? = '' OR subject = ?)
+              AND status = 'sent'
+              AND date(sent_at) = date('now', 'localtime')
+            LIMIT 1
+            """,
+            (message_type, customer_id, customer_id, recipient, subject, subject),
+        ).fetchone()
+    return row is not None
+
+
+def email_already_sent_today(email_type, customer_id=None, recipient="", subject=""):
+    return delivery_already_sent_today(email_type, customer_id=customer_id, recipient=recipient, subject=subject)
 
 
 def safe_count(query, params=()):
@@ -1778,16 +1868,20 @@ def run_appointment_job():
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
+        mobile_sql = customer_mobile_reference("c") or "''"
+        phone_sql = customer_personal_phone_reference("c") or "''"
+        reminder_phone_sql = f"COALESCE(NULLIF(a.manual_phone, ''), NULLIF({mobile_sql}, ''), NULLIF({phone_sql}, ''))"
         appointments = conn.execute(
-            """
+            f"""
             SELECT a.*, c.*,
                    COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
                    COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
-                   COALESCE(NULLIF(a.manual_email, ''), c._mail) AS _mail
+                   COALESCE(NULLIF(a.manual_email, ''), c._mail) AS _mail,
+                   {reminder_phone_sql} AS reminder_phone
             FROM appointments a
             JOIN _Customers c ON c._id = a.customer_id
             WHERE a.reminder_sent_at IS NULL
-              AND COALESCE(NULLIF(a.manual_email, ''), c._mail) IS NOT NULL AND TRIM(COALESCE(NULLIF(a.manual_email, ''), c._mail)) <> ''
+              AND {reminder_phone_sql} IS NOT NULL AND TRIM({reminder_phone_sql}) <> ''
             ORDER BY a.appointment_at ASC
             """
         ).fetchall()
@@ -1805,7 +1899,9 @@ def run_appointment_job():
                 continue
 
             subject, body = render_template_text("appointment", appt, appt)
-            if email_already_sent_today("appointment", customer_id=appt["customer_id"], recipient=appt["_mail"], subject=subject):
+            reminder_phone = normalized_phone_number(appt["reminder_phone"])
+            sms_body = body if subject.lower() in body.lower() else f"{subject}\n\n{body}"
+            if delivery_already_sent_today("appointment_sms", customer_id=appt["customer_id"], recipient=reminder_phone, subject=subject):
                 if not appt["reminder_sent_at"]:
                     conn.execute(
                         "UPDATE appointments SET reminder_sent_at = ? WHERE id = ?",
@@ -1814,18 +1910,18 @@ def run_appointment_job():
                     conn.commit()
                 continue
             try:
-                send_email(appt["_mail"], subject, body)
+                send_sms(reminder_phone, sms_body)
                 conn.execute(
                     "UPDATE appointments SET reminder_sent_at = ? WHERE id = ?",
                     (datetime.now().isoformat(timespec="seconds"), appt["id"]),
                 )
                 conn.commit()
-                log_email(appt["customer_id"], "appointment", subject, body, appt["_mail"], "sent")
+                log_email(appt["customer_id"], "appointment_sms", subject, sms_body, reminder_phone, "sent")
                 push_result = _push_appointment_reminder(appt)
                 push_sent += int(push_result.get("sent") or 0)
                 sent += 1
             except Exception as exc:
-                log_email(appt["customer_id"], "appointment", subject, body, appt["_mail"], "error", str(exc))
+                log_email(appt["customer_id"], "appointment_sms", subject, sms_body, reminder_phone or (appt["reminder_phone"] or ""), "error", str(exc))
                 errors += 1
 
     return {"checked": checked, "sent": sent, "errors": errors, "push_sent": push_sent}
