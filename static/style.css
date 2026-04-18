@@ -5025,7 +5025,9 @@ th, td {
   }
 
   .calendar-controls-panel {
-    top: 70px;
+    position: relative;
+    top: auto;
+    z-index: auto;
     padding: 14px;
     border-radius: 20px;
   }
@@ -5039,15 +5041,15 @@ th, td {
   }
 
   .calendar-nav-group {
-    position: sticky;
-    top: 132px;
-    z-index: 36;
-    padding-top: 4px;
-    background: linear-gradient(180deg, rgba(250,243,236,0.98) 0%, rgba(250,243,236,0.92) 100%);
+    position: relative;
+    top: auto;
+    z-index: auto;
+    padding-top: 0;
+    background: transparent;
   }
 
   #calendar-results {
-    scroll-margin-top: 176px;
+    scroll-margin-top: 92px;
   }
 
   .calendar-hero-actions {
