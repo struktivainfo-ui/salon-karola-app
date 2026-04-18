@@ -43,9 +43,9 @@
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks" onclick="window.skToggleMenu && window.skToggleMenu(event)">Men&uuml;</button>
+        <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks" onclick="return window.skToggleMenu ? window.skToggleMenu(event) : false;">Men&uuml;</button>
       </div>
-      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Men&uuml; schlie&szlig;en" onclick="window.skCloseMenu && window.skCloseMenu(event)">Schlie&szlig;en</button>
+      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Men&uuml; schlie&szlig;en" onclick="return window.skCloseMenu ? window.skCloseMenu(event) : false;">Schlie&szlig;en</button>
       <nav class="nav-links" id="mainNavLinks" hidden>
         <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>
@@ -92,7 +92,7 @@
     <a class="mobile-app-link {% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}">Termine</a>
     <a class="mobile-app-link {% if current_endpoint in ['customer_new', 'customer_detail', 'customer_search_page', 'customer_birthdays_page', 'customer_inactive_page'] %}active{% endif %}" href="{{ url_for('customer_search_page') }}">Kunden</a>
     <a class="mobile-app-link {% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('push_center') }}">Push</a>
-    <button type="button" class="mobile-app-link mobile-app-link-button" onclick="window.skToggleMenu && window.skToggleMenu(event)">Mehr</button>
+    <button type="button" class="mobile-app-link mobile-app-link-button" id="menuDockToggle" onclick="return window.skToggleMenu ? window.skToggleMenu(event) : false;">Mehr</button>
   </nav>
   <div class="app-update-prompt" id="appUpdatePrompt" hidden aria-live="polite" aria-labelledby="appUpdateTitle">
     <div class="app-update-card">
@@ -907,13 +907,14 @@ ${body}`);
     return {
       nav: document.getElementById('mainNavLinks'),
       toggle: document.getElementById('menuToggle'),
+      dockToggle: document.getElementById('menuDockToggle'),
       close: document.getElementById('menuClose'),
       overlay: document.getElementById('menuOverlay')
     };
   }
 
   function openMenu() {
-    const { nav, toggle, close, overlay } = getEls();
+    const { nav, toggle, dockToggle, close, overlay } = getEls();
     if (!nav) return;
     nav.hidden = false;
     nav.removeAttribute('hidden');
@@ -923,6 +924,7 @@ ${body}`);
     nav.style.visibility = 'visible';
     nav.style.pointerEvents = 'auto';
     if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    if (dockToggle) dockToggle.setAttribute('aria-expanded', 'true');
     if (close) close.classList.add('visible');
     if (overlay) {
       overlay.classList.add('active');
@@ -932,7 +934,7 @@ ${body}`);
   }
 
   function closeMenu() {
-    const { nav, toggle, close, overlay } = getEls();
+    const { nav, toggle, dockToggle, close, overlay } = getEls();
     if (!nav) return;
     nav.classList.remove('mobile-open');
     nav.hidden = true;
@@ -942,6 +944,7 @@ ${body}`);
     nav.style.pointerEvents = '';
     nav.style.display = '';
     if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    if (dockToggle) dockToggle.setAttribute('aria-expanded', 'false');
     if (close) close.classList.remove('visible');
     if (overlay) {
       overlay.classList.remove('active');
@@ -957,7 +960,8 @@ ${body}`);
     }
     const { nav } = getEls();
     if (!nav) return false;
-    if (nav.classList.contains('mobile-open') || nav.hidden === false) closeMenu();
+    const isOpen = nav.classList.contains('mobile-open') || document.body.classList.contains('mobile-menu-open');
+    if (isOpen) closeMenu();
     else openMenu();
     return false;
   };
@@ -972,7 +976,10 @@ ${body}`);
   };
 
   window.addEventListener('load', function () {
-    const { overlay } = getEls();
+    const { overlay, toggle, dockToggle, close } = getEls();
+    if (toggle && typeof toggle.onclick !== 'function') toggle.onclick = window.skToggleMenu;
+    if (dockToggle && typeof dockToggle.onclick !== 'function') dockToggle.onclick = window.skToggleMenu;
+    if (close && typeof close.onclick !== 'function') close.onclick = window.skCloseMenu;
     if (overlay) overlay.addEventListener('click', window.skCloseMenu);
   });
 })();
