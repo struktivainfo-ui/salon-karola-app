@@ -1658,7 +1658,7 @@ def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff
         when_label = str(appointment_at)
 
     push_title = f"Neuer Termin von {actor}"
-    push_body = f"{customer_name} ? {title} ? {when_label} ? zust?ndig: {staff_name}"
+    push_body = f"{customer_name} - {title} - {when_label} - zustaendig: {staff_name}"
     totals = {"sent": 0, "skipped": 0, "errors": []}
     for target in targets:
         result = webpush_send_to_staff(target, push_title, push_body, "/calendar?view=day")
@@ -3353,12 +3353,12 @@ def push_devices():
 def push_test_device(subscription_id):
     row = get_db().execute("SELECT * FROM push_subscriptions WHERE id = ?", (subscription_id,)).fetchone()
     if not row:
-        return {"ok": False, "error": "Gerät nicht gefunden."}, 404
+        return {"ok": False, "error": "Geraet nicht gefunden."}, 404
     label = _push_device_label(row)
     result = send_push_to_subscription_row(
         row,
-        f"Test-Push für {label}",
-        f"Dieses Gerät ist für {row['staff_name'] or 'Ute'} aktiv.",
+        f"Test-Push fuer {label}",
+        f"Dieses Geraet ist fuer {row['staff_name'] or 'Ute'} aktiv.",
         "/calendar",
     )
     _touch_push_subscription(subscription_id, last_test_at=datetime.now().isoformat(timespec="seconds"))

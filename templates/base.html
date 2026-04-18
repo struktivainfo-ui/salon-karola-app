@@ -20,7 +20,7 @@
   {% if session.get('admin_logged_in') and current_endpoint == 'calendar_view' %}
   <div id="startupSplash" class="startup-splash" aria-hidden="true">
     <div class="startup-splash-inner">
-      <div class="startup-splash-title">Salon-Team</div>
+      <div class="startup-splash-title">Salon Karola</div>
       <img class="startup-splash-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Emblem">
       <div class="startup-splash-subtitle">Salon Karola</div>
       <audio id="startupSound" preload="auto" playsinline>
@@ -43,9 +43,9 @@
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks" onclick="window.skToggleMenu && window.skToggleMenu(event)">Men?</button>
+        <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks" onclick="window.skToggleMenu && window.skToggleMenu(event)">Men&uuml;</button>
       </div>
-      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Men? schlie?en" onclick="window.skCloseMenu && window.skCloseMenu(event)">Schlie?en</button>
+      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Men&uuml; schlie&szlig;en" onclick="window.skCloseMenu && window.skCloseMenu(event)">Schlie&szlig;en</button>
       <nav class="nav-links" id="mainNavLinks" hidden>
         <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view') }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>

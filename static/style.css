@@ -6172,3 +6172,166 @@ textarea {
     border-radius: 16px;
   }
 }
+
+/* 2026-04-18 luxury tricolor polish */
+:root {
+  --accent-blue: #3b5f8f;
+  --accent-blue-soft: #edf3fb;
+  --accent-red-soft: #fff0f1;
+}
+
+.topbar {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,250,250,0.92));
+  border-bottom: 1px solid rgba(59, 95, 143, 0.08);
+  box-shadow: 0 16px 36px rgba(60, 70, 110, 0.08);
+}
+
+.brand-logo {
+  width: 50px;
+  height: 50px;
+  padding: 2px;
+  border-radius: 16px;
+  object-fit: contain;
+  background: #050505;
+  border: 1px solid rgba(59, 95, 143, 0.16);
+  box-shadow: 0 12px 28px rgba(19, 23, 38, 0.14);
+}
+
+.brand-staff-badge {
+  background: linear-gradient(180deg, #f4f7fd 0%, #e7eef9 100%);
+  color: var(--accent-blue);
+  border-color: rgba(59, 95, 143, 0.14);
+}
+
+.menu-toggle,
+.menu-close {
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f2f2 100%);
+  border-color: rgba(59, 95, 143, 0.1);
+  color: #44262a;
+}
+
+.menu-toggle:hover,
+.menu-close:hover,
+.nav-links a:hover,
+.nav-admin-summary:hover {
+  border-color: rgba(59, 95, 143, 0.22);
+  box-shadow: 0 14px 28px rgba(60, 70, 110, 0.08);
+}
+
+.nav-links a,
+.nav-admin-summary,
+.nav-admin-links a,
+.mobile-app-link {
+  background: rgba(255,255,255,0.94);
+  border-color: rgba(59, 95, 143, 0.08);
+}
+
+.nav-links a.active,
+.nav-admin-summary.active,
+.mobile-app-link.active,
+.view-chip.active {
+  background: linear-gradient(180deg, #cb3f49 0%, #aa2733 100%);
+  color: #fff;
+}
+
+.calendar-meta-pill,
+.badge,
+.premium-badge {
+  background: linear-gradient(180deg, #f5f8fd 0%, #eef4fb 100%);
+  color: var(--accent-blue);
+  border-color: rgba(59, 95, 143, 0.12);
+}
+
+.calendar-hero,
+.premium-page-head {
+  background:
+    radial-gradient(circle at top right, rgba(237, 243, 251, 0.94), transparent 34%),
+    radial-gradient(circle at top left, rgba(255, 239, 241, 0.9), transparent 28%),
+    linear-gradient(180deg, rgba(255,255,255,0.99), rgba(255,248,247,0.97));
+}
+
+.calendar-hero-action,
+.premium-top-action,
+.premium-button,
+.btn,
+button,
+.month-cell-day,
+.mobile-day-link,
+.day-slot-link,
+.week-event,
+.month-item,
+.premium-list-item,
+.day-slot-item {
+  box-shadow: 0 14px 30px rgba(80, 92, 126, 0.07);
+}
+
+.calendar-hero-action.primary,
+.premium-top-action.primary,
+.premium-button,
+button[type="submit"],
+.btn-primary {
+  background: linear-gradient(180deg, #d74b55 0%, #b52d39 100%);
+}
+
+.calendar-hero-action:not(.primary),
+.premium-top-action:not(.primary),
+.btn-secondary,
+button.secondary {
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8fc 100%);
+  color: var(--accent-blue);
+  border-color: rgba(59, 95, 143, 0.14);
+}
+
+.view-chip,
+.service-chip {
+  background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+  border-color: rgba(59, 95, 143, 0.1);
+}
+
+input,
+select,
+textarea {
+  background: linear-gradient(180deg, #ffffff 0%, #fcfeff 100%);
+  border-color: rgba(59, 95, 143, 0.12);
+}
+
+.flash {
+  background: linear-gradient(180deg, #fff7f8 0%, #fff1f2 100%);
+  border-color: rgba(181, 45, 57, 0.14);
+}
+
+.mobile-app-dock {
+  background: rgba(255,255,255,0.94);
+  border-color: rgba(59, 95, 143, 0.08);
+  box-shadow: 0 22px 42px rgba(72, 86, 125, 0.14);
+}
+
+.card,
+.premium-panel,
+.premium-subpanel,
+.premium-calendar-panel,
+.premium-split-card,
+.premium-week-day,
+.mobile-card {
+  box-shadow: 0 20px 44px rgba(72, 86, 125, 0.08);
+}
+
+@media (max-width: 768px) {
+  .brand-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+
+  .topbar-inner {
+    padding: 9px 12px;
+  }
+
+  .mobile-app-dock {
+    width: min(560px, calc(100vw - 18px));
+    padding: 7px;
+    border-radius: 22px;
+  }
+}
