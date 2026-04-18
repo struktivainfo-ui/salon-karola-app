@@ -887,6 +887,26 @@ def sms_ready():
     return bool(account_sid and auth_token and (from_number or messaging_service_sid))
 
 
+def whatsapp_delivery_mode():
+    requested = (os.getenv("WHATSAPP_PROVIDER") or "auto").strip().lower()
+    if requested in {"twilio", "none", "off", "disabled"}:
+        return requested
+    if (os.getenv("TWILIO_ACCOUNT_SID") or "").strip() and (os.getenv("TWILIO_AUTH_TOKEN") or "").strip() and (os.getenv("TWILIO_WHATSAPP_FROM") or "").strip():
+        return "twilio"
+    return "none"
+
+
+def whatsapp_ready():
+    mode = whatsapp_delivery_mode()
+    if mode != "twilio":
+        return False
+    return bool(
+        (os.getenv("TWILIO_ACCOUNT_SID") or "").strip()
+        and (os.getenv("TWILIO_AUTH_TOKEN") or "").strip()
+        and (os.getenv("TWILIO_WHATSAPP_FROM") or "").strip()
+    )
+
+
 def send_email_via_resend(to_email, subject, body):
     api_key = (os.getenv("RESEND_API_KEY") or "").strip()
     sender = (os.getenv("RESEND_FROM") or "").strip()
@@ -1019,6 +1039,45 @@ def send_sms(to_number, body):
     if mode == "twilio":
         return send_sms_via_twilio(to_number, body)
     raise RuntimeError("Kein SMS-Provider konfiguriert. Bitte TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN und TWILIO_FROM_NUMBER oder TWILIO_MESSAGING_SERVICE_SID setzen.")
+
+
+def send_whatsapp_via_twilio(to_number, body):
+    account_sid = (os.getenv("TWILIO_ACCOUNT_SID") or "").strip()
+    auth_token = (os.getenv("TWILIO_AUTH_TOKEN") or "").strip()
+    from_number = (os.getenv("TWILIO_WHATSAPP_FROM") or "").strip()
+
+    if not account_sid or not auth_token or not from_number:
+        raise RuntimeError("Twilio WhatsApp ist nicht vollstÃ¤ndig konfiguriert. Bitte TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN und TWILIO_WHATSAPP_FROM setzen.")
+
+    normalized_to = normalized_phone_number(to_number)
+    if not normalized_to:
+        raise RuntimeError("Es ist keine gÃ¼ltige Mobil- oder Telefonnummer fÃ¼r WhatsApp vorhanden.")
+
+    payload = {
+        "From": from_number if from_number.startswith("whatsapp:") else f"whatsapp:{from_number}",
+        "To": f"whatsapp:{normalized_to}",
+        "Body": body,
+    }
+
+    try:
+        response = requests.post(
+            f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json",
+            auth=(account_sid, auth_token),
+            data=payload,
+            timeout=30,
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(f"Twilio WhatsApp Fehler: HTTP {response.status_code} {response.text}")
+        return response.json()
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(f"Twilio WhatsApp Netzwerkfehler: {exc}") from exc
+
+
+def send_whatsapp(to_number, body):
+    mode = whatsapp_delivery_mode()
+    if mode == "twilio":
+        return send_whatsapp_via_twilio(to_number, body)
+    raise RuntimeError("Kein WhatsApp-Provider konfiguriert. Bitte TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN und TWILIO_WHATSAPP_FROM setzen.")
 
 
 # ---------- Utilities ----------
@@ -1881,7 +1940,10 @@ def run_appointment_job():
             FROM appointments a
             JOIN _Customers c ON c._id = a.customer_id
             WHERE a.reminder_sent_at IS NULL
-              AND {reminder_phone_sql} IS NOT NULL AND TRIM({reminder_phone_sql}) <> ''
+              AND (
+                    (COALESCE(NULLIF(a.manual_email, ''), c._mail) IS NOT NULL AND TRIM(COALESCE(NULLIF(a.manual_email, ''), c._mail)) <> '')
+                 OR ({reminder_phone_sql} IS NOT NULL AND TRIM({reminder_phone_sql}) <> '')
+              )
             ORDER BY a.appointment_at ASC
             """
         ).fetchall()
@@ -1900,28 +1962,66 @@ def run_appointment_job():
 
             subject, body = render_template_text("appointment", appt, appt)
             reminder_phone = normalized_phone_number(appt["reminder_phone"])
-            sms_body = body if subject.lower() in body.lower() else f"{subject}\n\n{body}"
-            if delivery_already_sent_today("appointment_sms", customer_id=appt["customer_id"], recipient=reminder_phone, subject=subject):
-                if not appt["reminder_sent_at"]:
-                    conn.execute(
-                        "UPDATE appointments SET reminder_sent_at = ? WHERE id = ?",
-                        (datetime.now().isoformat(timespec="seconds"), appt["id"]),
-                    )
-                    conn.commit()
-                continue
-            try:
-                send_sms(reminder_phone, sms_body)
+            whatsapp_body = body if subject.lower() in body.lower() else f"{subject}\n\n{body}"
+            reminder_email = (appt["_mail"] or "").strip()
+            email_sent_today = bool(
+                reminder_email and delivery_already_sent_today("appointment_email", customer_id=appt["customer_id"], recipient=reminder_email, subject=subject)
+            )
+            whatsapp_sent_today = bool(
+                reminder_phone and delivery_already_sent_today("appointment_whatsapp", customer_id=appt["customer_id"], recipient=reminder_phone, subject=subject)
+            )
+
+            if email_sent_today and (not reminder_phone or whatsapp_sent_today or not whatsapp_ready()):
                 conn.execute(
                     "UPDATE appointments SET reminder_sent_at = ? WHERE id = ?",
                     (datetime.now().isoformat(timespec="seconds"), appt["id"]),
                 )
                 conn.commit()
-                log_email(appt["customer_id"], "appointment_sms", subject, sms_body, reminder_phone, "sent")
+                continue
+
+            delivered_any = False
+            had_error = False
+
+            if reminder_email and not email_sent_today:
+                try:
+                    send_email(reminder_email, subject, body)
+                    log_email(appt["customer_id"], "appointment_email", subject, body, reminder_email, "sent")
+                    delivered_any = True
+                except Exception as exc:
+                    log_email(appt["customer_id"], "appointment_email", subject, body, reminder_email, "error", str(exc))
+                    had_error = True
+
+            if reminder_phone and not whatsapp_sent_today and not whatsapp_ready():
+                log_email(
+                    appt["customer_id"],
+                    "appointment_whatsapp",
+                    subject,
+                    whatsapp_body,
+                    reminder_phone,
+                    "error",
+                    "WhatsApp ist nicht konfiguriert.",
+                )
+                had_error = True
+
+            if reminder_phone and whatsapp_ready() and not whatsapp_sent_today:
+                try:
+                    send_whatsapp(reminder_phone, whatsapp_body)
+                    log_email(appt["customer_id"], "appointment_whatsapp", subject, whatsapp_body, reminder_phone, "sent")
+                    delivered_any = True
+                except Exception as exc:
+                    log_email(appt["customer_id"], "appointment_whatsapp", subject, whatsapp_body, reminder_phone, "error", str(exc))
+                    had_error = True
+
+            if delivered_any or email_sent_today or whatsapp_sent_today:
+                conn.execute(
+                    "UPDATE appointments SET reminder_sent_at = ? WHERE id = ?",
+                    (datetime.now().isoformat(timespec="seconds"), appt["id"]),
+                )
+                conn.commit()
                 push_result = _push_appointment_reminder(appt)
                 push_sent += int(push_result.get("sent") or 0)
                 sent += 1
-            except Exception as exc:
-                log_email(appt["customer_id"], "appointment_sms", subject, sms_body, reminder_phone or (appt["reminder_phone"] or ""), "error", str(exc))
+            elif had_error:
                 errors += 1
 
     return {"checked": checked, "sent": sent, "errors": errors, "push_sent": push_sent}
@@ -1935,7 +2035,7 @@ def scheduler_tick():
         appointment_result = run_appointment_job()
         summary = (
             f"Geburtstage geprüft: {birthday_result['checked']}, Mails: {birthday_result['sent']}, Push: {birthday_result.get('push_sent', 0)}, Fehler: {birthday_result['errors']} | "
-            f"Termine geprüft: {appointment_result['checked']}, Mails: {appointment_result['sent']}, Push: {appointment_result.get('push_sent', 0)}, Fehler: {appointment_result['errors']}"
+            f"Termine geprüft: {appointment_result['checked']}, E-Mail/WhatsApp: {appointment_result['sent']}, Push: {appointment_result.get('push_sent', 0)}, Fehler: {appointment_result['errors']}"
         )
         if auto_backup:
             summary += f" | Auto-Backup: {auto_backup.name}"
@@ -4257,3 +4357,4 @@ if __name__ == "__main__":
     else:
         boot_app()
         app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=False)
+
