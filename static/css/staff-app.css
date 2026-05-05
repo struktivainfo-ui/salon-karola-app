@@ -1,0 +1,17 @@
+.staff-desktop-hint {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .staff-desktop-hint {
+    display: block;
+    margin-bottom: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255, 245, 224, 0.92);
+    color: #6e4a27;
+    font-weight: 700;
+    text-align: center;
+  }
+}
+

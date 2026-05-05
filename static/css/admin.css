@@ -1,0 +1,18 @@
+.admin-mode .mobile-app-dock {
+  background: rgba(32, 40, 53, 0.92);
+}
+
+.admin-mode .mobile-app-link.active {
+  background: #f1c675;
+  color: #2f251a;
+}
+
+.admin-mode .simple-admin-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.admin-mode .simple-panel,
+.admin-mode .premium-panel {
+  box-shadow: 0 12px 28px rgba(22, 31, 47, 0.1);
+}
+

@@ -1,0 +1,235 @@
+{% extends 'admin_base.html' %}
+{% block title %}Kalender - Salon Karola App{% endblock %}
+{% block content %}
+<section class="calendar-hero premium-calendar-hero">
+  <div class="calendar-hero-main">
+    <div class="calendar-hero-kicker">Salon Karola App</div>
+    <h1 class="calendar-hero-title">Kalender</h1>
+    <div class="calendar-hero-meta">
+      <span class="calendar-meta-pill">{{ staff }}</span>
+      <span class="calendar-meta-pill">{{ selected_date }}</span>
+      <span class="calendar-meta-pill">{% if view == "day" %}Tag{% elif view == "week" %}Woche{% elif view == "month" %}Monat{% else %}{{ view|capitalize }}{% endif %}</span>
+    </div>
+  </div>
+  <div class="calendar-hero-actions premium-hero-actions">
+    <a class="calendar-hero-action primary" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else default_staff, source='calendar_quick') }}">Termin anlegen</a>
+    <a class="calendar-hero-action" href="{{ url_for('calendar_view', view=view, date=today_date, staff=staff) }}#calendar-results">Heute</a>
+    <a class="calendar-hero-action" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
+    <a class="calendar-hero-action" href="{{ url_for('appointments_hub') }}">Terminliste</a>
+  </div>
+</section>
+
+<section class="card premium-calendar-panel calendar-controls-panel">
+  <div class="calendar-control-head">
+    <h2>Steuerung</h2>
+    <span class="badge">{{ staff }} - {{ selected_date }}</span>
+  </div>
+
+  <form method="get" action="{{ url_for('calendar_view') }}#calendar-results" class="calendar-toolbar premium-calendar-toolbar space-top">
+    <div class="calendar-control-group">
+      <div class="calendar-group-label">Team</div>
+      <div class="view-switch premium-chip-row">
+        <a class="view-chip premium-chip {% if staff == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff='Alle') }}#calendar-results">Alle</a>
+        {% for member in staff_members %}
+        <a class="view-chip premium-chip {% if staff == member %}active{% endif %}" href="{{ url_for('calendar_view', view=view, date=selected_date, staff=member) }}#calendar-results">{{ member }}</a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="calendar-control-group">
+      <div class="calendar-group-label">Ansicht</div>
+      <div class="view-switch premium-chip-row">
+        <a class="view-chip premium-chip {% if view == 'day' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=staff) }}#calendar-results">Tag</a>
+        <a class="view-chip premium-chip {% if view == 'week' %}active{% endif %}" href="{{ url_for('calendar_view', view='week', date=selected_date, staff=staff) }}#calendar-results">Woche</a>
+        <a class="view-chip premium-chip {% if view == 'month' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', date=selected_date, staff=staff) }}#calendar-results">Monat</a>
+      </div>
+    </div>
+
+    <div class="calendar-control-group calendar-nav-group">
+      <div class="calendar-group-label">Datum</div>
+      <div class="calendar-nav premium-calendar-nav">
+        <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=prev_date, staff=staff) }}">Zurück</a>
+        <input type="date" name="date" value="{{ selected_date }}">
+        <input type="hidden" name="view" value="{{ view }}">
+        <input type="hidden" name="staff" value="{{ staff }}">
+        <button type="submit">Anzeigen</button>
+        <a class="btn btn-secondary" href="{{ url_for('calendar_view', view=view, date=next_date, staff=staff) }}">Weiter</a>
+      </div>
+    </div>
+  </form>
+</section>
+{% if view == 'day' and staff == 'Alle' and split_day_views %}
+<section id="calendar-results" class="split-day-section space-top">
+  <div class="row-between wrap-mobile split-day-header">
+    <div>
+      <h2>Tagesansicht</h2>
+    </div>
+    <span class="badge">{{ staff }} - {{ selected_date }}</span>
+  </div>
+  <div class="split-day-grid space-top">
+    {% for staff_name, staff_day in split_day_views.items() %}
+    <section class="card split-day-card premium-split-card">
+      <div class="row-between wrap-mobile split-day-card-head">
+        <div>
+          <h3>{{ staff_name }}</h3>
+          <div class="helper-text">{{ staff_day['timeline']['open_label'] }}</div>
+        </div>
+        <span class="badge">{{ staff_day['items']|length }} Termine</span>
+      </div>
+      {% if staff_day['timeline']['open'] %}
+      <div class="day-timeline compact-timeline space-top">
+        {% for slot in staff_day['timeline']['slots'] %}
+        <div class="day-slot">
+          <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff_name, source='slot') }}">{{ slot['time'] }}</a>
+          <div class="day-slot-content">
+            {% for appt in slot['items'] %}
+            <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+              <strong>{{ appt['customer_name'] }}</strong> Â· {{ appt['title'] }}
+            </a>
+            {% else %}
+            <div class="day-slot-empty">frei</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="list-item space-top">Sonntag ist geschlossen.</div>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if view == 'day' and day_view and not (staff == 'Alle' and split_day_views) %}
+<section id="calendar-results" class="card space-top premium-calendar-panel">
+  <div class="row-between wrap-mobile">
+    <div>
+      <h2>{{ day_view['label'] }}</h2>
+      <div class="helper-text">{{ day_view['timeline']['open_label'] }}</div>
+    </div>
+    <span class="badge">{{ day_view['items']|length }} Termine</span>
+  </div>
+
+  {% if day_view['timeline']['open'] %}
+  <div class="day-timeline space-top">
+    {% for slot in day_view['timeline']['slots'] %}
+    <div class="day-slot">
+      <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff if staff != 'Alle' else default_staff, source='slot') }}">{{ slot['time'] }}</a>
+      <div class="day-slot-content">
+        {% for appt in slot['items'] %}
+        <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+          <strong>{{ appt['customer_name'] }}</strong> Â· {{ appt['title'] }} Â· {{ appt['staff_name'] }}
+        </a>
+        {% else %}
+        <div class="day-slot-empty">frei</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="list-item space-top">Sonntag ist geschlossen.</div>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if view == 'week' and week_view %}
+<section id="calendar-results" class="card space-top premium-calendar-panel">
+  <div class="row-between wrap-mobile">
+    <h2>Woche</h2>
+    <span class="badge">{{ week_view['label'] }}</span>
+  </div>
+  <div class="week-grid premium-week-grid space-top">
+    {% for day in week_view['days'] %}
+    <div class="week-day premium-week-day {% if day['is_today'] %}today{% endif %}">
+      <a class="week-day-head week-day-link" href="{{ url_for('calendar_view', view='day', date=day['date'], staff=staff) }}">
+        <div class="week-day-name">{{ day['name'] }}</div>
+        <div class="week-day-label">{{ day['label'] }}</div>
+      </a>
+      <div class="week-events">
+        {% for appt in day['items'] %}
+        <a class="week-event week-event-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+          <div class="week-event-time">{{ appt['appointment_at']|dt }}</div>
+          <div class="week-event-title">{{ appt['firstname'] }} {{ appt['lastname'] }}</div>
+          <div class="week-event-meta">{{ appt['title'] }} - {{ appt['staff_name'] }}</div>
+        </a>
+        {% else %}
+        <div class="week-empty">Keine Termine</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if view == 'month' and month_view %}
+<section id="calendar-results" class="card space-top premium-calendar-panel">
+  <div class="row-between wrap-mobile">
+    <h2>Monat</h2>
+    <span class="badge">{{ month_view['month_label'] }}</span>
+  </div>
+  <div class="month-grid space-top desktop-only premium-month-grid">
+    {% for header in month_view['weekday_headers'] %}
+    <div class="month-header">{{ header }}</div>
+    {% endfor %}
+    {% for week in month_view['weeks'] %}
+      {% for cell in week %}
+      <div class="month-cell {% if not cell['in_month'] %}muted{% endif %} {% if cell['is_today'] %}today{% endif %}">
+        <a class="month-cell-day month-cell-link" href="{{ url_for('calendar_view', view='day', date=cell['date'], staff=staff) }}">{{ cell['day'] }}</a>
+        <div class="month-cell-items">
+          {% for appt in cell['items'][:3] %}
+          <a class="month-item month-item-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+            {{ appt['time_short'] }} {{ appt['firstname'] }} {{ appt['lastname'] }} - {{ appt['staff_name'] }}
+          </a>
+          {% endfor %}
+          {% if cell['items']|length > 3 %}
+          <div class="month-more">+{{ cell['items']|length - 3 }} weitere</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    {% endfor %}
+  </div>
+
+  <div class="mobile-only space-top">
+    {% for week in month_view['weeks'] %}
+      {% for cell in week %}
+        {% if cell['in_month'] and cell['items'] %}
+        <div class="mobile-card {% if cell['is_today'] %}today-outline{% endif %}">
+          <h3>{{ cell['date'] }}</h3>
+          {% for appt in cell['items'] %}
+          <div class="mobile-line">{{ appt['appointment_at']|dt }} - {{ appt['firstname'] }} {{ appt['lastname'] }} - {{ appt['title'] }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+<script>
+  (function () {
+    const calendarTargetId = "calendar-results";
+    const calendarTarget = document.getElementById(calendarTargetId);
+    const toolbar = document.querySelector(".premium-calendar-toolbar");
+    if (!toolbar) return;
+
+    toolbar.querySelectorAll("a[href]").forEach((link) => {
+      if (!link.getAttribute("href").includes("#")) {
+        link.setAttribute("href", `${link.getAttribute("href")}#${calendarTargetId}`);
+      }
+    });
+
+    if (window.location.hash === `#${calendarTargetId}` && calendarTarget) {
+      window.requestAnimationFrame(() => {
+        const offset = 92;
+        const top = calendarTarget.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+      });
+    }
+  })();
+</script>
+{% endblock %}

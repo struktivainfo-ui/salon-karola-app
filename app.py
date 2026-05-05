@@ -399,6 +399,37 @@ def is_admin_session():
     return bool(session.get("admin_logged_in")) and is_admin_staff_name(session.get("staff_name"))
 
 
+def current_ui_world():
+    if not session.get("admin_logged_in"):
+        return "public"
+    if is_admin_session():
+        return "staff" if (session.get("ui_world") or "admin").strip().lower() == "staff" else "admin"
+    return "staff"
+
+
+def is_staff_world_session():
+    return bool(session.get("admin_logged_in")) and current_ui_world() == "staff"
+
+
+def is_admin_world_session():
+    return bool(session.get("admin_logged_in")) and current_ui_world() == "admin"
+
+
+def set_ui_world(world):
+    next_world = (world or "").strip().lower()
+    if not is_admin_session():
+        session["ui_world"] = "staff"
+        return "staff"
+    session["ui_world"] = "staff" if next_world == "staff" else "admin"
+    return session["ui_world"]
+
+
+def default_route_after_login(staff_name):
+    if is_admin_staff_name(staff_name):
+        return url_for("admin_start")
+    return url_for("staff_today")
+
+
 def current_staff_name(db=None):
     if session.get("admin_logged_in"):
         return _normalize_staff_name(session.get("staff_name"), default=get_default_staff(db), db=db)
@@ -429,6 +460,7 @@ def login_user(user, *, staff_name=None, remember_device=False):
     session["admin_name"] = user["display_name"] or user["username"]
     session["staff_name"] = resolved_staff
     session["username"] = user["username"]
+    session["ui_world"] = "admin" if is_admin_staff_name(resolved_staff) else "staff"
 
 
 def passkeys_ready():
@@ -2736,8 +2768,7 @@ def login():
                 db.commit()
                 login_user(user, staff_name=selected_staff, remember_device=remember_device)
                 flash(f"Passwort fuer {selected_staff} gespeichert. Willkommen, {selected_staff}.")
-                default_target = url_for("salon_home") if selected_staff in ADMIN_STAFF_NAMES else url_for("calendar_view", view="day")
-                return redirect(request.args.get("next") or default_target)
+                return redirect(request.args.get("next") or default_route_after_login(selected_staff))
         else:
             password = request.form.get("password", "")
             if not user:
@@ -2754,8 +2785,7 @@ def login():
                 staff_name = resolve_staff_name_for_user(user, db=db)
                 login_user(user, staff_name=staff_name, remember_device=remember_device)
                 flash(f"Login erfolgreich: {staff_name}.")
-                default_target = url_for("salon_home") if staff_name in ADMIN_STAFF_NAMES else url_for("calendar_view", view="day")
-                return redirect(request.args.get("next") or default_target)
+                return redirect(request.args.get("next") or default_route_after_login(staff_name))
             else:
                 flash("Login fehlgeschlagen.")
 
@@ -2939,18 +2969,54 @@ def logout():
 @app.route("/")
 @login_required
 def index():
-    return redirect(url_for("salon_home"))
+    if is_admin_world_session():
+        return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("staff_today"))
 
 
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    return redirect(url_for("salon_home"))
+    return redirect(url_for("index"))
+
+
+@app.route("/admin/start")
+@admin_required
+def admin_start():
+    return render_template(
+        "admin_start.html",
+        current_endpoint="admin_start",
+        app_version=APP_VERSION,
+    )
+
+
+@app.route("/app/staff")
+@login_required
+def switch_to_staff_app():
+    set_ui_world("staff")
+    return redirect(url_for("staff_today"))
+
+
+@app.route("/app/admin")
+@admin_required
+def switch_to_admin_app():
+    set_ui_world("admin")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/staff/today")
+@login_required
+def staff_today():
+    set_ui_world("staff")
+    return redirect(url_for("calendar_view", view="day"))
 
 
 @app.route("/salon")
 @login_required
 def salon_home():
+    if is_admin_world_session():
+        return redirect(url_for("admin_dashboard"))
+    set_ui_world("staff")
     db = get_db()
     today = datetime.now().date()
     own_staff = default_staff_for_simple_mode(db)
@@ -2959,7 +3025,7 @@ def salon_home():
     reminder_items = due_reminders(limit=8)
     birthday_items = upcoming_birthdays(limit=8)
     return render_template(
-        "salon_home.html",
+        "staff_today.html",
         today_date=today.isoformat(),
         own_staff=own_staff,
         own_appointments=own_appointments,
@@ -2974,8 +3040,10 @@ def salon_home():
 @app.route("/salon/reminders")
 @login_required
 def salon_reminders():
+    if is_admin_world_session():
+        return redirect(url_for("customer_birthdays_page"))
     return render_template(
-        "salon_reminders.html",
+        "staff_more.html",
         reminder_items=due_reminders(limit=40),
         birthday_items=upcoming_birthdays(limit=20),
         current_endpoint="salon_reminders",
@@ -2986,6 +3054,7 @@ def salon_reminders():
 @app.route("/dashboard-legacy")
 @admin_required
 def dashboard_legacy():
+    set_ui_world("admin")
     db = get_db()
     q = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
@@ -3042,7 +3111,7 @@ def dashboard_legacy():
         stats["total_mobile"] = sum(1 for row in customers if (((row["Customer_Mobiltelefon"] if "Customer_Mobiltelefon" in row.keys() else "") or (row["Customer_PersönlichesTelefon"] if "Customer_PersönlichesTelefon" in row.keys() else "") or "").strip()))
 
     return render_template(
-        "index.html",
+        "admin_dashboard.html",
         customers=customers,
         q=q,
         tag=tag,
@@ -3058,7 +3127,7 @@ def dashboard_legacy():
         due_items=due_reminders(),
         staff_counts=staff_dashboard_counts(),
         now=datetime.now(),
-        current_endpoint="dashboard_legacy",
+        current_endpoint="admin_dashboard",
         app_version=APP_VERSION,
         deploy_marker=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         db_path=str(DB_PATH),
@@ -3111,7 +3180,7 @@ def customer_search_page():
     base_query += f" GROUP BY c._id ORDER BY {order_sql} LIMIT 300"
     customers = db.execute(base_query, params).fetchall()
     tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
-    template_name = "customer_search_simple.html" if not is_admin_session() else "customer_search.html"
+    template_name = "admin_customers.html" if is_admin_world_session() else "staff_customer_search.html"
     return render_template(
         template_name,
         customers=customers,
@@ -3127,7 +3196,25 @@ def customer_search_page():
 @app.route("/admin")
 @admin_required
 def admin_home():
-    return redirect(url_for("dashboard_legacy"))
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/dashboard")
+@admin_required
+def admin_dashboard():
+    set_ui_world("admin")
+    return dashboard_legacy()
+
+
+@app.route("/admin/settings")
+@admin_required
+def admin_settings():
+    set_ui_world("admin")
+    return render_template(
+        "admin_settings.html",
+        current_endpoint="admin_settings",
+        app_version=APP_VERSION,
+    )
 
 
 @app.route("/api/customers/quick-search")
@@ -3269,7 +3356,7 @@ def customer_detail(customer_id):
             continue
 
     return render_template(
-        "customer_detail_simple.html" if not is_admin_session() else "customer_form.html",
+        "admin_customer_detail.html" if is_admin_world_session() else "staff_customer_detail.html",
         customer=customer,
         appointments=appointments,
         logs=logs,
@@ -3821,7 +3908,7 @@ def appointments_hub():
         else:
             flash("QR-Ping nicht gefunden oder abgelaufen.")
 
-    template_name = "appointments_simple.html" if not is_admin_session() else "appointments.html"
+    template_name = "admin_appointments.html" if is_admin_world_session() else "staff_new_appointment.html"
     return render_template(
         template_name,
         customers=customers,
@@ -3870,7 +3957,7 @@ def appointment_ping_create():
 @app.route("/calendar")
 @login_required
 def calendar_view():
-    default_view = "week" if is_admin_session() else "day"
+    default_view = "week" if is_admin_world_session() else "day"
     view = (request.args.get("view") or default_view).strip().lower()
     if view not in {"day", "week", "month"}:
         view = "week"
@@ -3896,7 +3983,7 @@ def calendar_view():
         split_day_views = {name: _build_day_view(selected_date, name) for name in ordered_members}
     simple_day_items = appointments_for_day(selected_date, staff, db=db) if view == "day" else []
 
-    template_name = "calendar_simple.html" if not is_admin_session() else "calendar.html"
+    template_name = "admin_calendar.html" if is_admin_world_session() else "staff_today.html"
     return render_template(
         template_name,
         view=view,
@@ -4475,11 +4562,15 @@ def format_phone_href(value):
 
 @app.context_processor
 def inject_globals():
+    ui_world = current_ui_world()
     return {
         "admin_name": session.get("admin_name"),
         "logged_in_staff": session.get("staff_name") or get_default_staff(),
         "is_admin": is_admin_session(),
-        "is_employee_mode": bool(session.get("admin_logged_in")) and not is_admin_session(),
+        "is_employee_mode": ui_world == "staff",
+        "ui_world": ui_world,
+        "is_staff_world": ui_world == "staff",
+        "is_admin_world": ui_world == "admin",
         "login_options": default_login_options(),
         "customer_activity_status": customer_activity_status,
         "customer_full_name": customer_full_name,

@@ -1,0 +1,51 @@
+{% extends 'staff_base.html' %}
+{% block title %}Erinnerungen - Salon Karola{% endblock %}
+{% block content %}
+<section class="simple-shell">
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Mehr</div>
+        <h1 class="simple-section-title">Erinnerungen</h1>
+      </div>
+    </div>
+    <div class="simple-compact-list">
+      <a class="simple-list-card" href="{{ url_for('customer_birthdays_page') }}">
+        <strong>Geburtstage</strong>
+        <span>Kundinnen mit Geburtstag ansehen</span>
+      </a>
+      <a class="simple-list-card" href="{{ url_for('logout') }}">
+        <strong>Abmelden</strong>
+        <span>App sicher verlassen</span>
+      </a>
+      {% for item in reminder_items %}
+      <a class="simple-list-card" href="{{ url_for('customer_detail', customer_id=item['customer_id']) }}">
+        <strong>{{ item['appointment_at']|dt }}</strong>
+        <span>{{ item['_firstname'] }} {{ item['_name'] }}</span>
+      </a>
+      {% else %}
+      <div class="simple-empty">Im Moment sind keine Erinnerungen offen.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Mehr</div>
+        <h2 class="simple-section-title">Geburtstage</h2>
+      </div>
+    </div>
+    <div class="simple-compact-list">
+      {% for customer in birthday_items %}
+      <a class="simple-list-card" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">
+        <strong>{{ customer_full_name(customer) }}</strong>
+        <span>{{ customer['_birthdate']|birthday }}</span>
+      </a>
+      {% else %}
+      <div class="simple-empty">Keine Geburtstage gefunden.</div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+{% endblock %}

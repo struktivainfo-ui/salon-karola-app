@@ -1,0 +1,74 @@
+{% extends 'admin_base.html' %}
+{% block title %}Kunden ? Salon Karola App{% endblock %}
+{% block content %}
+<section class="premium-shell">
+  <section class="premium-page-head">
+    <div>
+      <div class="premium-page-kicker">Kunden</div>
+      <h1 class="premium-page-title">Kundensuche</h1>
+      <div class="premium-page-subtitle">Schnell finden, ?ffnen und weiterarbeiten.</div>
+    </div>
+    <div class="premium-top-actions">
+      <a class="premium-top-action primary" href="{{ url_for('customer_new') }}">Neuer Kontakt</a>
+      <a class="premium-top-action" href="{{ url_for('calendar_view') }}">Kalender</a>
+    </div>
+  </section>
+
+  <section class="premium-panel">
+    <form method="get" class="premium-form premium-form-grid premium-form-grid-4">
+      <div class="form-group premium-form-group">
+        <label>Suche</label>
+        <input type="text" name="q" value="{{ q }}" placeholder="Nachname, Vorname, Mail, Stadt, Telefon" autocomplete="off">
+      </div>
+      <div class="form-group premium-form-group">
+        <label>Tag</label>
+        <select name="tag">
+          <option value="">Alle</option>
+          {% for tag_row in tags %}
+          <option value="{{ tag_row['tag'] }}" {% if tag == tag_row['tag'] %}selected{% endif %}>{{ tag_row['tag'] }} ({{ tag_row['cnt'] }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group premium-form-group">
+        <label>Sortierung</label>
+        <select name="sort">
+          <option value="az" {% if sort == 'az' %}selected{% endif %}>Nachname A?Z</option>
+          <option value="za" {% if sort == 'za' %}selected{% endif %}>Nachname Z?A</option>
+          <option value="recent" {% if sort == 'recent' %}selected{% endif %}>Zuletzt mit Termin</option>
+        </select>
+      </div>
+      <div class="premium-button-row inline-right">
+        <button type="submit" class="premium-button">Suchen</button>
+        <a class="premium-button secondary" href="{{ url_for('customer_search_page') }}">Zur?cksetzen</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Ergebnisse</div>
+        <h2 class="premium-panel-title">Kontakte</h2>
+      </div>
+      <span class="premium-badge">{{ customers|length }}</span>
+    </div>
+    <div class="premium-card-grid premium-space-top">
+      {% for customer in customers %}
+      <a class="premium-card-link" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">
+        <article class="premium-contact-card">
+          <div class="premium-list-row">
+            <h3>{{ customer['_name'] }}{% if customer['_firstname'] %}, {{ customer['_firstname'] }}{% endif %}</h3>
+            <span class="premium-status-pill premium-activity-{{ customer_activity_status(customer['last_appointment_at'])|lower|replace(' ', '-') }}">{{ customer_activity_status(customer['last_appointment_at']) }}</span>
+          </div>
+          <div class="premium-contact-meta">{{ customer['_mail'] or 'Keine E-Mail' }}</div>
+          <div class="premium-contact-meta">{{ customer_phone(customer) or 'Keine Nummer' }}</div>
+          <div class="premium-contact-meta">{{ customer['Customer_Stadt'] or 'Kein Ort' }}</div>
+        </article>
+      </a>
+      {% else %}
+      <div class="premium-list-empty">Keine Kontakte gefunden.</div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+{% endblock %}

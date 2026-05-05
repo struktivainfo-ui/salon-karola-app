@@ -1,0 +1,322 @@
+{% extends 'admin_base.html' %}
+{% block title %}{% if customer %}Kontakt{% else %}Neuer Kontakt{% endif %} ? Salon Karola App{% endblock %}
+{% block content %}
+<section class="premium-shell">
+  <section class="premium-page-head">
+    <div>
+      <div class="premium-page-kicker">Kunden</div>
+      <h1 class="premium-page-title">{% if customer %}{{ customer['_firstname'] }} {{ customer['_name'] }}{% else %}Kontakt{% endif %}</h1>
+      <div class="premium-page-subtitle">Kontaktdaten, Aktionen und Termine elegant an einem Ort.</div>
+    </div>
+    <div class="premium-top-actions">
+      <a class="premium-top-action" href="{{ url_for('calendar_view') }}">Kalender</a>
+      {% if customer and customer_phone(customer) %}
+      <a class="premium-top-action primary" href="{{ customer_phone(customer)|phone_href }}">Anrufen</a>
+      {% elif customer %}
+      <a class="premium-top-action primary" href="#termin-hinzufuegen">Termin anlegen</a>
+      {% else %}
+      <a class="premium-top-action primary" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if customer %}
+  <section class="premium-action-grid premium-space-top">
+    {% if customer['Customer_Mobiltelefon'] or customer['Customer_Pers?nlichesTelefon'] %}<a class="premium-action-card" href="{{ customer_phone(customer)|phone_href }}">Anrufen</a>{% endif %}
+    {% if wa_link %}<a class="premium-action-card" href="{{ wa_link }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
+    <a class="premium-action-card" href="#termin-hinzufuegen">Termin anlegen</a>
+    {% if wa_next_appt_link %}<a class="premium-action-card" href="{{ wa_next_appt_link }}" target="_blank" rel="noopener">Termin senden</a>{% endif %}
+  </section>
+  {% endif %}
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Kontakt</div>
+        <h2 class="premium-panel-title">Stammdaten</h2>
+      </div>
+    </div>
+    <form method="post" class="premium-form premium-space-top customer-profile-form">
+      <div class="premium-form-grid premium-form-grid-3">
+        <div class="form-group premium-form-group"><label>Vorname</label><input type="text" name="firstname" value="{{ customer['_firstname'] if customer else '' }}"></div>
+        <div class="form-group premium-form-group"><label>Nachname</label><input type="text" name="name" value="{{ customer['_name'] if customer else '' }}"></div>
+        <div class="form-group premium-form-group"><label>E-Mail</label><input type="email" name="mail" value="{{ customer['_mail'] if customer else '' }}"></div>
+        <div class="form-group premium-form-group"><label>Geburtstag</label><input type="date" name="birthdate" value="{{ customer['_birthdate'] if customer else '' }}"></div>
+        <div class="form-group premium-form-group"><label>Telefon</label><input type="text" name="phone" value="{{ row_value(customer, 'Customer_PersoenlichesTelefon') if customer else '' }}"></div>
+        <div class="form-group premium-form-group"><label>Mobil</label><input type="text" name="mobile" value="{{ row_value(customer, 'Customer_Mobiltelefon') if customer else '' }}"></div>
+        <div class="form-group premium-form-group"><label>Adresse</label><input type="text" name="address" value="{{ customer['Customer_Adresse'] if customer else '' }}"></div>
+        <div class="form-group premium-form-group"><label>PLZ</label><input type="text" name="zip" value="{{ customer['Customer_Postleitzahl'] if customer else '' }}"></div>
+        <div class="form-group premium-form-group"><label>Stadt</label><input type="text" name="city" value="{{ customer['Customer_Stadt'] if customer else '' }}"></div>
+        <div class="form-group premium-form-group premium-form-span-3"><label>Tags</label><input type="text" name="tags" value="{{ tags_text or '' }}"></div>
+      </div>
+      <div class="form-group premium-form-group"><label>Notizen</label><textarea name="notes">{{ customer['_notes'] if customer else '' }}</textarea></div>
+      <div class="premium-button-row customer-save-row">
+        <button type="submit" class="premium-button">Speichern</button>
+        {% if customer %}
+        <a class="premium-button secondary" href="{{ url_for('send_test', customer_id=customer['_id'], template_id='appointment') }}">Test Terminmail</a>
+        <a class="premium-button secondary" href="{{ url_for('send_test', customer_id=customer['_id'], template_id='birthdate') }}">Test Geburtstagsmail</a>
+        {% endif %}
+      </div>
+    </form>
+  </section>
+
+  {% if customer %}
+  <section class="premium-grid-2 premium-space-top">
+    <article class="premium-panel" id="termin-hinzufuegen">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Neu</div>
+          <h2 class="premium-panel-title">Termin anlegen</h2>
+        </div>
+      </div>
+      <form method="post" action="{{ url_for('appointment_new', customer_id=customer['_id']) }}" class="premium-form appointment-sync-form premium-space-top service-form" data-service-form>
+        <input type="hidden" name="actor_name" class="actor-name-field" value="">
+        <input type="hidden" name="title" class="service-title-field" value="Salon-Termin">
+        <input type="hidden" name="selected_services" class="selected-services-field" value="">
+        <input type="hidden" name="service_summary" class="service-summary-field" value="">
+        <div class="premium-form-grid premium-form-grid-2">
+          <div class="service-selector premium-form-span-2 compact-service-selector">
+            <div class="service-selector-head">
+              <label>Leistungen</label>
+              <span class="service-selector-note">Ablauf antippen</span>
+            </div>
+            <div class="service-chip-grid compact-chip-grid">
+              {% for service in service_presets %}
+              <button type="button" class="service-chip" data-service-id="{{ service['id'] }}" data-label="{{ service['label'] }}" data-active="{{ service['active'] }}" data-processing="{{ service['processing'] }}">
+                <span>{{ service['label'] }}</span>
+                <small>{{ service['active'] }} Min{% if service['processing'] %} + {{ service['processing'] }}{% endif %}</small>
+              </button>
+              {% endfor %}
+            </div>
+            <div class="service-summary-card compact-summary-card">
+              <div class="service-summary-label">Auswahl</div>
+              <div class="service-summary-value">Noch nichts ausgew?hlt</div>
+            </div>
+          </div>
+          <div class="form-group premium-form-group"><label>Termin</label><input type="datetime-local" name="appointment_at" required></div>
+          <div class="form-group premium-form-group"><label>Status</label>
+            <select name="status">
+              <option value="geplant">geplant</option>
+              <option value="best?tigt">best?tigt</option>
+              <option value="erledigt">erledigt</option>
+              <option value="nicht erschienen">nicht erschienen</option>
+            </select>
+          </div>
+          <div class="form-group premium-form-group"><label>Arbeitszeit</label><input type="number" name="duration_minutes" value="30" min="15" max="480" step="15"></div>
+          <div class="form-group premium-form-group"><label>Einwirkzeit / Reserve</label><input type="number" name="processing_minutes" value="0" min="0" max="480" step="15"></div>
+          <div class="form-group premium-form-group"><label>Erinnerung</label><input type="number" name="reminder_hours" value="24"></div>
+          <div class="form-group premium-form-group premium-form-span-2"><label>Team</label>
+            <select name="staff_name" id="newAppointmentStaff">
+              {% for member in staff_members %}
+              <option value="{{ member }}">{{ member }}</option>
+              {% endfor %}
+            </select>
+            <div class="premium-chip-row staff-quick-switch">
+              {% for member in staff_members %}
+              <button type="button" class="premium-chip staff-pill {% if loop.first %}active{% endif %}" data-target="newAppointmentStaff" data-value="{{ member }}">{{ member }}</button>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="form-group premium-form-group"><label>Notizen</label><textarea name="notes"></textarea></div>
+        <div class="premium-button-row customer-save-row">
+          <button type="submit" class="premium-button">Termin speichern</button>
+        </div>
+      </form>
+    </article>
+
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Historie</div>
+          <h2 class="premium-panel-title">Termine</h2>
+        </div>
+      </div>
+      <div class="premium-list">
+        {% for appt in appointments %}
+        <div class="premium-list-item">
+          <div class="premium-list-row">
+            <strong>{{ appt['title'] }}</strong>
+            <span class="premium-status-pill premium-status-{{ (appt['status'] or 'geplant')|lower|replace(' ', '-') }}">{{ appt['status'] or 'geplant' }}</span>
+          </div>
+          <div class="premium-list-sub">{{ appt['appointment_at']|dt }}</div>
+          <div class="premium-list-meta">{{ appt['staff_name'] or default_staff }}</div>
+          <details class="premium-details">
+            <summary>Bearbeiten</summary>
+            <form method="post" action="{{ url_for('appointment_edit', appointment_id=appt['id']) }}" class="premium-form premium-space-top appointment-sync-form service-form" data-service-form>
+              <input type="hidden" name="actor_name" class="actor-name-field" value="">
+              <input type="hidden" name="title" class="service-title-field" value="{{ appt['title'] }}">
+              <input type="hidden" name="selected_services" class="selected-services-field" value="{{ appt['service_codes'] or '' }}">
+              <input type="hidden" name="service_summary" class="service-summary-field" value="{{ appt['service_summary'] or '' }}">
+              <div class="premium-form-grid premium-form-grid-2">
+                <div class="service-selector premium-form-span-2 compact-service-selector">
+                  <div class="service-selector-head">
+                    <label>Leistungen</label>
+                    <span class="service-selector-note">Ablauf anpassen</span>
+                  </div>
+                  <div class="service-chip-grid compact-chip-grid">
+                    {% set active_codes = (appt['service_codes'] or '').split(',') if appt['service_codes'] else [] %}
+                    {% for service in service_presets %}
+                    <button type="button" class="service-chip {% if service['id'] in active_codes %}active{% endif %}" data-service-id="{{ service['id'] }}" data-label="{{ service['label'] }}" data-active="{{ service['active'] }}" data-processing="{{ service['processing'] }}">
+                      <span>{{ service['label'] }}</span>
+                      <small>{{ service['active'] }} Min{% if service['processing'] %} + {{ service['processing'] }}{% endif %}</small>
+                    </button>
+                    {% endfor %}
+                  </div>
+                  <div class="service-summary-card compact-summary-card">
+                    <div class="service-summary-label">Auswahl</div>
+                    <div class="service-summary-value">{{ appt['service_summary'] or appt['title'] }}</div>
+                  </div>
+                </div>
+                <div class="form-group premium-form-group"><label>Termin</label><input type="datetime-local" name="appointment_at" value="{{ appt['appointment_at'][:16] }}" required></div>
+                <div class="form-group premium-form-group"><label>Status</label>
+                  <select name="status">
+                    <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
+                    <option value="best?tigt" {% if appt['status'] == 'best?tigt' %}selected{% endif %}>best?tigt</option>
+                    <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
+                    <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
+                  </select>
+                </div>
+                <div class="form-group premium-form-group"><label>Arbeitszeit</label><input type="number" name="duration_minutes" value="{{ appt['duration_minutes'] or 30 }}" min="15" max="480" step="15"></div>
+                <div class="form-group premium-form-group"><label>Einwirkzeit / Reserve</label><input type="number" name="processing_minutes" value="{{ appt['processing_minutes'] or 0 }}" min="0" max="480" step="15"></div>
+                <div class="form-group premium-form-group"><label>Erinnerung</label><input type="number" name="reminder_hours" value="{{ appt['reminder_hours'] or 24 }}"></div>
+                <div class="form-group premium-form-group premium-form-span-2"><label>Team</label>
+                  <select name="staff_name" id="staff_{{ appt['id'] }}">
+                    {% for member in staff_members %}
+                    <option value="{{ member }}" {% if (appt['staff_name'] or default_staff) == member %}selected{% endif %}>{{ member }}</option>
+                    {% endfor %}
+                  </select>
+                  <div class="premium-chip-row staff-quick-switch">
+                    {% for member in staff_members %}
+                    <button type="button" class="premium-chip staff-pill {% if (appt['staff_name'] or default_staff) == member %}active{% endif %}" data-target="staff_{{ appt['id'] }}" data-value="{{ member }}">{{ member }}</button>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+              <div class="form-group premium-form-group"><label>Notizen</label><textarea name="notes">{{ appt['notes'] or '' }}</textarea></div>
+              <div class="premium-button-row customer-save-row">
+                <button class="premium-button secondary" type="submit">Aenderungen speichern</button>
+              </div>
+            </form>
+          </details>
+          <div class="premium-button-row compact">
+            <form method="post" action="{{ url_for('appointment_update_status', appointment_id=appt['id']) }}" class="inline-form premium-inline-form">
+              <select name="status">
+                <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
+                <option value="best?tigt" {% if appt['status'] == 'best?tigt' %}selected{% endif %}>best?tigt</option>
+                <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
+                <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
+              </select>
+              <button class="premium-button secondary" type="submit">Status</button>
+            </form>
+            <form method="post" action="{{ url_for('appointment_delete', appointment_id=appt['id']) }}">
+              <button class="premium-button danger" type="submit">L?schen</button>
+            </form>
+          </div>
+        </div>
+        {% else %}
+        <div class="premium-list-empty">Noch keine Termine vorhanden.</div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Mail</div>
+        <h2 class="premium-panel-title">Letzte Logs</h2>
+      </div>
+    </div>
+    <div class="premium-list">
+      {% for log in logs %}
+      <div class="premium-list-item">
+        <div class="premium-list-row">
+          <strong>{{ log['subject'] }}</strong>
+          <span class="premium-badge">{{ log['sent_at']|dt }}</span>
+        </div>
+        <div class="premium-list-sub">{{ log['status'] }} ? {{ log['recipient'] or '-' }}</div>
+        {% if log['error_message'] %}<div class="premium-list-meta">{{ log['error_message'] }}</div>{% endif %}
+      </div>
+      {% else %}
+      <div class="premium-list-empty">Noch keine Logs vorhanden.</div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</section>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  function syncStaffPills(selectId, value) {
+    document.querySelectorAll('.staff-pill[data-target="' + selectId + '"]').forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.value === value);
+    });
+  }
+
+  document.querySelectorAll(".staff-pill").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const targetId = button.dataset.target;
+      const value = button.dataset.value;
+      const select = document.getElementById(targetId);
+      if (!select) return;
+      select.value = value;
+      syncStaffPills(targetId, value);
+    });
+  });
+
+  const deviceStaff = localStorage.getItem("sk_device_staff") || {{ default_staff|tojson }};
+  document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
+  const newStaff = document.getElementById("newAppointmentStaff");
+  if (newStaff) {
+    newStaff.value = deviceStaff;
+    syncStaffPills("newAppointmentStaff", deviceStaff);
+  }
+
+  document.querySelectorAll("[data-service-form]").forEach((form) => {
+    const chips = Array.from(form.querySelectorAll(".service-chip"));
+    const selectedField = form.querySelector(".selected-services-field");
+    const summaryField = form.querySelector(".service-summary-field");
+    const titleField = form.querySelector(".service-title-field");
+    const summaryValue = form.querySelector(".service-summary-value");
+    const durationField = form.querySelector('[name="duration_minutes"]');
+    const processingField = form.querySelector('[name="processing_minutes"]');
+
+    function syncServiceForm() {
+      const activeChips = chips.filter((chip) => chip.classList.contains("active"));
+      const labels = activeChips.map((chip) => chip.dataset.label);
+      const ids = activeChips.map((chip) => chip.dataset.serviceId);
+      const activeMinutes = activeChips.reduce((sum, chip) => sum + Number(chip.dataset.active || 0), 0);
+      const processingMinutes = activeChips.reduce((sum, chip) => sum + Number(chip.dataset.processing || 0), 0);
+      const summary = labels.join(" + ");
+
+      selectedField.value = ids.join(",");
+      summaryField.value = summary;
+      titleField.value = summary || titleField.value || "Salon-Termin";
+      summaryValue.textContent = summary || summaryValue.textContent || "Noch nichts ausgew?hlt";
+
+      if (!durationField.dataset.touched && activeMinutes > 0) {
+        durationField.value = activeMinutes;
+      }
+      if (!processingField.dataset.touched) {
+        processingField.value = processingMinutes > 0 ? processingMinutes : Number(processingField.value || 0);
+      }
+    }
+
+    chips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        chip.classList.toggle("active");
+        syncServiceForm();
+      });
+    });
+
+    [durationField, processingField].forEach((field) => {
+      field.addEventListener("input", () => {
+        field.dataset.touched = "1";
+      });
+    });
+
+    syncServiceForm();
+  });
+});
+</script>
+{% endblock %}

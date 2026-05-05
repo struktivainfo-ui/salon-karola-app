@@ -1,0 +1,23 @@
+{% extends 'admin_base.html' %}
+{% block title %}Einstellungen - Salon Karola{% endblock %}
+{% block content %}
+<section class="simple-shell">
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Admin</div>
+        <h1 class="simple-section-title">Einstellungen und Technik</h1>
+      </div>
+    </div>
+    <div class="simple-admin-grid">
+      <a class="simple-admin-link" href="{{ url_for('push_center') }}">Push</a>
+      <a class="simple-admin-link" href="{{ url_for('templates_view') }}">Vorlagen</a>
+      <a class="simple-admin-link" href="{{ url_for('staff_management') }}">Mitarbeiter</a>
+      <a class="simple-admin-link" href="{{ url_for('database_tools') }}">Backup / Datenbank</a>
+      <a class="simple-admin-link" href="{{ url_for('import_customers') }}">Import</a>
+      <a class="simple-admin-link" href="{{ url_for('email_logs') }}">Protokolle</a>
+    </div>
+  </section>
+</section>
+{% endblock %}
+

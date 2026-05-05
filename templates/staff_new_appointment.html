@@ -1,0 +1,302 @@
+{% extends 'staff_base.html' %}
+{% block title %}Neuer Termin - Salon Karola{% endblock %}
+{% block content %}
+<section class="simple-shell">
+  <section class="simple-panel simple-wizard-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Neuer Termin</div>
+        <h1 class="simple-section-title">Termin eintragen</h1>
+        <p class="simple-subtitle">Vier kurze Schritte, ohne lange Formularseite.</p>
+      </div>
+    </div>
+
+    <form method="post" class="simple-wizard" id="simpleAppointmentWizard">
+      <input type="hidden" name="source" value="{{ prefill_source }}">
+      <input type="hidden" name="actor_name" value="{{ logged_in_staff }}">
+      <input type="hidden" name="title" id="simpleTitleField" value="Salon-Termin">
+      <input type="hidden" name="selected_services" id="simpleSelectedServices" value="{{ prefill_payload['selected_services'] }}">
+      <input type="hidden" name="service_summary" id="simpleServiceSummary" value="{{ prefill_payload['service_summary'] }}">
+      <input type="hidden" name="duration_minutes" id="simpleDurationField" value="{{ prefill_payload['duration_minutes'] }}">
+      <input type="hidden" name="processing_minutes" id="simpleProcessingField" value="{{ prefill_payload['processing_minutes'] }}">
+      <input type="hidden" name="reminder_hours" id="simpleReminderHours" value="{{ prefill_payload['reminder_hours'] or 24 }}">
+      <input type="hidden" name="status" value="{{ prefill_payload['status'] or 'geplant' }}">
+
+      <div class="simple-step-indicator">
+        <span class="active">Kunde</span>
+        <span>Service</span>
+        <span>Zeit</span>
+        <span>Speichern</span>
+      </div>
+      <div class="simple-wizard-error" id="simpleWizardError" hidden></div>
+
+      <section class="simple-step active" data-step="1">
+        <h2>Kunde suchen</h2>
+        <p>Name oder Telefonnummer eingeben, oder einen manuellen Kunden nutzen.</p>
+        <div class="simple-mode-toggle">
+          <label class="simple-choice-card">
+            <input type="radio" name="customer_mode" value="existing" checked>
+            <span>Kunde suchen</span>
+          </label>
+          <label class="simple-choice-card">
+            <input type="radio" name="customer_mode" value="manual">
+            <span>Manueller Kunde</span>
+          </label>
+        </div>
+
+        <div id="existingCustomerBlock" class="simple-step-card">
+          <input type="text" id="simpleCustomerSearch" placeholder="Name oder Telefonnummer suchen" autocomplete="off">
+          <input type="hidden" name="customer_id" id="simpleCustomerId" value="{{ prefill_payload['customer_id'] }}">
+          <div class="simple-live-results" id="simpleCustomerResults"></div>
+        </div>
+
+        <div id="manualCustomerBlock" class="simple-step-card" hidden>
+          <div class="simple-form-grid">
+            <label><span>Vorname</span><input type="text" name="manual_firstname" value="{{ prefill_payload['manual_firstname'] }}"></label>
+            <label><span>Nachname</span><input type="text" name="manual_lastname" value="{{ prefill_payload['manual_lastname'] }}"></label>
+            <label><span>Telefon</span><input type="text" name="manual_phone" value="{{ prefill_payload['manual_phone'] }}"></label>
+            <label><span>E-Mail</span><input type="email" name="manual_email" value="{{ prefill_payload['manual_email'] }}"></label>
+          </div>
+        </div>
+      </section>
+
+      <section class="simple-step" data-step="2">
+        <h2>Service auswaehlen</h2>
+        <div class="simple-service-grid">
+          {% for service in service_presets %}
+          <button type="button" class="simple-service-button" data-service-id="{{ service['id'] }}" data-label="{{ service['label'] }}" data-active="{{ service['active'] }}" data-processing="{{ service['processing'] }}">{{ service['label'] }}</button>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="simple-step" data-step="3">
+        <h2>Datum, Uhrzeit und Mitarbeiterin</h2>
+        <div class="simple-form-grid simple-time-grid">
+          <label class="full"><span>Termin</span><input type="datetime-local" name="appointment_at" id="simpleAppointmentAt" value="{{ prefill_at }}" required></label>
+        </div>
+        <div class="simple-service-grid">
+          {% for member in simple_staff_members %}
+          <button type="button" class="simple-service-button staff-select-button {% if (prefill_payload['staff_name'] or simple_default_staff) == member %}active{% endif %}" data-staff-name="{{ member }}">{{ member }}</button>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="staff_name" id="simpleStaffName" value="{{ prefill_payload['staff_name'] or simple_default_staff }}">
+        <details class="simple-more-options">
+          <summary>Mehr Optionen</summary>
+          <div class="simple-form-grid">
+            <label class="full"><span>Notiz</span><textarea name="notes" placeholder="Optional">{{ prefill_payload['notes'] }}</textarea></label>
+            <label class="full"><span>Erinnerung</span>
+              <select id="simpleReminderSelect">
+                <option value="24" {% if (prefill_payload['reminder_hours'] or 24)|int == 24 %}selected{% endif %}>1 Tag vorher</option>
+                <option value="48" {% if (prefill_payload['reminder_hours'] or 24)|int == 48 %}selected{% endif %}>2 Tage vorher</option>
+                <option value="0" {% if (prefill_payload['reminder_hours'] or 24)|int == 0 %}selected{% endif %}>Keine automatische Erinnerung</option>
+              </select>
+            </label>
+          </div>
+        </details>
+      </section>
+
+      <section class="simple-step" data-step="4">
+        <h2>Passt alles?</h2>
+        <div class="simple-summary-box" id="simpleWizardSummary"></div>
+        <button type="submit" class="simple-save-button simple-submit-button">Termin speichern</button>
+      </section>
+
+      <div class="simple-wizard-actions">
+        <button type="button" class="simple-action-button" id="simplePrevStep" hidden>Zurueck</button>
+        <button type="button" class="simple-action-button simple-next-button" id="simpleNextStep">Weiter</button>
+      </div>
+    </form>
+  </section>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const wizard = document.getElementById("simpleAppointmentWizard");
+  if (!wizard) return;
+
+  const steps = Array.from(wizard.querySelectorAll(".simple-step"));
+  const indicators = Array.from(wizard.querySelectorAll(".simple-step-indicator span"));
+  const nextBtn = document.getElementById("simpleNextStep");
+  const prevBtn = document.getElementById("simplePrevStep");
+  const errorBox = document.getElementById("simpleWizardError");
+  const modeInputs = Array.from(wizard.querySelectorAll('input[name="customer_mode"]'));
+  const existingBlock = document.getElementById("existingCustomerBlock");
+  const manualBlock = document.getElementById("manualCustomerBlock");
+  const customerSearch = document.getElementById("simpleCustomerSearch");
+  const customerResults = document.getElementById("simpleCustomerResults");
+  const customerIdField = document.getElementById("simpleCustomerId");
+  const serviceButtons = Array.from(wizard.querySelectorAll(".simple-service-button[data-service-id]"));
+  const staffButtons = Array.from(wizard.querySelectorAll(".staff-select-button"));
+  const staffField = document.getElementById("simpleStaffName");
+  const summaryBox = document.getElementById("simpleWizardSummary");
+  const selectedServicesField = document.getElementById("simpleSelectedServices");
+  const serviceSummaryField = document.getElementById("simpleServiceSummary");
+  const durationField = document.getElementById("simpleDurationField");
+  const processingField = document.getElementById("simpleProcessingField");
+  const reminderField = document.getElementById("simpleReminderHours");
+  const reminderSelect = document.getElementById("simpleReminderSelect");
+  const titleField = document.getElementById("simpleTitleField");
+  let stepIndex = 0;
+
+  function showError(message) {
+    errorBox.textContent = message;
+    errorBox.hidden = !message;
+  }
+
+  function activeMode() {
+    const checked = modeInputs.find((input) => input.checked);
+    return checked ? checked.value : "existing";
+  }
+
+  function updateMode() {
+    const manual = activeMode() === "manual";
+    existingBlock.hidden = manual;
+    manualBlock.hidden = !manual;
+    if (manual) customerIdField.value = "";
+    showError("");
+  }
+
+  function updateServices() {
+    const active = serviceButtons.filter((button) => button.classList.contains("active"));
+    const ids = active.map((button) => button.dataset.serviceId);
+    const labels = active.map((button) => button.dataset.label);
+    const activeMinutes = active.reduce((sum, button) => sum + Number(button.dataset.active || 0), 0);
+    const processingMinutes = active.reduce((sum, button) => sum + Number(button.dataset.processing || 0), 0);
+    selectedServicesField.value = ids.join(",");
+    serviceSummaryField.value = labels.join(" + ");
+    titleField.value = serviceSummaryField.value || "Salon-Termin";
+    durationField.value = activeMinutes || 30;
+    processingField.value = processingMinutes || 0;
+  }
+
+  function updateStaff(name) {
+    staffField.value = name;
+    staffButtons.forEach((button) => button.classList.toggle("active", button.dataset.staffName === name));
+  }
+
+  function selectedCustomerText() {
+    const picked = customerResults.querySelector(".active");
+    if (picked) return picked.dataset.name;
+    if (activeMode() === "manual") {
+      const first = (wizard.querySelector('[name="manual_firstname"]').value || "").trim();
+      const last = (wizard.querySelector('[name="manual_lastname"]').value || "").trim();
+      return [first, last].filter(Boolean).join(" ") || "Manueller Kunde";
+    }
+    return customerSearch.value.trim() || "Noch kein Kunde";
+  }
+
+  function updateSummary() {
+    const appointmentAt = wizard.querySelector('[name="appointment_at"]').value || "Noch nicht gewaehlt";
+    summaryBox.innerHTML = `
+      <div><strong>Kunde</strong><span>${selectedCustomerText()}</span></div>
+      <div><strong>Service</strong><span>${serviceSummaryField.value || "Noch nicht gewaehlt"}</span></div>
+      <div><strong>Mitarbeiterin</strong><span>${staffField.value || "Noch nicht gewaehlt"}</span></div>
+      <div><strong>Zeit</strong><span>${appointmentAt.replace("T", " ")}</span></div>
+    `;
+  }
+
+  function renderStep() {
+    steps.forEach((step, index) => step.classList.toggle("active", index === stepIndex));
+    indicators.forEach((indicator, index) => indicator.classList.toggle("active", index === stepIndex));
+    prevBtn.hidden = stepIndex === 0;
+    nextBtn.hidden = stepIndex === steps.length - 1;
+    showError("");
+    updateSummary();
+  }
+
+  function validateCurrentStep() {
+    if (stepIndex === 0) {
+      if (activeMode() === "existing" && !customerIdField.value) {
+        showError("Bitte zuerst einen Kunden auswaehlen.");
+        return false;
+      }
+      if (activeMode() === "manual") {
+        const first = (wizard.querySelector('[name="manual_firstname"]').value || "").trim();
+        const last = (wizard.querySelector('[name="manual_lastname"]').value || "").trim();
+        if (!first && !last) {
+          showError("Bitte mindestens einen Namen eintragen.");
+          return false;
+        }
+      }
+    }
+    if (stepIndex === 1 && !selectedServicesField.value) {
+      showError("Bitte einen Service auswaehlen.");
+      return false;
+    }
+    if (stepIndex === 2 && !wizard.querySelector('[name="appointment_at"]').value) {
+      showError("Bitte Datum und Uhrzeit auswaehlen.");
+      return false;
+    }
+    return true;
+  }
+
+  async function fetchCustomers() {
+    const q = customerSearch.value.trim();
+    customerIdField.value = "";
+    if (!q) {
+      customerResults.innerHTML = "";
+      return;
+    }
+    const response = await fetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}`, { credentials: "same-origin" });
+    const payload = await response.json();
+    customerResults.innerHTML = (payload.items || []).map((item) => `
+      <button type="button" class="simple-live-result" data-id="${item.id}" data-name="${item.name}">
+        <strong>${item.name}</strong>
+        <span>${item.phone || "Keine Nummer gespeichert"}</span>
+      </button>
+    `).join("");
+    customerResults.querySelectorAll(".simple-live-result").forEach((button) => {
+      button.addEventListener("click", function () {
+        customerIdField.value = this.dataset.id;
+        customerSearch.value = this.dataset.name;
+        customerResults.querySelectorAll(".simple-live-result").forEach((item) => item.classList.remove("active"));
+        this.classList.add("active");
+        showError("");
+        updateSummary();
+      });
+    });
+  }
+
+  modeInputs.forEach((input) => input.addEventListener("change", updateMode));
+  customerSearch.addEventListener("input", fetchCustomers);
+  serviceButtons.forEach((button) => {
+    button.addEventListener("click", function () {
+      this.classList.toggle("active");
+      updateServices();
+      updateSummary();
+      showError("");
+    });
+  });
+  staffButtons.forEach((button) => button.addEventListener("click", () => {
+    updateStaff(button.dataset.staffName);
+    updateSummary();
+  }));
+  if (reminderSelect) {
+    reminderSelect.addEventListener("change", () => {
+      reminderField.value = reminderSelect.value;
+    });
+  }
+  nextBtn.addEventListener("click", function () {
+    if (!validateCurrentStep()) return;
+    stepIndex = Math.min(stepIndex + 1, steps.length - 1);
+    renderStep();
+  });
+  prevBtn.addEventListener("click", function () {
+    stepIndex = Math.max(stepIndex - 1, 0);
+    renderStep();
+  });
+
+  const preselected = String(selectedServicesField.value || "").split(",").filter(Boolean);
+  serviceButtons.forEach((button) => {
+    button.classList.toggle("active", preselected.includes(button.dataset.serviceId));
+  });
+  updateServices();
+  updateStaff(staffField.value || "{{ simple_default_staff }}");
+  updateMode();
+  if (customerIdField.value) {
+    customerSearch.value = "Ausgewaehlter Kunde";
+  }
+  renderStep();
+});
+</script>
+{% endblock %}

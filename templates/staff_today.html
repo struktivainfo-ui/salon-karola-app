@@ -1,0 +1,68 @@
+{% extends 'staff_base.html' %}
+{% block title %}Tagesansicht - Salon Karola{% endblock %}
+{% block content %}
+<section class="simple-shell">
+  <section class="staff-desktop-hint">
+    <p>Diese Ansicht ist fuer die Nutzung am Handy optimiert.</p>
+  </section>
+  <section class="simple-panel simple-app-header">
+    <div class="simple-panel-head simple-panel-head-stack">
+      <div class="simple-page-title-row">
+        <div>
+          <div class="simple-kicker">Tagesplan</div>
+          <h1 class="simple-section-title">{% if selected_date == today_date %}Heute{% else %}Tagesuebersicht{% endif %}</h1>
+          <p class="simple-subtitle">{{ selected_date_label or selected_date }}</p>
+        </div>
+        <a class="simple-floating-action" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">+ Termin</a>
+      </div>
+      <div class="simple-filter-row">
+        <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=today_date, staff=staff) }}">Heute</a>
+        <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=next_date, staff=staff) }}">Morgen</a>
+      </div>
+    </div>
+
+    <div class="simple-filter-row simple-filter-row-wrap">
+      {% for member in ['Alle'] + bookable_staff %}
+      <a class="simple-filter-chip {% if staff == member %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=member) }}">{{ member }}</a>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="simple-card-list">
+    {% for item in simple_day_items %}
+    <article class="simple-appointment-card">
+      <div class="simple-appointment-top">
+        <div>
+          <div class="simple-appointment-time">{{ item.time_label }}</div>
+          <h2>{{ item.customer_name }}</h2>
+        </div>
+        <div class="simple-card-badges">
+          <span class="simple-status-pill">{{ item.staff_name }}</span>
+          <span class="simple-status-pill simple-status-muted">{{ item.status or 'geplant' }}</span>
+        </div>
+      </div>
+      <div class="simple-appointment-meta">{{ item.service_label }}</div>
+      <div class="simple-action-row">
+        {% if item.call_url %}
+        <a class="simple-action-button" href="{{ item.call_url }}">Anrufen</a>
+        {% else %}
+        <span class="simple-action-button disabled">Telefon fehlt</span>
+        {% endif %}
+        {% if item.whatsapp_url %}
+        <a class="simple-action-button" href="{{ item.whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>
+        {% else %}
+        <span class="simple-action-button disabled">WhatsApp fehlt</span>
+        {% endif %}
+        <a class="simple-action-button" href="{{ item.edit_url }}">Bearbeiten</a>
+      </div>
+    </article>
+    {% else %}
+    <div class="simple-empty simple-empty-state">
+      <strong>Heute sind noch keine Termine eingetragen.</strong>
+      <span>Wenn ein Termin dazu kommt, ist er hier sofort sichtbar.</span>
+      <a class="simple-save-button" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">Termin erstellen</a>
+    </div>
+    {% endfor %}
+  </section>
+</section>
+{% endblock %}
