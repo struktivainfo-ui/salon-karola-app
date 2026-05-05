@@ -1,4 +1,6 @@
 __pycache__/
+node_modules/
+dist/
 *.py[cod]
 *.sqlite
 *.db
