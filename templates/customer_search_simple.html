@@ -2,16 +2,16 @@
 {% block title %}Kunden suchen - Salon Karola{% endblock %}
 {% block content %}
 <section class="simple-shell">
-  <section class="simple-panel">
+  <section class="simple-panel simple-app-header">
     <div class="simple-panel-head">
       <div>
         <div class="simple-kicker">Kunden</div>
         <h1 class="simple-section-title">Kunde suchen</h1>
-        <p class="simple-subtitle">Name oder Telefonnummer eingeben.</p>
+        <p class="simple-subtitle">Name oder Telefonnummer suchen.</p>
       </div>
     </div>
     <form method="get" class="simple-search-form" autocomplete="off">
-      <input type="text" name="q" id="customerQuickSearchInput" value="{{ q }}" placeholder="Name oder Telefonnummer eingeben">
+      <input type="search" name="q" id="customerQuickSearchInput" value="{{ q }}" placeholder="Name oder Telefonnummer suchen">
       <button type="submit" class="simple-search-submit">Suchen</button>
     </form>
     <div class="simple-live-results" id="customerQuickResults"></div>
@@ -19,11 +19,28 @@
 
   <section class="simple-card-list">
     {% for customer in customers %}
-    <a class="simple-customer-card" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">
-      <strong>{{ customer_full_name(customer) }}</strong>
-      <span>{{ customer_phone(customer) or 'Keine Nummer gespeichert' }}</span>
-      <small>{{ customer['_mail'] or 'Keine E-Mail gespeichert' }}</small>
-    </a>
+    {% set phone = customer_phone(customer) %}
+    {% set wa_link = whatsapp_link(customer) %}
+    <article class="simple-customer-card">
+      <a class="simple-customer-main" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">
+        <strong>{{ customer_full_name(customer) }}</strong>
+        <span>{{ phone or 'Keine Nummer gespeichert' }}</span>
+        <small>{{ customer['_mail'] or 'Keine E-Mail gespeichert' }}</small>
+      </a>
+      <div class="simple-card-actions">
+        {% if phone %}
+        <a class="simple-action-button" href="{{ phone|phone_href }}">Anrufen</a>
+        {% else %}
+        <span class="simple-action-button disabled">Telefon fehlt</span>
+        {% endif %}
+        {% if wa_link %}
+        <a class="simple-action-button" href="{{ wa_link }}" target="_blank" rel="noopener">WhatsApp</a>
+        {% else %}
+        <span class="simple-action-button disabled">WhatsApp fehlt</span>
+        {% endif %}
+        <a class="simple-action-button" href="{{ url_for('appointments_hub', customer_id=customer['_id']) }}">Termin</a>
+      </div>
+    </article>
     {% else %}
     <div class="simple-empty">Kein Kunde gefunden.</div>
     {% endfor %}
@@ -36,6 +53,12 @@ document.addEventListener("DOMContentLoaded", function () {
   const results = document.getElementById("customerQuickResults");
   if (!input || !results) return;
 
+  function actionLink(url, label, disabledText) {
+    return url
+      ? `<a class="simple-action-button" href="${url}" ${label === "WhatsApp" ? 'target="_blank" rel="noopener"' : ""}>${label}</a>`
+      : `<span class="simple-action-button disabled">${disabledText}</span>`;
+  }
+
   async function refreshSuggestions() {
     const q = input.value.trim();
     if (!q) {
@@ -46,10 +69,17 @@ document.addEventListener("DOMContentLoaded", function () {
     const payload = await response.json();
     const items = payload.items || [];
     results.innerHTML = items.map((item) => `
-      <a class="simple-live-result" href="${item.detail_url}">
-        <strong>${item.name}</strong>
-        <span>${item.phone || "Keine Nummer"}</span>
-      </a>
+      <article class="simple-live-result">
+        <a class="simple-customer-main" href="${item.detail_url}">
+          <strong>${item.name}</strong>
+          <span>${item.phone || "Keine Nummer gespeichert"}</span>
+        </a>
+        <div class="simple-card-actions">
+          ${actionLink(item.call_url, "Anrufen", "Telefon fehlt")}
+          ${actionLink(item.whatsapp_url, "WhatsApp", "WhatsApp fehlt")}
+          <a class="simple-action-button" href="${item.new_appointment_url}">Termin</a>
+        </div>
+      </article>
     `).join("");
   }
 

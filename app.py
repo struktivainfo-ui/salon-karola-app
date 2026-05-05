@@ -117,7 +117,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-04-18-update-flow-1"
+APP_VERSION = "Salon Karola App 2026-05-05-staff-app-ui-1"
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 ADMIN_STAFF_NAMES = {"Sven"}
 PRIMARY_BOOKING_STAFF = ["Ute", "Jessi"]
@@ -2692,7 +2692,8 @@ def login():
                 db.commit()
                 login_user(user, staff_name=selected_staff, remember_device=remember_device)
                 flash(f"Passwort fuer {selected_staff} gespeichert. Willkommen, {selected_staff}.")
-                return redirect(request.args.get("next") or url_for("salon_home"))
+                default_target = url_for("salon_home") if selected_staff in ADMIN_STAFF_NAMES else url_for("calendar_view", view="day")
+                return redirect(request.args.get("next") or default_target)
         else:
             password = request.form.get("password", "")
             if not user:
@@ -2709,7 +2710,8 @@ def login():
                 staff_name = resolve_staff_name_for_user(user, db=db)
                 login_user(user, staff_name=staff_name, remember_device=remember_device)
                 flash(f"Login erfolgreich: {staff_name}.")
-                return redirect(request.args.get("next") or url_for("salon_home"))
+                default_target = url_for("salon_home") if staff_name in ADMIN_STAFF_NAMES else url_for("calendar_view", view="day")
+                return redirect(request.args.get("next") or default_target)
             else:
                 flash("Login fehlgeschlagen.")
 
@@ -3092,14 +3094,17 @@ def customer_quick_search():
     for row in customer_search_results(q, limit=12):
         mobile = (row["mobile_phone"] or "").strip() if "mobile_phone" in row.keys() else ""
         phone = (row["phone_phone"] or "").strip() if "phone_phone" in row.keys() else ""
+        primary_phone = mobile or phone
         items.append(
             {
                 "id": row["_id"],
                 "name": customer_full_name(row),
-                "phone": mobile or phone,
+                "phone": primary_phone,
                 "email": row["_mail"] or "",
                 "detail_url": url_for("customer_detail", customer_id=row["_id"]),
                 "new_appointment_url": url_for("appointments_hub", customer_id=row["_id"]),
+                "call_url": phone_href(primary_phone) if primary_phone else "",
+                "whatsapp_url": whatsapp_link(row),
             }
         )
     return {"ok": True, "items": items}
@@ -3826,6 +3831,8 @@ def calendar_view():
         view=view,
         staff=staff,
         selected_date=selected_date.isoformat(),
+        selected_date_label=selected_date.strftime("%d.%m.%Y"),
+        today_date_obj=datetime.now().date(),
         prev_date=_calendar_nav_date(selected_date, view, -1),
         next_date=_calendar_nav_date(selected_date, view, 1),
         today_date=datetime.now().date().isoformat(),

@@ -10,6 +10,14 @@
       </div>
     </div>
     <div class="simple-compact-list">
+      <a class="simple-list-card" href="{{ url_for('customer_birthdays_page') }}">
+        <strong>Geburtstage</strong>
+        <span>Kundinnen mit Geburtstag ansehen</span>
+      </a>
+      <a class="simple-list-card" href="{{ url_for('logout') }}">
+        <strong>Abmelden</strong>
+        <span>App sicher verlassen</span>
+      </a>
       {% for item in reminder_items %}
       <a class="simple-list-card" href="{{ url_for('customer_detail', customer_id=item['customer_id']) }}">
         <strong>{{ item['appointment_at']|dt }}</strong>

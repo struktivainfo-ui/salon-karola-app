@@ -2,17 +2,19 @@
 {% block title %}Tagesansicht - Salon Karola{% endblock %}
 {% block content %}
 <section class="simple-shell">
-  <section class="simple-panel">
+  <section class="simple-panel simple-app-header">
     <div class="simple-panel-head simple-panel-head-stack">
-      <div>
-        <div class="simple-kicker">Tagesansicht</div>
-        <h1 class="simple-section-title">Heute im Salon</h1>
-        <p class="simple-subtitle">{{ selected_date }}</p>
+      <div class="simple-page-title-row">
+        <div>
+          <div class="simple-kicker">Tagesplan</div>
+          <h1 class="simple-section-title">{% if selected_date == today_date %}Heute{% else %}Tagesuebersicht{% endif %}</h1>
+          <p class="simple-subtitle">{{ selected_date_label or selected_date }}</p>
+        </div>
+        <a class="simple-floating-action" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">+ Termin</a>
       </div>
       <div class="simple-filter-row">
         <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=today_date, staff=staff) }}">Heute</a>
         <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=next_date, staff=staff) }}">Morgen</a>
-        <a class="simple-filter-chip primary" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">+ Termin</a>
       </div>
     </div>
 
@@ -31,7 +33,10 @@
           <div class="simple-appointment-time">{{ item.time_label }}</div>
           <h2>{{ item.customer_name }}</h2>
         </div>
-        <span class="simple-status-pill">{{ item.staff_name }}</span>
+        <div class="simple-card-badges">
+          <span class="simple-status-pill">{{ item.staff_name }}</span>
+          <span class="simple-status-pill simple-status-muted">{{ item.status or 'geplant' }}</span>
+        </div>
       </div>
       <div class="simple-appointment-meta">{{ item.service_label }}</div>
       <div class="simple-action-row">
@@ -49,7 +54,11 @@
       </div>
     </article>
     {% else %}
-    <div class="simple-empty">Fuer diesen Tag gibt es noch keine Termine.</div>
+    <div class="simple-empty simple-empty-state">
+      <strong>Heute sind noch keine Termine eingetragen.</strong>
+      <span>Wenn ein Termin dazu kommt, ist er hier sofort sichtbar.</span>
+      <a class="simple-save-button" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">Termin erstellen</a>
+    </div>
     {% endfor %}
   </section>
 </section>
