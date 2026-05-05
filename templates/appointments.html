@@ -23,12 +23,32 @@
         </div>
         <span class="premium-badge">mit Service-Ablauf</span>
       </div>
-      <form method="post" class="premium-form appointment-sync-form premium-space-top service-form" data-service-form>
+      <form method="post" class="premium-form appointment-sync-form premium-space-top service-form" data-service-form data-prefill-selected="{{ prefill_payload['selected_services'] }}">
         <input type="hidden" name="source" value="{{ prefill_source }}">
         <input type="hidden" name="actor_name" class="actor-name-field" value="">
         <input type="hidden" name="title" class="service-title-field" value="Salon-Termin">
-        <input type="hidden" name="selected_services" class="selected-services-field" value="">
-        <input type="hidden" name="service_summary" class="service-summary-field" value="">
+        <input type="hidden" name="selected_services" class="selected-services-field" value="{{ prefill_payload['selected_services'] }}">
+        <input type="hidden" name="service_summary" class="service-summary-field" value="{{ prefill_payload['service_summary'] }}">
+
+        <div class="premium-subpanel qr-ping-panel">
+          <div class="premium-subpanel-head">
+            <h3>QR-Ping</h3>
+            <span class="premium-badge">ohne Copy-Paste</span>
+          </div>
+          <p class="qr-ping-copy">Aktuellen Termin-Entwurf als kurzen Salon-Link erzeugen und auf einem anderen Geraet per QR uebernehmen.</p>
+          <div class="premium-button-row qr-ping-actions">
+            <button type="button" class="premium-button secondary" id="qrPingCreateBtn">QR-Ping erstellen</button>
+            <button type="button" class="premium-button secondary" id="qrPingCopyBtn" hidden>Link kopieren</button>
+          </div>
+          <div class="qr-ping-result" id="qrPingResult" hidden>
+            <img id="qrPingImage" class="qr-ping-image" alt="QR-Ping Code">
+            <div class="qr-ping-meta">
+              <strong id="qrPingStatus">QR-Ping bereit.</strong>
+              <a id="qrPingLink" href="#" target="_blank" rel="noopener">Ping-Link oeffnen</a>
+              <div class="helper-text">Im QR steckt nur ein kurzer Salon-Token. Die eigentlichen Termindaten bleiben auf eurem System.</div>
+            </div>
+          </div>
+        </div>
 
         <div class="premium-form-grid premium-form-grid-2">
           <div class="form-group premium-form-group premium-form-span-2 customer-picker-group">
@@ -86,30 +106,30 @@
             </div>
           </div>
 
-          <input type="hidden" id="duration_minutes" name="duration_minutes" value="30">
-          <input type="hidden" id="processing_minutes" name="processing_minutes" value="0">
+          <input type="hidden" id="duration_minutes" name="duration_minutes" value="{{ prefill_payload['duration_minutes'] }}">
+          <input type="hidden" id="processing_minutes" name="processing_minutes" value="{{ prefill_payload['processing_minutes'] }}">
 
           <div class="form-group premium-form-group">
             <label for="active_until">Aktiv bis</label>
-            <input type="datetime-local" id="active_until" name="active_until">
+            <input type="datetime-local" id="active_until" name="active_until" value="{{ prefill_payload['active_until'] }}">
           </div>
           <div class="form-group premium-form-group">
             <label for="finish_at">Fertig um</label>
-            <input type="datetime-local" id="finish_at" name="finish_at">
+            <input type="datetime-local" id="finish_at" name="finish_at" value="{{ prefill_payload['finish_at'] }}">
           </div>
 
           <div class="form-group premium-form-group">
             <label for="status">Status</label>
             <select name="status" id="status">
-              <option value="geplant">geplant</option>
-              <option value="bestaetigt">bestaetigt</option>
-              <option value="erledigt">erledigt</option>
-              <option value="nicht erschienen">nicht erschienen</option>
+              <option value="geplant" {% if prefill_payload['status'] == 'geplant' %}selected{% endif %}>geplant</option>
+              <option value="bestaetigt" {% if prefill_payload['status'] == 'bestaetigt' %}selected{% endif %}>bestaetigt</option>
+              <option value="erledigt" {% if prefill_payload['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
+              <option value="nicht erschienen" {% if prefill_payload['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
             </select>
           </div>
           <div class="form-group premium-form-group">
             <label for="reminder_hours">Erinnerung (Stunden vorher)</label>
-            <input type="number" id="reminder_hours" name="reminder_hours" value="24">
+            <input type="number" id="reminder_hours" name="reminder_hours" value="{{ prefill_payload['reminder_hours'] }}">
           </div>
         </div>
 
@@ -119,7 +139,7 @@
 
         <div class="form-group premium-form-group">
           <label for="notes">Notizen</label>
-          <textarea id="notes" name="notes" placeholder="Zum Beispiel Farbe zuerst, danach schneiden und foehnen."></textarea>
+          <textarea id="notes" name="notes" placeholder="Zum Beispiel Farbe zuerst, danach schneiden und foehnen.">{{ prefill_payload['notes'] }}</textarea>
         </div>
 
         <div class="premium-subpanel premium-space-top">
@@ -128,10 +148,10 @@
             <span class="premium-badge">ohne Kontakt</span>
           </div>
           <div class="premium-form-grid premium-form-grid-2">
-            <div class="form-group premium-form-group"><label for="manual_firstname">Vorname</label><input type="text" id="manual_firstname" name="manual_firstname"></div>
-            <div class="form-group premium-form-group"><label for="manual_lastname">Nachname</label><input type="text" id="manual_lastname" name="manual_lastname"></div>
-            <div class="form-group premium-form-group"><label for="manual_phone">Telefon</label><input type="text" id="manual_phone" name="manual_phone"></div>
-            <div class="form-group premium-form-group"><label for="manual_email">E-Mail</label><input type="email" id="manual_email" name="manual_email"></div>
+            <div class="form-group premium-form-group"><label for="manual_firstname">Vorname</label><input type="text" id="manual_firstname" name="manual_firstname" value="{{ prefill_payload['manual_firstname'] }}"></div>
+            <div class="form-group premium-form-group"><label for="manual_lastname">Nachname</label><input type="text" id="manual_lastname" name="manual_lastname" value="{{ prefill_payload['manual_lastname'] }}"></div>
+            <div class="form-group premium-form-group"><label for="manual_phone">Telefon</label><input type="text" id="manual_phone" name="manual_phone" value="{{ prefill_payload['manual_phone'] }}"></div>
+            <div class="form-group premium-form-group"><label for="manual_email">E-Mail</label><input type="email" id="manual_email" name="manual_email" value="{{ prefill_payload['manual_email'] }}"></div>
           </div>
         </div>
 
@@ -202,6 +222,7 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+  const initialPrefill = {{ prefill_payload|tojson }};
   const storedDeviceStaff = localStorage.getItem("sk_device_staff");
   const templatePrefillStaff = "{{ prefill_staff }}".trim();
   const defaultStaff = {{ default_staff|tojson }};
@@ -277,6 +298,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     customerSearchInput.addEventListener("input", renderCustomerOptions);
     renderCustomerOptions();
+    if (initialPrefill.customer_id) {
+      customerSelect.value = String(initialPrefill.customer_id);
+    }
   }
 
   document.querySelectorAll("[data-service-form]").forEach((form) => {
@@ -290,6 +314,12 @@ document.addEventListener("DOMContentLoaded", function () {
     const startField = form.querySelector('[name="appointment_at"]');
     const activeUntilField = form.querySelector('[name="active_until"]');
     const finishAtField = form.querySelector('[name="finish_at"]');
+    const createPingBtn = document.getElementById("qrPingCreateBtn");
+    const copyPingBtn = document.getElementById("qrPingCopyBtn");
+    const pingResult = document.getElementById("qrPingResult");
+    const pingImage = document.getElementById("qrPingImage");
+    const pingLink = document.getElementById("qrPingLink");
+    const pingStatus = document.getElementById("qrPingStatus");
 
     function toDate(value) {
       return value ? new Date(value) : null;
@@ -358,6 +388,99 @@ document.addEventListener("DOMContentLoaded", function () {
       syncTimesFromFields();
     }
 
+    function applyInitialPrefill() {
+      const selectedIds = String(form.dataset.prefillSelected || "")
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      chips.forEach((chip) => {
+        chip.classList.toggle("active", selectedIds.includes(chip.dataset.serviceId));
+      });
+      if (activeUntilField && activeUntilField.value) {
+        activeUntilField.dataset.touched = "1";
+      }
+      if (finishAtField && finishAtField.value) {
+        finishAtField.dataset.touched = "1";
+      }
+      syncServiceForm();
+    }
+
+    function collectPingPayload() {
+      return {
+        customer_id: (form.querySelector('[name="customer_id"]') || {}).value || "",
+        selected_services: (selectedField || {}).value || "",
+        appointment_at: (startField || {}).value || "",
+        active_until: (activeUntilField || {}).value || "",
+        finish_at: (finishAtField || {}).value || "",
+        staff_name: (form.querySelector('[name="staff_name"]') || {}).value || "",
+        status: (form.querySelector('[name="status"]') || {}).value || "",
+        reminder_hours: (form.querySelector('[name="reminder_hours"]') || {}).value || 24,
+        notes: (form.querySelector('[name="notes"]') || {}).value || "",
+        manual_firstname: (form.querySelector('[name="manual_firstname"]') || {}).value || "",
+        manual_lastname: (form.querySelector('[name="manual_lastname"]') || {}).value || "",
+        manual_phone: (form.querySelector('[name="manual_phone"]') || {}).value || "",
+        manual_email: (form.querySelector('[name="manual_email"]') || {}).value || "",
+        duration_minutes: (durationField || {}).value || 30,
+        processing_minutes: (processingField || {}).value || 0
+      };
+    }
+
+    async function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      const temp = document.createElement("textarea");
+      temp.value = text;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand("copy");
+      temp.remove();
+      return true;
+    }
+
+    async function createQrPing() {
+      if (!createPingBtn) return;
+      createPingBtn.disabled = true;
+      createPingBtn.textContent = "Erzeuge...";
+      if (pingStatus) pingStatus.textContent = "QR-Ping wird erstellt...";
+      try {
+        const response = await fetch("{{ url_for('appointment_ping_create') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(collectPingPayload())
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.ok === false) {
+          throw new Error(payload.error || "QR-Ping konnte nicht erstellt werden.");
+        }
+        if (pingResult) pingResult.hidden = false;
+        if (copyPingBtn) copyPingBtn.hidden = false;
+        if (pingImage) pingImage.src = payload.qr_url;
+        if (pingLink) {
+          pingLink.href = payload.url;
+          pingLink.textContent = payload.url;
+        }
+        if (pingStatus) {
+          const expiresText = payload.expires_at ? new Date(payload.expires_at).toLocaleString("de-DE") : "";
+          pingStatus.textContent = expiresText ? `Gueltig bis ${expiresText}` : "QR-Ping bereit.";
+        }
+        if (copyPingBtn) {
+          copyPingBtn.onclick = async function () {
+            await copyText(payload.url);
+            copyPingBtn.textContent = "Link kopiert";
+            window.setTimeout(() => { copyPingBtn.textContent = "Link kopieren"; }, 1800);
+          };
+        }
+      } catch (error) {
+        if (pingStatus) pingStatus.textContent = error.message || "QR-Ping fehlgeschlagen.";
+      } finally {
+        createPingBtn.disabled = false;
+        createPingBtn.textContent = "QR-Ping erstellen";
+      }
+    }
+
     chips.forEach((chip) => {
       chip.addEventListener("click", () => {
         chip.classList.toggle("active");
@@ -379,8 +502,12 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
 
+    applyInitialPrefill();
     setDefaultTimes();
     syncServiceForm();
+    if (createPingBtn) {
+      createPingBtn.addEventListener("click", createQrPing);
+    }
   });
 });
 </script>

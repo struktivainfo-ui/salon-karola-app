@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Kunde - Salon Karola{% endblock %}
+{% block content %}
+<section class="simple-shell">
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Kunde</div>
+        <h1 class="simple-section-title">{{ customer_full_name(customer) }}</h1>
+      </div>
+      <span class="simple-status-pill">{{ customer_status }}</span>
+    </div>
+
+    <div class="simple-detail-grid">
+      <div><strong>Telefon</strong><span>{{ row_value(customer, 'Customer_PersoenlichesTelefon') or 'Nicht gespeichert' }}</span></div>
+      <div><strong>Mobil</strong><span>{{ row_value(customer, 'Customer_Mobiltelefon') or 'Nicht gespeichert' }}</span></div>
+      <div><strong>E-Mail</strong><span>{{ customer['_mail'] or 'Nicht gespeichert' }}</span></div>
+      <div><strong>Geburtstag</strong><span>{{ customer['_birthdate'] or 'Nicht gespeichert' }}</span></div>
+      <div class="full"><strong>Notizen</strong><span>{{ customer['_notes'] or 'Keine Notiz vorhanden' }}</span></div>
+    </div>
+
+    <div class="simple-action-row">
+      {% if customer_phone(customer) %}
+      <a class="simple-action-button" href="{{ customer_phone(customer)|phone_href }}">Anrufen</a>
+      {% else %}
+      <span class="simple-action-button disabled">Telefon fehlt</span>
+      {% endif %}
+      {% if wa_link %}
+      <a class="simple-action-button" href="{{ wa_link }}" target="_blank" rel="noopener">WhatsApp</a>
+      {% else %}
+      <span class="simple-action-button disabled">WhatsApp fehlt</span>
+      {% endif %}
+      <a class="simple-action-button" href="{{ url_for('appointments_hub', customer_id=customer['_id']) }}">Neuer Termin</a>
+      <a class="simple-action-button" href="#kunde-bearbeiten">Bearbeiten</a>
+    </div>
+  </section>
+
+  <section class="simple-panel" id="kunde-bearbeiten">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Bearbeiten</div>
+        <h2 class="simple-section-title">Kundendaten</h2>
+      </div>
+    </div>
+    <form method="post" class="simple-edit-form">
+      <div class="simple-form-grid">
+        <label><span>Vorname</span><input type="text" name="firstname" value="{{ customer['_firstname'] or '' }}"></label>
+        <label><span>Nachname</span><input type="text" name="name" value="{{ customer['_name'] or '' }}"></label>
+        <label><span>Telefon</span><input type="text" name="phone" value="{{ row_value(customer, 'Customer_PersoenlichesTelefon') or '' }}"></label>
+        <label><span>Mobil</span><input type="text" name="mobile" value="{{ row_value(customer, 'Customer_Mobiltelefon') or '' }}"></label>
+        <label><span>E-Mail</span><input type="email" name="mail" value="{{ customer['_mail'] or '' }}"></label>
+        <label><span>Geburtstag</span><input type="date" name="birthdate" value="{{ customer['_birthdate'] or '' }}"></label>
+        <label class="full"><span>Notizen</span><textarea name="notes">{{ customer['_notes'] or '' }}</textarea></label>
+      </div>
+      <input type="hidden" name="address" value="{{ customer['Customer_Adresse'] or '' }}">
+      <input type="hidden" name="zip" value="{{ customer['Customer_Postleitzahl'] or '' }}">
+      <input type="hidden" name="city" value="{{ customer['Customer_Stadt'] or '' }}">
+      <input type="hidden" name="tags" value="{{ tags_text or '' }}">
+      <button type="submit" class="simple-save-button">Speichern</button>
+    </form>
+  </section>
+
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Termine</div>
+        <h2 class="simple-section-title">Letzte und naechste Termine</h2>
+      </div>
+    </div>
+    <div class="simple-compact-list">
+      {% for appt in appointments %}
+      <div class="simple-list-card" id="appointment-{{ appt['id'] }}">
+        <strong>{{ appt['appointment_at']|dt }}</strong>
+        <span>{{ appt['service_summary'] or appt['title'] or 'Termin' }} - {{ appt['staff_name'] or simple_default_staff }}</span>
+      </div>
+      {% else %}
+      <div class="simple-empty">Bisher sind keine Termine gespeichert.</div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+{% endblock %}

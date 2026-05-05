@@ -83,10 +83,8 @@
           <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff_name, source='slot') }}">{{ slot['time'] }}</a>
           <div class="day-slot-content">
             {% for appt in slot['items'] %}
-            <a class="day-slot-item mobile-summary-{{ appt['status_class'] }} compact-day-item phase-{{ appt['slot_phase'] or 'active' }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-              <strong>{{ appt['customer_name'] }}</strong>
-              <span>{{ appt['slot_label'] or appt['title'] }}</span>
-              {% if appt['slot_phase'] == 'processing' %}<em>Einwirkzeit / Reserve</em>{% endif %}
+            <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+              <strong>{{ appt['customer_name'] }}</strong> Â· {{ appt['title'] }}
             </a>
             {% else %}
             <div class="day-slot-empty">frei</div>
@@ -121,10 +119,8 @@
       <a class="day-slot-time day-slot-link" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T' ~ slot['time'], staff=staff if staff != 'Alle' else default_staff, source='slot') }}">{{ slot['time'] }}</a>
       <div class="day-slot-content">
         {% for appt in slot['items'] %}
-        <a class="day-slot-item mobile-summary-{{ appt['status_class'] }} compact-day-item phase-{{ appt['slot_phase'] or 'active' }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-          <strong>{{ appt['customer_name'] }}</strong>
-          <span>{{ appt['slot_label'] or appt['title'] }} | {{ appt['staff_name'] }}</span>
-          {% if appt['slot_phase'] == 'processing' %}<em>Einwirkzeit / Reserve</em>{% endif %}
+        <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
+          <strong>{{ appt['customer_name'] }}</strong> Â· {{ appt['title'] }} Â· {{ appt['staff_name'] }}
         </a>
         {% else %}
         <div class="day-slot-empty">frei</div>

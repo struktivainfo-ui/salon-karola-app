@@ -6425,3 +6425,378 @@ textarea {
     justify-content: center;
   }
 }
+
+/* 2026-05-05 simple salon mode */
+.simple-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.simple-home-hero,
+.simple-panel,
+.simple-appointment-card,
+.simple-customer-card {
+  background: linear-gradient(180deg, rgba(255, 252, 247, 0.96), rgba(248, 240, 232, 0.96));
+  border: 1px solid rgba(191, 147, 87, 0.16);
+  border-radius: 24px;
+  box-shadow: 0 16px 38px rgba(81, 50, 29, 0.08);
+}
+
+.simple-home-hero,
+.simple-panel {
+  padding: 20px;
+}
+
+.simple-kicker {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #9b7552;
+  font-weight: 700;
+}
+
+.simple-title,
+.simple-section-title {
+  margin: 6px 0 0;
+  color: #5d3920;
+  font-family: "Palatino Linotype", Georgia, serif;
+}
+
+.simple-title {
+  font-size: clamp(1.9rem, 5vw, 2.7rem);
+}
+
+.simple-subtitle {
+  margin: 8px 0 0;
+  color: #7b614d;
+}
+
+.simple-today-badge,
+.simple-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 236, 196, 0.94);
+  color: #855621;
+  font-weight: 700;
+}
+
+.simple-home-grid,
+.simple-admin-grid,
+.simple-service-grid,
+.simple-card-list,
+.simple-two-column,
+.simple-detail-grid,
+.simple-form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.simple-home-grid,
+.simple-admin-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.simple-home-card,
+.simple-admin-link,
+.simple-action-button,
+.simple-filter-chip,
+.simple-save-button,
+.simple-search-submit {
+  min-height: 48px;
+  border-radius: 18px;
+  border: 1px solid rgba(191, 147, 87, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  color: #50351f;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.simple-home-card {
+  display: grid;
+  align-content: space-between;
+  gap: 8px;
+  padding: 18px;
+}
+
+.simple-home-card strong {
+  font-size: 1.45rem;
+}
+
+.simple-home-card small,
+.simple-admin-link {
+  color: #7a624e;
+}
+
+.simple-panel-head,
+.simple-appointment-top,
+.simple-action-row,
+.simple-filter-row,
+.simple-search-form,
+.simple-wizard-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.simple-panel-head,
+.simple-appointment-top {
+  justify-content: space-between;
+  align-items: start;
+}
+
+.simple-panel-head-stack {
+  flex-direction: column;
+}
+
+.simple-inline-link {
+  color: #8a5924;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.simple-compact-list,
+.simple-live-results {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.simple-list-card,
+.simple-live-result,
+.simple-customer-card {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: #45301f;
+}
+
+.simple-live-result,
+.simple-customer-card {
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(191, 147, 87, 0.14);
+}
+
+.simple-live-result.active {
+  background: linear-gradient(180deg, rgba(255, 223, 144, 0.98), rgba(243, 194, 95, 1));
+}
+
+.simple-empty {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #7b6554;
+}
+
+.simple-filter-row,
+.simple-action-row,
+.simple-wizard-actions {
+  flex-wrap: wrap;
+}
+
+.simple-filter-row-wrap {
+  margin-top: 12px;
+}
+
+.simple-filter-chip,
+.simple-action-button,
+.simple-save-button,
+.simple-search-submit,
+.simple-admin-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+}
+
+.simple-filter-chip.active,
+.simple-filter-chip.primary,
+.simple-save-button,
+.simple-search-submit {
+  background: linear-gradient(180deg, rgba(255, 223, 144, 0.98), rgba(243, 194, 95, 1));
+  color: #4d3117;
+}
+
+.simple-action-button.disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.simple-card-list {
+  grid-template-columns: 1fr;
+}
+
+.simple-appointment-card {
+  padding: 18px;
+}
+
+.simple-appointment-time {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #5f3a1f;
+}
+
+.simple-appointment-card h2 {
+  margin: 6px 0 0;
+  font-size: 1.15rem;
+}
+
+.simple-appointment-meta {
+  margin: 10px 0 12px;
+  color: #7a614d;
+}
+
+.simple-detail-grid,
+.simple-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.simple-detail-grid div,
+.simple-form-grid label {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.simple-detail-grid .full,
+.simple-form-grid .full {
+  grid-column: 1 / -1;
+}
+
+.simple-search-form input,
+.simple-form-grid input,
+.simple-form-grid textarea,
+.simple-wizard input,
+.simple-wizard textarea {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 16px;
+  border: 1px solid rgba(191, 147, 87, 0.16);
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.simple-search-form {
+  align-items: stretch;
+  margin-top: 14px;
+}
+
+.simple-search-form input {
+  flex: 1;
+}
+
+.simple-step-indicator {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.simple-step-indicator span {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #7d624d;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.simple-step-indicator span.active {
+  background: linear-gradient(180deg, rgba(255, 223, 144, 0.98), rgba(243, 194, 95, 1));
+  color: #4d3117;
+}
+
+.simple-step {
+  display: none;
+  gap: 12px;
+}
+
+.simple-step.active {
+  display: grid;
+}
+
+.simple-choice-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.simple-service-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.simple-service-button {
+  min-height: 56px;
+  border-radius: 18px;
+  border: 1px solid rgba(191, 147, 87, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  color: #51351e;
+  font-weight: 700;
+}
+
+.simple-service-button.active {
+  background: linear-gradient(180deg, rgba(255, 223, 144, 0.98), rgba(243, 194, 95, 1));
+  color: #4d3117;
+}
+
+.simple-summary-box {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+@media (min-width: 900px) {
+  .simple-two-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .simple-home-hero,
+  .simple-panel,
+  .simple-appointment-card,
+  .simple-customer-card {
+    border-radius: 20px;
+  }
+
+  .simple-home-grid,
+  .simple-admin-grid,
+  .simple-service-grid,
+  .simple-detail-grid,
+  .simple-form-grid,
+  .simple-step-indicator {
+    grid-template-columns: 1fr;
+  }
+
+  .simple-home-card,
+  .simple-admin-link,
+  .simple-action-button,
+  .simple-filter-chip,
+  .simple-save-button,
+  .simple-search-submit,
+  .simple-service-button {
+    min-height: 52px;
+  }
+
+  .simple-search-form,
+  .simple-panel-head,
+  .simple-appointment-top {
+    flex-direction: column;
+  }
+}

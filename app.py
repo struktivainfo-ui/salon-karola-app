@@ -119,6 +119,8 @@ def add_no_cache_headers(response):
 
 APP_VERSION = "Salon Karola App 2026-04-18-update-flow-1"
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
+ADMIN_STAFF_NAMES = {"Sven"}
+PRIMARY_BOOKING_STAFF = ["Ute", "Jessi"]
 SERVICE_PRESETS = [
     {"id": "schneiden", "label": "Schneiden", "active": 30, "processing": 0},
     {"id": "foehnen", "label": "Foehnen", "active": 30, "processing": 0},
@@ -127,6 +129,7 @@ SERVICE_PRESETS = [
     {"id": "dauerwelle", "label": "Dauerwelle", "active": 45, "processing": 45},
     {"id": "farbe", "label": "Farbe", "active": 30, "processing": 45},
     {"id": "straehnen", "label": "Straehnen", "active": 45, "processing": 45},
+    {"id": "sonstiges", "label": "Sonstiges", "active": 30, "processing": 0},
 ]
 SERVICE_PRESET_MAP = {item["id"]: item for item in SERVICE_PRESETS}
 STAFF_MEMBERS = list(CONFIGURED_STAFF_MEMBERS)
@@ -146,6 +149,17 @@ def login_required(view):
     def wrapped(*args, **kwargs):
         if not session.get("admin_logged_in"):
             return redirect(url_for("login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def admin_required(view):
+    @wraps(view)
+    @login_required
+    def wrapped(*args, **kwargs):
+        if not is_admin_session():
+            flash("Dieser Bereich ist nur fuer Sven/Admin sichtbar.")
+            return redirect(url_for("salon_home"))
         return view(*args, **kwargs)
     return wrapped
 
@@ -356,6 +370,38 @@ def resolve_staff_name_for_user(user_row, db=None):
         if username == member.lower() or display_name == member.lower():
             return member
     return get_default_staff(db)
+
+
+def is_admin_staff_name(staff_name, db=None):
+    normalized = _normalize_staff_name(staff_name, default=get_default_staff(db), db=db)
+    return normalized in ADMIN_STAFF_NAMES
+
+
+def is_admin_session():
+    return bool(session.get("admin_logged_in")) and is_admin_staff_name(session.get("staff_name"))
+
+
+def current_staff_name(db=None):
+    if session.get("admin_logged_in"):
+        return _normalize_staff_name(session.get("staff_name"), default=get_default_staff(db), db=db)
+    return get_default_staff(db)
+
+
+def staff_members_for_simple_mode(db=None):
+    members = get_staff_members(db)
+    preferred = [name for name in PRIMARY_BOOKING_STAFF if name in members]
+    if preferred:
+        return preferred
+    without_admin = [name for name in members if not is_admin_staff_name(name, db=db)]
+    return without_admin or members
+
+
+def default_staff_for_simple_mode(db=None):
+    current = current_staff_name(db)
+    simple_members = staff_members_for_simple_mode(db)
+    if current in simple_members:
+        return current
+    return simple_members[0] if simple_members else get_default_staff(db)
 
 
 def login_user(user, *, staff_name=None, remember_device=False):
@@ -634,6 +680,18 @@ def init_db():
             CREATE TABLE IF NOT EXISTS app_settings (
                 key TEXT PRIMARY KEY,
                 value TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS appointment_pings (
+                token TEXT PRIMARY KEY,
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                created_by TEXT DEFAULT '',
+                used_at TEXT
             )
             """
         )
@@ -2058,6 +2116,130 @@ def _parse_dt_safe(value):
         return None
 
 
+def _appointment_ping_cleanup(db=None):
+    conn = db or get_db()
+    conn.execute(
+        "DELETE FROM appointment_pings WHERE expires_at < ?",
+        (datetime.now().isoformat(timespec="seconds"),),
+    )
+
+
+def _appointment_ping_payload(raw_payload, *, db=None):
+    conn = db or get_db()
+    active_staff = get_staff_members(conn)
+    default_staff = get_default_staff(conn)
+    payload = dict(raw_payload or {})
+
+    customer_id_raw = str(payload.get("customer_id") or "").strip()
+    customer_id = customer_id_raw if customer_id_raw.isdigit() else ""
+    if customer_id:
+        customer_exists = conn.execute("SELECT 1 FROM _Customers WHERE _id = ? LIMIT 1", (int(customer_id),)).fetchone()
+        if not customer_exists:
+            customer_id = ""
+
+    selected_services = normalize_service_selection(payload.get("selected_services") or "")
+    appointment_at = (payload.get("appointment_at") or "").strip()
+    active_until = (payload.get("active_until") or "").strip()
+    finish_at = (payload.get("finish_at") or "").strip()
+    status = (payload.get("status") or "geplant").strip() or "geplant"
+    if status not in {"geplant", "bestaetigt", "erledigt", "nicht erschienen"}:
+        status = "geplant"
+
+    staff_name = _normalize_staff_name(payload.get("staff_name"), default=default_staff, db=conn)
+    if staff_name not in active_staff:
+        staff_name = default_staff
+
+    return {
+        "customer_id": customer_id,
+        "selected_services": ",".join(selected_services),
+        "service_summary": service_summary_from_selection(selected_services),
+        "appointment_at": appointment_at if _parse_dt_safe(appointment_at) else "",
+        "active_until": active_until if _parse_dt_safe(active_until) else "",
+        "finish_at": finish_at if _parse_dt_safe(finish_at) else "",
+        "staff_name": staff_name,
+        "status": status,
+        "reminder_hours": _safe_int(payload.get("reminder_hours"), default=24, minimum=0, maximum=168),
+        "notes": (payload.get("notes") or "").strip()[:1000],
+        "manual_firstname": (payload.get("manual_firstname") or "").strip()[:80],
+        "manual_lastname": (payload.get("manual_lastname") or "").strip()[:80],
+        "manual_phone": (payload.get("manual_phone") or "").strip()[:80],
+        "manual_email": (payload.get("manual_email") or "").strip()[:120],
+        "duration_minutes": _safe_int(payload.get("duration_minutes"), default=30, minimum=15, maximum=480),
+        "processing_minutes": _safe_int(payload.get("processing_minutes"), default=0, minimum=0, maximum=480),
+    }
+
+
+def create_appointment_ping(raw_payload, *, created_by="", ttl_minutes=180, db=None):
+    conn = db or get_db()
+    _appointment_ping_cleanup(conn)
+    payload = _appointment_ping_payload(raw_payload, db=conn)
+    token = secrets.token_urlsafe(9)
+    created_at = datetime.now()
+    expires_at = created_at + timedelta(minutes=max(10, ttl_minutes))
+    conn.execute(
+        """
+        INSERT INTO appointment_pings(token, payload_json, created_at, expires_at, created_by)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            token,
+            json.dumps(payload, ensure_ascii=True),
+            created_at.isoformat(timespec="seconds"),
+            expires_at.isoformat(timespec="seconds"),
+            (created_by or "").strip()[:80],
+        ),
+    )
+    return {
+        "token": token,
+        "payload": payload,
+        "created_at": created_at.isoformat(timespec="seconds"),
+        "expires_at": expires_at.isoformat(timespec="seconds"),
+    }
+
+
+def get_appointment_ping(token, *, mark_used=False, db=None):
+    conn = db or get_db()
+    _appointment_ping_cleanup(conn)
+    token = (token or "").strip()
+    if not token:
+        return None
+    row = conn.execute(
+        """
+        SELECT token, payload_json, created_at, expires_at, created_by, used_at
+        FROM appointment_pings
+        WHERE token = ?
+        LIMIT 1
+        """,
+        (token,),
+    ).fetchone()
+    if not row:
+        return None
+    try:
+        expires_at = datetime.fromisoformat(str(row["expires_at"]))
+    except Exception:
+        return None
+    if expires_at < datetime.now():
+        conn.execute("DELETE FROM appointment_pings WHERE token = ?", (token,))
+        return None
+    if mark_used and not row["used_at"]:
+        conn.execute(
+            "UPDATE appointment_pings SET used_at = ? WHERE token = ?",
+            (datetime.now().isoformat(timespec="seconds"), token),
+        )
+    try:
+        payload = json.loads(row["payload_json"] or "{}")
+    except Exception:
+        payload = {}
+    return {
+        "token": row["token"],
+        "payload": _appointment_ping_payload(payload, db=conn),
+        "created_at": row["created_at"],
+        "expires_at": row["expires_at"],
+        "created_by": row["created_by"] or "",
+        "used_at": row["used_at"] or "",
+    }
+
+
 def _normalize_staff_name(value, default=DEFAULT_STAFF, db=None):
     staff_options = get_staff_options(db)
     fallback = default if default in staff_options else get_default_staff(db)
@@ -2381,6 +2563,89 @@ def next_appointments(limit=12):
     ).fetchall()
 
 
+def appointments_for_day(selected_date, staff_name="Alle", limit=120, db=None):
+    conn = db or get_db()
+    day_start = datetime.combine(selected_date, datetime.min.time())
+    day_end = day_start + timedelta(days=1)
+    mobile_sql = customer_mobile_reference("c") or "''"
+    phone_sql = customer_personal_phone_reference("c") or "''"
+    query = f"""
+        SELECT a.*,
+               COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
+               COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
+               COALESCE(NULLIF(a.manual_phone, ''), {mobile_sql}) AS Customer_Mobiltelefon,
+               COALESCE(NULLIF(a.manual_phone, ''), {phone_sql}) AS Customer_PersoenlichesTelefon,
+               COALESCE(NULLIF(a.manual_email, ''), c._mail) AS _mail
+        FROM appointments a
+        JOIN _Customers c ON c._id = a.customer_id
+        WHERE a.appointment_at >= ? AND a.appointment_at < ?
+    """
+    params = [day_start.isoformat(timespec="minutes"), day_end.isoformat(timespec="minutes")]
+    if staff_name and staff_name != "Alle":
+        query += " AND COALESCE(a.staff_name, ?) = ?"
+        params.extend([get_default_staff(conn), staff_name])
+    query += " ORDER BY a.appointment_at ASC LIMIT ?"
+    params.append(limit)
+    rows = conn.execute(query, tuple(params)).fetchall()
+    items = []
+    for row in rows:
+        dt = _parse_dt_safe(row["appointment_at"])
+        phone_value = customer_phone(row)
+        items.append(
+            {
+                "id": row["id"],
+                "customer_id": row["customer_id"],
+                "customer_name": customer_full_name(row) or "Manueller Termin",
+                "service_label": (row["service_summary"] or row["title"] or "Termin").strip(),
+                "staff_name": row["staff_name"] or get_default_staff(conn),
+                "status": row["status"] or "geplant",
+                "time_label": dt.strftime("%H:%M") if dt else "--:--",
+                "appointment_label": dt.strftime("%d.%m.%Y %H:%M") if dt else (row["appointment_at"] or ""),
+                "phone": phone_value,
+                "call_url": phone_href(phone_value),
+                "whatsapp_url": whatsapp_link(row),
+                "edit_url": url_for("customer_detail", customer_id=row["customer_id"]) + f"#appointment-{row['id']}",
+                "detail_url": url_for("customer_detail", customer_id=row["customer_id"]),
+            }
+        )
+    return items
+
+
+def customer_search_results(q="", limit=120, db=None):
+    conn = db or get_db()
+    q = (q or "").strip()
+    mobile_sql = customer_mobile_reference("c") or "''"
+    phone_sql = customer_personal_phone_reference("c") or "''"
+    query = f"""
+        SELECT c.*, MAX(a.appointment_at) AS last_appointment_at,
+               COALESCE({mobile_sql}, '') AS mobile_phone,
+               COALESCE({phone_sql}, '') AS phone_phone
+        FROM _Customers c
+        LEFT JOIN appointments a ON a.customer_id = c._id
+        WHERE {visible_customer_condition('c')}
+    """
+    params = []
+    if q:
+        like = f"%{q}%"
+        query += f"""
+            AND (
+                COALESCE(c._name, '') LIKE ?
+                OR COALESCE(c._firstname, '') LIKE ?
+                OR COALESCE({mobile_sql}, '') LIKE ?
+                OR COALESCE({phone_sql}, '') LIKE ?
+                OR COALESCE(c._mail, '') LIKE ?
+            )
+        """
+        params.extend([like, like, like, like, like])
+    query += """
+        GROUP BY c._id
+        ORDER BY COALESCE(c._name, '') COLLATE NOCASE ASC, COALESCE(c._firstname, '') COLLATE NOCASE ASC
+        LIMIT ?
+    """
+    params.append(limit)
+    return conn.execute(query, tuple(params)).fetchall()
+
+
 # ---------- PWA ----------
 # ---------- PWA ----------
 @app.route("/manifest.webmanifest")
@@ -2426,8 +2691,8 @@ def login():
                 )
                 db.commit()
                 login_user(user, staff_name=selected_staff, remember_device=remember_device)
-                flash(f"Passwort f?r {selected_staff} gespeichert oder ersetzt. Willkommen, {selected_staff}.")
-                return redirect(request.args.get("next") or url_for("calendar_view"))
+                flash(f"Passwort fuer {selected_staff} gespeichert. Willkommen, {selected_staff}.")
+                return redirect(request.args.get("next") or url_for("salon_home"))
         else:
             password = request.form.get("password", "")
             if not user:
@@ -2444,7 +2709,7 @@ def login():
                 staff_name = resolve_staff_name_for_user(user, db=db)
                 login_user(user, staff_name=staff_name, remember_device=remember_device)
                 flash(f"Login erfolgreich: {staff_name}.")
-                return redirect(request.args.get("next") or url_for("calendar_view"))
+                return redirect(request.args.get("next") or url_for("salon_home"))
             else:
                 flash("Login fehlgeschlagen.")
 
@@ -2628,17 +2893,52 @@ def logout():
 @app.route("/")
 @login_required
 def index():
-    return redirect(url_for("calendar_view"))
+    return redirect(url_for("salon_home"))
 
 
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    return redirect(url_for("calendar_view"))
+    return redirect(url_for("salon_home"))
+
+
+@app.route("/salon")
+@login_required
+def salon_home():
+    db = get_db()
+    today = datetime.now().date()
+    own_staff = default_staff_for_simple_mode(db)
+    own_appointments = appointments_for_day(today, own_staff, db=db)
+    all_appointments = appointments_for_day(today, "Alle", db=db)
+    reminder_items = due_reminders(limit=8)
+    birthday_items = upcoming_birthdays(limit=8)
+    return render_template(
+        "salon_home.html",
+        today_date=today.isoformat(),
+        own_staff=own_staff,
+        own_appointments=own_appointments,
+        all_appointments=all_appointments,
+        reminder_items=reminder_items,
+        birthday_items=birthday_items,
+        current_endpoint="salon_home",
+        app_version=APP_VERSION,
+    )
+
+
+@app.route("/salon/reminders")
+@login_required
+def salon_reminders():
+    return render_template(
+        "salon_reminders.html",
+        reminder_items=due_reminders(limit=40),
+        birthday_items=upcoming_birthdays(limit=20),
+        current_endpoint="salon_reminders",
+        app_version=APP_VERSION,
+    )
 
 
 @app.route("/dashboard-legacy")
-@login_required
+@admin_required
 def dashboard_legacy():
     db = get_db()
     q = request.args.get("q", "").strip()
@@ -2765,8 +3065,9 @@ def customer_search_page():
     base_query += f" GROUP BY c._id ORDER BY {order_sql} LIMIT 300"
     customers = db.execute(base_query, params).fetchall()
     tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
+    template_name = "customer_search_simple.html" if not is_admin_session() else "customer_search.html"
     return render_template(
-        "customer_search.html",
+        template_name,
         customers=customers,
         q=q,
         tag=tag,
@@ -2775,6 +3076,33 @@ def customer_search_page():
         current_endpoint="customer_search_page",
         app_version=APP_VERSION,
     )
+
+
+@app.route("/admin")
+@admin_required
+def admin_home():
+    return redirect(url_for("dashboard_legacy"))
+
+
+@app.route("/api/customers/quick-search")
+@login_required
+def customer_quick_search():
+    q = request.args.get("q", "").strip()
+    items = []
+    for row in customer_search_results(q, limit=12):
+        mobile = (row["mobile_phone"] or "").strip() if "mobile_phone" in row.keys() else ""
+        phone = (row["phone_phone"] or "").strip() if "phone_phone" in row.keys() else ""
+        items.append(
+            {
+                "id": row["_id"],
+                "name": customer_full_name(row),
+                "phone": mobile or phone,
+                "email": row["_mail"] or "",
+                "detail_url": url_for("customer_detail", customer_id=row["_id"]),
+                "new_appointment_url": url_for("appointments_hub", customer_id=row["_id"]),
+            }
+        )
+    return {"ok": True, "items": items}
 
 
 @app.route("/customers/birthdays")
@@ -2802,6 +3130,9 @@ def customer_inactive_page():
 @app.route("/customer/new", methods=["GET", "POST"])
 @login_required
 def customer_new():
+    if not is_admin_session():
+        flash("Neue Kunden legt Sven/Admin im Verwaltungsbereich an.")
+        return redirect(url_for("customer_search_page"))
     if request.method == "POST":
         db = get_db()
         phone_column = customer_personal_phone_column()
@@ -2889,7 +3220,7 @@ def customer_detail(customer_id):
             continue
 
     return render_template(
-        "customer_form.html",
+        "customer_detail_simple.html" if not is_admin_session() else "customer_form.html",
         customer=customer,
         appointments=appointments,
         logs=logs,
@@ -2900,6 +3231,7 @@ def customer_detail(customer_id):
         customer_status=customer_activity_status(appointments[0]["appointment_at"]) if appointments else "neu",
         current_endpoint="customer_detail",
         app_version=APP_VERSION,
+        simple_staff_members=staff_members_for_simple_mode(db),
     )
 
 
@@ -2987,9 +3319,9 @@ def appointment_new(customer_id):
     db.commit()
     notify_result = notify_other_staff_for_appointment(customer_id, payload["title"], appointment_at, payload["staff_name"], actor_name)
     flash_msg = "Termin wurde gespeichert."
-    if push_delivery_ready() and notify_result.get("sent", 0) > 0:
+    if push_delivery_ready() and notify_result.get("sent", 0) > 0 and is_admin_session():
         flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
-    elif not vapid_ready():
+    elif not vapid_ready() and is_admin_session():
         flash_msg += " Push ist noch nicht komplett aktiv - bitte VAPID-Keys in Render setzen."
     flash(flash_msg)
     return redirect(url_for("customer_detail", customer_id=customer_id))
@@ -3350,9 +3682,9 @@ def appointments_hub():
         flash_msg = "Termin wurde gespeichert."
         if not customer_id_raw.isdigit() and (manual_firstname or manual_lastname):
             flash_msg += " Manueller Kontakt wurde nicht in der Kundenliste gespeichert."
-        if push_delivery_ready() and notify_result.get("sent", 0) > 0:
+        if push_delivery_ready() and notify_result.get("sent", 0) > 0 and is_admin_session():
             flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
-        elif not vapid_ready():
+        elif not vapid_ready() and is_admin_session():
             flash_msg += " Push ist noch nicht komplett aktiv - bitte VAPID-Keys in Render setzen."
         flash(flash_msg)
         return redirect(url_for("appointments_hub"))
@@ -3370,6 +3702,7 @@ def appointments_hub():
     ).fetchall()
     today_rows = today_appointments(limit=50)
     active_staff = get_staff_members(db)
+    simple_staff_members = staff_members_for_simple_mode(db)
     default_staff = get_default_staff(db)
     today_split = {name: [] for name in active_staff}
     for row in today_rows:
@@ -3383,9 +3716,38 @@ def appointments_hub():
     if prefill_staff == "Alle":
         prefill_staff = DEFAULT_STAFF
     prefill_source = (request.args.get("source") or "manual").strip()
+    prefill_payload = {
+        "customer_id": (request.args.get("customer_id") or "").strip(),
+        "selected_services": "",
+        "service_summary": "",
+        "appointment_at": prefill_at,
+        "active_until": "",
+        "finish_at": "",
+        "staff_name": default_staff_for_simple_mode(db) if not is_admin_session() else prefill_staff,
+        "status": "geplant",
+        "reminder_hours": 24,
+        "notes": "",
+        "manual_firstname": "",
+        "manual_lastname": "",
+        "manual_phone": "",
+        "manual_email": "",
+        "duration_minutes": 30,
+        "processing_minutes": 0,
+    }
+    ping_token = (request.args.get("ping") or "").strip()
+    if ping_token:
+        ping = get_appointment_ping(ping_token, mark_used=True, db=db)
+        if ping:
+            prefill_payload.update(ping["payload"])
+            prefill_at = prefill_payload["appointment_at"] or prefill_at
+            prefill_staff = prefill_payload["staff_name"] or prefill_staff
+            prefill_source = "qr_ping"
+        else:
+            flash("QR-Ping nicht gefunden oder abgelaufen.")
 
+    template_name = "appointments_simple.html" if not is_admin_session() else "appointments.html"
     return render_template(
-        "appointments.html",
+        template_name,
         customers=customers,
         today_split=today_split,
         upcoming=next_appointments(limit=20),
@@ -3394,7 +3756,37 @@ def appointments_hub():
         prefill_at=prefill_at,
         prefill_staff=prefill_staff,
         prefill_source=prefill_source,
+        prefill_payload=prefill_payload,
         service_presets=SERVICE_PRESETS,
+        simple_staff_members=simple_staff_members,
+    )
+
+
+@app.route("/appointments/ping/<token>")
+@login_required
+def appointment_ping_open(token):
+    return redirect(url_for("appointments_hub", ping=(token or "").strip(), source="qr_ping"))
+
+
+@app.route("/api/appointments/ping", methods=["POST"])
+@login_required
+def appointment_ping_create():
+    db = get_db()
+    payload = request.get_json(silent=True) or {}
+    created_by = session.get("staff_name") or session.get("admin_username") or ""
+    ping = create_appointment_ping(payload, created_by=created_by, db=db)
+    db.commit()
+    link_url = url_for("appointment_ping_open", token=ping["token"], _external=True)
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=320x320&data={quote(link_url, safe='')}"
+    return jsonify(
+        {
+            "ok": True,
+            "token": ping["token"],
+            "url": link_url,
+            "qr_url": qr_url,
+            "expires_at": ping["expires_at"],
+            "payload": ping["payload"],
+        }
     )
 
 
@@ -3402,7 +3794,8 @@ def appointments_hub():
 @app.route("/calendar")
 @login_required
 def calendar_view():
-    view = (request.args.get("view") or "week").strip().lower()
+    default_view = "week" if is_admin_session() else "day"
+    view = (request.args.get("view") or default_view).strip().lower()
     if view not in {"day", "week", "month"}:
         view = "week"
 
@@ -3411,7 +3804,9 @@ def calendar_view():
     staff_options = get_staff_options(db)
     staff = (request.args.get("staff") or "Alle").strip()
     if staff not in staff_options:
-        staff = "Alle"
+        staff = "Alle" if is_admin_session() else default_staff_for_simple_mode(db)
+    if not is_admin_session() and staff == "Sven":
+        staff = default_staff_for_simple_mode(db)
 
     day_view = _build_day_view(selected_date, staff) if view == "day" else None
     week_view = _build_week_view(selected_date, staff) if view == "week" else None
@@ -3423,9 +3818,11 @@ def calendar_view():
         remaining_members = [name for name in members if name not in preferred_members]
         ordered_members = preferred_members + remaining_members
         split_day_views = {name: _build_day_view(selected_date, name) for name in ordered_members}
+    simple_day_items = appointments_for_day(selected_date, staff, db=db) if view == "day" else []
 
+    template_name = "calendar_simple.html" if not is_admin_session() else "calendar.html"
     return render_template(
-        "calendar.html",
+        template_name,
         view=view,
         staff=staff,
         selected_date=selected_date.isoformat(),
@@ -3436,8 +3833,10 @@ def calendar_view():
         week_view=week_view,
         month_view=month_view,
         split_day_views=split_day_views,
+        simple_day_items=simple_day_items,
         current_endpoint="calendar_view",
         app_version=APP_VERSION,
+        bookable_staff=simple_staff_members if (simple_staff_members := staff_members_for_simple_mode(db)) else get_staff_members(db),
     )
 
 
@@ -3725,7 +4124,7 @@ def push_ping():
 
 
 @app.route("/push")
-@login_required
+@admin_required
 def push_center():
     return render_template(
         "push.html",
@@ -3735,7 +4134,7 @@ def push_center():
 
 
 @app.route("/staff", methods=["GET", "POST"])
-@login_required
+@admin_required
 def staff_management():
     db = get_db()
     if request.method == "POST":
@@ -3849,7 +4248,7 @@ def templates_live_api():
 
 
 @app.route("/templates", methods=["GET", "POST"])
-@login_required
+@admin_required
 def templates_view():
     db = get_db()
     sync_default_mail_templates(db)
@@ -3874,7 +4273,7 @@ def templates_view():
 
 
 @app.route("/send-test/<int:customer_id>/<template_id>")
-@login_required
+@admin_required
 def send_test(customer_id, template_id):
     db = get_db()
     customer = db.execute("SELECT * FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
@@ -3899,7 +4298,7 @@ def send_test(customer_id, template_id):
 
 
 @app.route("/automation/run")
-@login_required
+@admin_required
 def run_automation_now():
     result = run_automation_if_due(force=True)
     flash(f"Automatiklauf wurde manuell ausgeführt. {result['summary']}")
@@ -3907,7 +4306,7 @@ def run_automation_now():
 
 
 @app.route("/export/customers.csv")
-@login_required
+@admin_required
 def export_customers():
     rows = get_db().execute("SELECT * FROM _Customers ORDER BY _name, _firstname").fetchall()
     output = io.StringIO()
@@ -3922,7 +4321,7 @@ def export_customers():
 
 
 @app.route("/import", methods=["GET", "POST"])
-@login_required
+@admin_required
 def import_customers():
     if request.method == "POST":
         file = request.files.get("csv_file")
@@ -3964,7 +4363,7 @@ def import_customers():
 
 
 @app.route("/logs")
-@login_required
+@admin_required
 def email_logs():
     logs = get_db().execute("SELECT * FROM email_log ORDER BY sent_at DESC LIMIT 200").fetchall()
     return render_template("logs.html", logs=logs, current_endpoint="email_logs")
@@ -4001,15 +4400,20 @@ def inject_globals():
     return {
         "admin_name": session.get("admin_name"),
         "logged_in_staff": session.get("staff_name") or get_default_staff(),
+        "is_admin": is_admin_session(),
+        "is_employee_mode": bool(session.get("admin_logged_in")) and not is_admin_session(),
         "login_options": default_login_options(),
         "customer_activity_status": customer_activity_status,
+        "customer_full_name": customer_full_name,
         "whatsapp_link": whatsapp_link,
         "phone_href": phone_href,
         "customer_phone": customer_phone,
         "row_value": _row_value,
         "app_version": APP_VERSION,
         "staff_members": get_staff_members(),
+        "simple_staff_members": staff_members_for_simple_mode(),
         "default_staff": get_default_staff(),
+        "simple_default_staff": default_staff_for_simple_mode(),
         "passkeys_ready": passkeys_ready(),
         "service_presets": SERVICE_PRESETS,
     }
@@ -4275,7 +4679,7 @@ def merge_database_from_upload(uploaded_file):
 
 
 @app.route("/database-tools", methods=["GET", "POST"])
-@login_required
+@admin_required
 def database_tools():
     db_info = inspect_sqlite_database(DB_PATH) if DB_PATH.exists() else None
     backup_files = sorted(BACKUP_DIR.glob("*.sqlite"), reverse=True)[:10]

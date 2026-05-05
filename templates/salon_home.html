@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block title %}Start - Salon Karola{% endblock %}
+{% block content %}
+<section class="simple-shell">
+  <section class="simple-home-hero">
+    <div>
+      <div class="simple-kicker">Salon Karola</div>
+      <h1 class="simple-title">Einfach arbeiten.</h1>
+      <p class="simple-subtitle">Heute sehen, Termin eintragen, Kunde kontaktieren und weiter geht's.</p>
+    </div>
+    <div class="simple-today-badge">{{ today_date }}</div>
+  </section>
+
+  <section class="simple-home-grid">
+    <a class="simple-home-card" href="{{ url_for('calendar_view', view='day', staff=own_staff) }}">
+      <span class="simple-home-label">Heutige Termine</span>
+      <strong>{{ own_appointments|length }}</strong>
+      <small>{{ own_staff }}</small>
+    </a>
+    <a class="simple-home-card" href="{{ url_for('appointments_hub', staff=own_staff) }}">
+      <span class="simple-home-label">Neuer Termin</span>
+      <strong>+</strong>
+      <small>Schnell anlegen</small>
+    </a>
+    <a class="simple-home-card" href="{{ url_for('customer_search_page') }}">
+      <span class="simple-home-label">Kunde suchen</span>
+      <strong>Kunden</strong>
+      <small>Name oder Nummer</small>
+    </a>
+    <a class="simple-home-card" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">
+      <span class="simple-home-label">Tagesuebersicht</span>
+      <strong>{{ all_appointments|length }}</strong>
+      <small>Alle Mitarbeiter</small>
+    </a>
+  </section>
+
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Heute</div>
+        <h2 class="simple-section-title">{{ own_staff }}</h2>
+      </div>
+      <a class="simple-inline-link" href="{{ url_for('calendar_view', view='day', staff=own_staff) }}">Ansehen</a>
+    </div>
+    <div class="simple-compact-list">
+      {% for item in own_appointments[:5] %}
+      <a class="simple-list-card" href="{{ item.detail_url }}">
+        <strong>{{ item.time_label }} - {{ item.customer_name }}</strong>
+        <span>{{ item.service_label }}</span>
+      </a>
+      {% else %}
+      <div class="simple-empty">Heute sind fuer {{ own_staff }} noch keine Termine eingetragen.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="simple-two-column">
+    <article class="simple-panel">
+      <div class="simple-panel-head">
+        <div>
+          <div class="simple-kicker">Mehr</div>
+          <h2 class="simple-section-title">Erinnerungen</h2>
+        </div>
+        <a class="simple-inline-link" href="{{ url_for('salon_reminders') }}">Alles</a>
+      </div>
+      <div class="simple-compact-list">
+        {% for item in reminder_items %}
+        <a class="simple-list-card" href="{{ url_for('customer_detail', customer_id=item['customer_id']) }}">
+          <strong>{{ item['appointment_at']|dt }}</strong>
+          <span>{{ item['_firstname'] }} {{ item['_name'] }}</span>
+        </a>
+        {% else %}
+        <div class="simple-empty">Heute gibt es keine offenen Erinnerungen.</div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="simple-panel">
+      <div class="simple-panel-head">
+        <div>
+          <div class="simple-kicker">Mehr</div>
+          <h2 class="simple-section-title">Geburtstage</h2>
+        </div>
+        <a class="simple-inline-link" href="{{ url_for('customer_birthdays_page') }}">Liste</a>
+      </div>
+      <div class="simple-compact-list">
+        {% for customer in birthday_items %}
+        <a class="simple-list-card" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">
+          <strong>{{ customer_full_name(customer) }}</strong>
+          <span>{{ customer['_birthdate']|birthday }}</span>
+        </a>
+        {% else %}
+        <div class="simple-empty">Keine Geburtstage in der naechsten Zeit.</div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  {% if is_admin %}
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Admin</div>
+        <h2 class="simple-section-title">Verwaltung</h2>
+      </div>
+    </div>
+    <div class="simple-admin-grid">
+      <a class="simple-admin-link" href="{{ url_for('admin_home') }}">Admin</a>
+      <a class="simple-admin-link" href="{{ url_for('push_center') }}">Push</a>
+      <a class="simple-admin-link" href="{{ url_for('templates_view') }}">Vorlagen</a>
+      <a class="simple-admin-link" href="{{ url_for('staff_management') }}">Mitarbeiter</a>
+      <a class="simple-admin-link" href="{{ url_for('database_tools') }}">Datenbank / Backup</a>
+      <a class="simple-admin-link" href="{{ url_for('import_customers') }}">Import</a>
+    </div>
+  </section>
+  {% endif %}
+</section>
+{% endblock %}
