@@ -797,6 +797,7 @@ ${body}`);
         if (event.key === 'Escape') {
           if (updatePrompt && !updatePrompt.hidden) return;
           closeMobileMenu();
+          closeDeviceStaffBar();
         }
       });
       window.addEventListener('resize', () => { if (window.innerWidth > 768) closeMobileMenu(); });
@@ -860,6 +861,12 @@ ${body}`);
         closeDeviceStaffBar();
         await refreshPushStatus();
         await syncExistingPushSubscriptionSilently();
+      });
+
+      window.addEventListener('pagehide', () => {
+        closeMobileMenu();
+        closeDeviceStaffBar();
+        document.body.classList.remove('mobile-menu-open');
       });
 
       document.addEventListener('visibilitychange', () => {
@@ -952,6 +959,11 @@ ${body}`);
       overlay.setAttribute('aria-hidden', 'true');
     }
     document.body.classList.remove('mobile-menu-open');
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    document.querySelectorAll('details[open]').forEach((el) => {
+      if (el.closest('#mainNavLinks')) el.removeAttribute('open');
+    });
   }
 
   window.skToggleMenu = function (event) {
@@ -983,6 +995,26 @@ ${body}`);
     if (close && typeof close.onclick !== 'function') close.onclick = window.skCloseMenu;
     if (overlay) overlay.addEventListener('click', window.skCloseMenu);
   });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') window.skCloseMenu(event);
+  });
+
+  document.addEventListener('submit', function (event) {
+    const form = event.target;
+    if (!form || String(form.method || '').toLowerCase() !== 'post') return;
+    if (form.dataset.submitting === '1') {
+      event.preventDefault();
+      return false;
+    }
+    form.dataset.submitting = '1';
+    form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((button) => {
+      button.dataset.originalText = button.textContent || button.value || '';
+      button.disabled = true;
+      if (button.tagName === 'BUTTON') button.textContent = 'Bitte warten...';
+      else button.value = 'Bitte warten...';
+    });
+  }, true);
 })();
 </script>
 

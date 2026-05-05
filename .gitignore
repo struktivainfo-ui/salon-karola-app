@@ -2,6 +2,8 @@ __pycache__/
 *.py[cod]
 *.sqlite
 *.db
+*.sqlite-journal
+*.db-journal
 *.backup
 .env
 backups/

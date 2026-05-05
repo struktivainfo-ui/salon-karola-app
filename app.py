@@ -117,7 +117,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-05-05-staff-app-ui-1"
+APP_VERSION = "Salon Karola App 2026-05-05-stability-1"
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 ADMIN_STAFF_NAMES = {"Sven"}
 PRIMARY_BOOKING_STAFF = ["Ute", "Jessi"]
@@ -148,6 +148,8 @@ def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if not session.get("admin_logged_in"):
+            if request.path.startswith("/api/"):
+                return jsonify({"ok": False, "error": "Bitte zuerst anmelden."}), 401
             return redirect(url_for("login", next=request.path))
         return view(*args, **kwargs)
     return wrapped
@@ -158,10 +160,26 @@ def admin_required(view):
     @login_required
     def wrapped(*args, **kwargs):
         if not is_admin_session():
+            if request.path.startswith("/api/"):
+                return jsonify({"ok": False, "error": "Dieser Bereich ist nur fuer Sven/Admin sichtbar."}), 403
             flash("Dieser Bereich ist nur fuer Sven/Admin sichtbar.")
             return redirect(url_for("salon_home"))
         return view(*args, **kwargs)
     return wrapped
+
+
+def safe_user_error():
+    return "Die Aktion konnte nicht ausgefuehrt werden. Bitte erneut versuchen oder Sven informieren."
+
+
+@app.errorhandler(404)
+def handle_not_found(exc):
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Der angefragte Bereich wurde nicht gefunden."}), 404
+    if session.get("admin_logged_in"):
+        flash("Diese Seite wurde nicht gefunden.")
+        return redirect(url_for("calendar_view"))
+    return redirect(url_for("login"))
 
 
 @app.errorhandler(500)
@@ -172,11 +190,11 @@ def handle_internal_server_error(exc):
         pass
 
     if request.path.startswith("/api/"):
-        return jsonify({"ok": False, "error": "Interner Serverfehler."}), 500
+        return jsonify({"ok": False, "error": safe_user_error()}), 500
 
     if session.get("admin_logged_in") and request.endpoint != "calendar_view":
         try:
-            flash("Die zuletzt geoeffnete Seite konnte nicht geladen werden. Wir haben den Kalender fuer dich geoeffnet.")
+            flash(safe_user_error())
         except Exception:
             pass
         return redirect(url_for("calendar_view"))
@@ -813,6 +831,13 @@ def init_db():
             fill_sql="UPDATE push_subscriptions SET provider = CASE WHEN lower(COALESCE(endpoint, '')) LIKE 'fcm:%' THEN 'fcm' ELSE 'webpush' END WHERE provider IS NULL OR provider = ''",
         )
         add_column_if_missing("staff_users", "staff_name", "TEXT DEFAULT ''", fill_sql="UPDATE staff_users SET staff_name = CASE lower(COALESCE(display_name, username, '')) WHEN 'ute' THEN 'Ute' WHEN 'jessi' THEN 'Jessi' WHEN 'sven' THEN 'Sven' ELSE COALESCE(staff_name, '') END")
+
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_appointments_at ON appointments(appointment_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_appointments_staff_at ON appointments(staff_name, appointment_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_appointments_customer_at ON appointments(customer_id, appointment_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_customers_name ON _Customers(_name, _firstname)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_customers_birthdate ON _Customers(_birthdate)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_push_staff ON push_subscriptions(staff_name)")
 
         ensure_manual_placeholder_customer(conn)
         conn.commit()
@@ -2611,6 +2636,25 @@ def appointments_for_day(selected_date, staff_name="Alle", limit=120, db=None):
     return items
 
 
+def appointment_duplicate_exists(customer_id, appointment_at, title, staff_name, *, manual_firstname="", manual_lastname="", manual_phone="", db=None):
+    conn = db or get_db()
+    row = conn.execute(
+        """
+        SELECT id FROM appointments
+        WHERE customer_id = ?
+          AND appointment_at = ?
+          AND COALESCE(title, '') = ?
+          AND COALESCE(staff_name, '') = ?
+          AND COALESCE(manual_firstname, '') = ?
+          AND COALESCE(manual_lastname, '') = ?
+          AND COALESCE(manual_phone, '') = ?
+        LIMIT 1
+        """,
+        (customer_id, appointment_at, title or "", staff_name or "", manual_firstname or "", manual_lastname or "", manual_phone or ""),
+    ).fetchone()
+    return bool(row)
+
+
 def customer_search_results(q="", limit=120, db=None):
     conn = db or get_db()
     q = (q or "").strip()
@@ -3299,6 +3343,13 @@ def appointment_new(customer_id):
     if not appointment_at or not _parse_dt_safe(appointment_at):
         flash("Bitte ein gueltiges Datum und eine Uhrzeit fuer den Termin angeben.")
         return redirect(url_for("customer_detail", customer_id=customer_id))
+    customer_row = db.execute("SELECT _id FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
+    if not customer_row:
+        flash("Der ausgewaehlte Kontakt wurde nicht gefunden.")
+        return redirect(url_for("customer_search_page"))
+    if appointment_duplicate_exists(customer_id, appointment_at, payload["title"], payload["staff_name"], db=db):
+        flash("Dieser Termin wurde bereits gespeichert.")
+        return redirect(url_for("customer_detail", customer_id=customer_id))
     db.execute(
         """
         INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at, service_codes, service_summary, duration_minutes, processing_minutes)
@@ -3322,7 +3373,11 @@ def appointment_new(customer_id):
         ),
     )
     db.commit()
-    notify_result = notify_other_staff_for_appointment(customer_id, payload["title"], appointment_at, payload["staff_name"], actor_name)
+    try:
+        notify_result = notify_other_staff_for_appointment(customer_id, payload["title"], appointment_at, payload["staff_name"], actor_name)
+    except Exception as exc:
+        app.logger.exception("Notify Fehler bei Terminanlage: %s", exc)
+        notify_result = {"sent": 0}
     flash_msg = "Termin wurde gespeichert."
     if push_delivery_ready() and notify_result.get("sent", 0) > 0 and is_admin_session():
         flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
@@ -3342,8 +3397,8 @@ def appointment_edit(appointment_id):
         return redirect(url_for("index"))
 
     appointment_at = request.form.get("appointment_at", "").strip()
-    if not appointment_at:
-        flash("Bitte ein Datum und eine Uhrzeit fuer den Termin angeben.")
+    if not appointment_at or not _parse_dt_safe(appointment_at):
+        flash("Bitte ein gueltiges Datum und eine Uhrzeit fuer den Termin angeben.")
         return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
 
     payload = appointment_payload_from_form(request.form, db=db)
@@ -3392,7 +3447,10 @@ def appointment_delete(appointment_id):
 @login_required
 def appointment_update_status(appointment_id):
     db = get_db()
+    allowed_status = {"geplant", "erledigt", "abgesagt", "verschoben", "no_show"}
     status = (request.form.get("status") or "geplant").strip()
+    if status not in allowed_status:
+        status = "geplant"
     row = db.execute("SELECT customer_id FROM appointments WHERE id = ?", (appointment_id,)).fetchone()
     if not row:
         flash("Termin nicht gefunden.")
@@ -3645,6 +3703,19 @@ def appointments_hub():
             manual_placeholder_customer_id = ensure_manual_placeholder_customer(db)
             customer_id = manual_placeholder_customer_id
 
+        if appointment_duplicate_exists(
+            customer_id,
+            appointment_at,
+            payload["title"],
+            payload["staff_name"],
+            manual_firstname=manual_firstname,
+            manual_lastname=manual_lastname,
+            manual_phone=manual_phone,
+            db=db,
+        ):
+            flash("Dieser Termin wurde bereits gespeichert.")
+            return redirect(url_for("appointments_hub"))
+
         db.execute(
             """
             INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at, manual_firstname, manual_lastname, manual_phone, manual_email, service_codes, service_summary, duration_minutes, processing_minutes)
@@ -3888,13 +3959,13 @@ def appointments_feed():
             "created_by": row["created_by"] or (row["staff_name"] or DEFAULT_STAFF),
         })
 
-    return {"items": items, "server_time": datetime.now().isoformat(timespec="seconds")}
+    return {"ok": True, "items": items, "server_time": datetime.now().isoformat(timespec="seconds")}
 
 
 @app.route("/api/push/public-key")
 @login_required
 def push_public_key():
-    return {"public_key": vapid_public_key(), "enabled": vapid_ready(), "native_enabled": fcm_ready(), "delivery_enabled": push_delivery_ready(), "format": "base64url", "generated": bool(_get_app_setting("push:vapid_generated_at", ""))}
+    return {"ok": True, "public_key": vapid_public_key(), "enabled": vapid_ready(), "native_enabled": fcm_ready(), "delivery_enabled": push_delivery_ready(), "format": "base64url", "generated": bool(_get_app_setting("push:vapid_generated_at", ""))}
 
 
 @app.route("/api/push/status")
@@ -3914,11 +3985,11 @@ def push_status():
         count = int(row["cnt"] or 0) if row else 0
     except Exception:
         count = 0
-    return {"enabled": enabled, "staff_name": staff_name, "subscriptions": count}
+    return {"ok": True, "enabled": enabled, "staff_name": staff_name, "subscriptions": count}
 
 
 @app.route("/api/push/overview")
-@login_required
+@admin_required
 def push_overview():
     db = get_db()
     total_devices = 0
@@ -3946,7 +4017,7 @@ def push_overview():
 
 
 @app.route("/api/push/devices")
-@login_required
+@admin_required
 def push_devices():
     db = get_db()
     active_staff = get_staff_members(db)
@@ -3957,7 +4028,7 @@ def push_devices():
 
 
 @app.route("/api/push/device/<int:subscription_id>/test")
-@login_required
+@admin_required
 def push_test_device(subscription_id):
     row = get_db().execute("SELECT * FROM push_subscriptions WHERE id = ?", (subscription_id,)).fetchone()
     if not row:
@@ -3974,7 +4045,7 @@ def push_test_device(subscription_id):
 
 
 @app.route("/api/push/device/<int:subscription_id>", methods=["DELETE"])
-@login_required
+@admin_required
 def push_delete_device(subscription_id):
     db = get_db()
     db.execute("DELETE FROM push_subscriptions WHERE id = ?", (subscription_id,))
@@ -4243,7 +4314,7 @@ def whatsapp_hub():
 
 @app.route("/api/templates/live")
 @app.route("/api/templates/live")
-@login_required
+@admin_required
 def templates_live_api():
     db = get_db()
     sync_default_mail_templates(db)
@@ -4720,7 +4791,7 @@ def database_tools():
 
 
 @app.route("/database/export")
-@login_required
+@admin_required
 def export_database():
     init_db()
     if not DB_PATH.exists():
@@ -4730,7 +4801,7 @@ def export_database():
 
 
 @app.route("/database/backup-zip")
-@login_required
+@admin_required
 def export_database_zip():
     init_db()
     if not DB_PATH.exists():
@@ -4744,7 +4815,7 @@ def export_database_zip():
 
 
 @app.route("/database/backup/<path:filename>")
-@login_required
+@admin_required
 def download_backup(filename):
     file_path = (BACKUP_DIR / filename).resolve()
     backup_root = BACKUP_DIR.resolve()

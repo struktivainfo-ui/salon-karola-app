@@ -7191,3 +7191,34 @@ body {
     top: 82px;
   }
 }
+
+/* Stability hardening for mobile overlays and touch targets */
+body.mobile-menu-open {
+  overflow: hidden;
+  touch-action: none;
+}
+
+.menu-overlay.active {
+  z-index: 70;
+  pointer-events: auto;
+}
+
+.nav-links.mobile-open {
+  z-index: 90;
+  pointer-events: auto;
+}
+
+.menu-close.visible {
+  z-index: 100;
+  pointer-events: auto;
+}
+
+.app-update-prompt.visible {
+  z-index: 120;
+}
+
+button:disabled,
+input[type="submit"]:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
