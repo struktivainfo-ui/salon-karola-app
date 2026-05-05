@@ -1,7 +1,8 @@
 {
   "name": "Salon Karola CRM",
   "short_name": "Salon Karola",
-  "start_url": "/?v=final-fix-2-live-template-sync-2026-04-07",
+  "start_url": "/login",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f0f0f",
   "theme_color": "#0f0f0f",
@@ -16,6 +17,12 @@
       "src": "/static/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

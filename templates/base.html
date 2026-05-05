@@ -98,6 +98,10 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+  <div id="appRuntimeErrorBanner" class="flash" hidden aria-live="assertive">
+    Die App konnte einen Bereich nicht laden. Bitte App schliessen und erneut oeffnen.
+    <button type="button" id="appRuntimeRetryButton" class="premium-button secondary">Erneut versuchen</button>
+  </div>
   {% if session.get('admin_logged_in') %}
   <nav class="mobile-app-dock" aria-label="Schnellnavigation">
     {% if is_staff_world %}
@@ -121,8 +125,157 @@
     </div>
   </div>
   {% endif %}
-    <script>
+  <script>
     (function () {
+      if (window.__skGlobalSafetyInstalled) return;
+      window.__skGlobalSafetyInstalled = true;
+
+      const diagnostics = {
+        appVersion: {{ app_version|tojson }},
+        route: window.location.pathname + window.location.search,
+        swStatus: "nicht geprueft",
+        pushStatus: "nicht geprueft",
+        userAgent: navigator.userAgent || "",
+        lastErrors: [],
+        lastApiErrors: [],
+      };
+      const isDebugAllowed = {{ 'true' if is_admin else 'false' }};
+      const debugRequested = isDebugAllowed && /(?:\?|&)debug=1(?:&|$)/.test(window.location.search);
+
+      function limitList(list, value) {
+        if (!value) return;
+        list.unshift(String(value));
+        if (list.length > 6) list.length = 6;
+      }
+
+      function renderDebugPanel() {
+        if (!debugRequested) return;
+        const panel = document.getElementById("skDebugPanel");
+        if (!panel) return;
+        const pre = panel.querySelector("pre");
+        if (!pre) return;
+        pre.textContent = JSON.stringify({
+          version: diagnostics.appVersion,
+          route: diagnostics.route,
+          serviceWorker: diagnostics.swStatus,
+          push: diagnostics.pushStatus,
+          apiErrors: diagnostics.lastApiErrors,
+          jsErrors: diagnostics.lastErrors,
+          userAgent: diagnostics.userAgent,
+        }, null, 2);
+      }
+
+      function reportError(source, errorLike) {
+        const message = `[${source}] ${errorLike && errorLike.message ? errorLike.message : String(errorLike || "Unbekannter Fehler")}`;
+        limitList(diagnostics.lastErrors, message);
+        try { window.console.error("Salon Karola App:", source, errorLike); } catch (error) {}
+        try { localStorage.setItem("sk_last_runtime_errors", JSON.stringify(diagnostics.lastErrors)); } catch (error) {}
+        if (window.location.pathname !== "/login") {
+          const banner = document.getElementById("appRuntimeErrorBanner");
+          if (banner) banner.hidden = false;
+        }
+        renderDebugPanel();
+      }
+
+      function rememberApiError(label, detail) {
+        limitList(diagnostics.lastApiErrors, `${label}: ${detail || "Fehler"}`);
+        try { localStorage.setItem("sk_last_api_errors", JSON.stringify(diagnostics.lastApiErrors)); } catch (error) {}
+        renderDebugPanel();
+      }
+
+      function storageRef(kind) {
+        try {
+          if (kind === "session" && "sessionStorage" in window) return window.sessionStorage;
+          if (kind === "local" && "localStorage" in window) return window.localStorage;
+        } catch (error) {}
+        return null;
+      }
+
+      function safeStorageGet(kind, key, fallback = "") {
+        try {
+          const ref = storageRef(kind);
+          if (!ref) return fallback;
+          const value = ref.getItem(key);
+          return value == null ? fallback : value;
+        } catch (error) {
+          reportError(`${kind}Storage.getItem(${key})`, error);
+          return fallback;
+        }
+      }
+
+      function safeStorageSet(kind, key, value) {
+        try {
+          const ref = storageRef(kind);
+          if (!ref) return false;
+          ref.setItem(key, value);
+          return true;
+        } catch (error) {
+          reportError(`${kind}Storage.setItem(${key})`, error);
+          return false;
+        }
+      }
+
+      function setDebugValue(key, value) {
+        diagnostics[key] = value;
+        renderDebugPanel();
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        const retryButton = document.getElementById("appRuntimeRetryButton");
+        if (retryButton) retryButton.addEventListener("click", () => window.location.reload());
+        if (!debugRequested) return;
+        const panel = document.createElement("section");
+        panel.id = "skDebugPanel";
+        panel.style.position = "fixed";
+        panel.style.left = "12px";
+        panel.style.right = "12px";
+        panel.style.bottom = "12px";
+        panel.style.zIndex = "9999";
+        panel.style.maxHeight = "40vh";
+        panel.style.overflow = "auto";
+        panel.style.padding = "12px";
+        panel.style.borderRadius = "16px";
+        panel.style.background = "rgba(15, 15, 15, 0.92)";
+        panel.style.color = "#fff";
+        panel.style.fontSize = "12px";
+        panel.style.boxShadow = "0 12px 40px rgba(0,0,0,0.35)";
+        panel.innerHTML = '<strong style="display:block;margin-bottom:8px;">Debug-Modus</strong><pre style="white-space:pre-wrap;margin:0;"></pre>';
+        document.body.appendChild(panel);
+        renderDebugPanel();
+      });
+
+      window.addEventListener("error", (event) => {
+        reportError("window.onerror", event.error || event.message || "Unbekannter Fehler");
+      });
+
+      window.addEventListener("unhandledrejection", (event) => {
+        reportError("unhandledrejection", event.reason || "Unbekannte Promise-Ablehnung");
+      });
+
+      window.skAppBoot = {
+        reportError,
+        rememberApiError,
+        safeLocalStorageGet: (key, fallback) => safeStorageGet("local", key, fallback),
+        safeLocalStorageSet: (key, value) => safeStorageSet("local", key, value),
+        safeSessionStorageGet: (key, fallback) => safeStorageGet("session", key, fallback),
+        safeSessionStorageSet: (key, value) => safeStorageSet("session", key, value),
+        canUseServiceWorker: () => !!(window.isSecureContext && navigator && "serviceWorker" in navigator),
+        canUseNotifications: () => typeof window.Notification !== "undefined" && typeof Notification.requestPermission === "function",
+        canUsePushManager: () => typeof window.PushManager !== "undefined",
+        setDebugValue,
+      };
+    })();
+  </script>
+  <script>
+    (function () {
+      const boot = window.skAppBoot || {};
+      const reportError = typeof boot.reportError === "function" ? boot.reportError : function () {};
+      const rememberApiError = typeof boot.rememberApiError === "function" ? boot.rememberApiError : function () {};
+      const safeLocalStorageGet = typeof boot.safeLocalStorageGet === "function" ? boot.safeLocalStorageGet : function (_key, fallback) { return fallback || ""; };
+      const safeLocalStorageSet = typeof boot.safeLocalStorageSet === "function" ? boot.safeLocalStorageSet : function () { return false; };
+      const safeSessionStorageGet = typeof boot.safeSessionStorageGet === "function" ? boot.safeSessionStorageGet : function (_key, fallback) { return fallback || ""; };
+      const safeSessionStorageSet = typeof boot.safeSessionStorageSet === "function" ? boot.safeSessionStorageSet : function () { return false; };
+      const setDebugValue = typeof boot.setDebugValue === "function" ? boot.setDebugValue : function () {};
       const isLoggedIn = {{ 'true' if session.get('admin_logged_in') else 'false' }};
       if (!isLoggedIn) return;
 
@@ -149,15 +302,21 @@
       const updatePrompt = document.getElementById("appUpdatePrompt");
       const updatePromptText = document.getElementById("appUpdateText");
       const updatePromptButton = document.getElementById("appUpdateButton");
-      const isMobileView = () => window.matchMedia("(max-width: 768px)").matches;
+      const isMobileView = () => (typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 768px)").matches : (window.innerWidth || 1024) <= 768);
       const loggedInStaff = {{ logged_in_staff|tojson }};
       const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};
       const capacitorBridge = window.Capacitor || null;
-      const nativePushPlugin = capacitorBridge && typeof capacitorBridge.isNativePlatform === "function" && capacitorBridge.isNativePlatform() && capacitorBridge.Plugins ? capacitorBridge.Plugins.PushNotifications : null;
-      const isNativeApp = !!nativePushPlugin;
+      const isNativePlatform = !!(capacitorBridge && typeof capacitorBridge.isNativePlatform === "function" && capacitorBridge.isNativePlatform());
+      const nativePushPlugin = isNativePlatform && capacitorBridge && capacitorBridge.Plugins ? capacitorBridge.Plugins.PushNotifications : null;
+      const isNativeApp = isNativePlatform;
       let nativePushListenersBound = false;
       let nativePushPending = null;
       let pendingUpdateRegistration = null;
+      let swControllerListenerBound = false;
+
+      setDebugValue("route", window.location.pathname + window.location.search);
+      setDebugValue("swStatus", isNativeApp ? "deaktiviert (native Android-App)" : "nicht initialisiert");
+      setDebugValue("pushStatus", isNativeApp ? "optional / nativer Push" : "nicht initialisiert");
 
       function setPushPanelOpen(open) {
         if (!navPushGroup || !navPushPanel || !navPushToggle) return;
@@ -174,11 +333,11 @@
       }
 
       function currentStaff() {
-        return (loggedInStaff || localStorage.getItem(STORAGE_KEY_STAFF) || {{ default_staff|tojson }}).trim() || loggedInStaff || {{ default_staff|tojson }};
+        return (loggedInStaff || safeLocalStorageGet(STORAGE_KEY_STAFF, "") || {{ default_staff|tojson }}).trim() || loggedInStaff || {{ default_staff|tojson }};
       }
 
       function currentPushTarget() {
-        const storedTarget = (localStorage.getItem(STORAGE_KEY_PUSH_TARGET) || "").trim();
+        const storedTarget = (safeLocalStorageGet(STORAGE_KEY_PUSH_TARGET, "") || "").trim();
         if (!storedTarget) return currentStaff();
         return allowedTargets.includes(storedTarget) ? storedTarget : currentStaff();
       }
@@ -190,13 +349,13 @@
       }
 
       function currentDeviceName() {
-        return (localStorage.getItem(STORAGE_KEY_DEVICE_NAME) || deviceNameFallback()).trim().slice(0, 80);
+        return (safeLocalStorageGet(STORAGE_KEY_DEVICE_NAME, "") || deviceNameFallback()).trim().slice(0, 80);
       }
 
       function persistDeviceName() {
         if (!deviceNameInput) return currentDeviceName();
         const value = (deviceNameInput.value || "").trim().slice(0, 80) || deviceNameFallback();
-        localStorage.setItem(STORAGE_KEY_DEVICE_NAME, value);
+        safeLocalStorageSet(STORAGE_KEY_DEVICE_NAME, value);
         return value;
       }
 
@@ -217,14 +376,15 @@
         if (pushStatusLabel) pushStatusLabel.textContent = `${currentStaff()} · ${currentDeviceName()}`;
         if (pushTargetSelect && document.activeElement !== pushTargetSelect) pushTargetSelect.value = currentPushTarget();
         if (deviceNameInput && document.activeElement !== deviceNameInput) deviceNameInput.value = currentDeviceName();
+        setDebugValue("pushStatus", text);
       }
 
       function persistSeenAppVersion(versionValue = APP_VERSION) {
-        try { localStorage.setItem(STORAGE_KEY_APP_VERSION, versionValue); } catch (e) {}
+        safeLocalStorageSet(STORAGE_KEY_APP_VERSION, versionValue);
       }
 
       function getSeenAppVersion() {
-        try { return (localStorage.getItem(STORAGE_KEY_APP_VERSION) || "").trim(); } catch (e) { return ""; }
+        return (safeLocalStorageGet(STORAGE_KEY_APP_VERSION, "") || "").trim();
       }
 
       function showUpdatePrompt(message, registration = null) {
@@ -244,7 +404,7 @@
         }
         try {
           persistSeenAppVersion(APP_VERSION);
-          const registration = pendingUpdateRegistration || (!isNativeApp && "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : null);
+          const registration = pendingUpdateRegistration || (!isNativeApp && boot.canUseServiceWorker && boot.canUseServiceWorker() ? await navigator.serviceWorker.getRegistration() : null);
           if (registration) {
             try { await registration.update(); } catch (e) {}
             if (registration.waiting) {
@@ -264,11 +424,13 @@
       }
 
       function watchServiceWorker(registration) {
-        if (!registration || isNativeApp || !("serviceWorker" in navigator)) return;
+        if (!registration || isNativeApp || !(boot.canUseServiceWorker && boot.canUseServiceWorker())) return;
+        setDebugValue("swStatus", "registriert");
 
         const promptForWaitingWorker = () => {
           if (!navigator.serviceWorker.controller) return;
           pendingUpdateRegistration = registration;
+          setDebugValue("swStatus", "Update wartet");
           showUpdatePrompt("Es steht eine neue Version zur Verf\u00fcgung. Bitte jetzt aktualisieren.", registration);
         };
 
@@ -289,13 +451,16 @@
       }
 
       async function checkForAppUpdate() {
-        if (isNativeApp || !("serviceWorker" in navigator)) return;
+        if (isNativeApp || !(boot.canUseServiceWorker && boot.canUseServiceWorker())) return;
         try {
           const registration = await navigator.serviceWorker.getRegistration();
           if (!registration) return;
           await registration.update();
           watchServiceWorker(registration);
-        } catch (e) {}
+        } catch (e) {
+          reportError("checkForAppUpdate", e);
+          setDebugValue("swStatus", "Update-Pruefung fehlgeschlagen");
+        }
       }
 
       function flagVersionChangeForReload() {
@@ -369,16 +534,39 @@
       });
 
       async function registerServiceWorker() {
-        if (isNativeApp) return null;
-        if (!("serviceWorker" in navigator)) return null;
-        const registration = await navigator.serviceWorker.register("/service-worker.js", { updateViaCache: "none" });
-        try { await registration.update(); } catch (e) {}
-        return registration;
+        if (isNativeApp) {
+          setDebugValue("swStatus", "deaktiviert (native Android-App)");
+          return null;
+        }
+        if (!(boot.canUseServiceWorker && boot.canUseServiceWorker())) {
+          setDebugValue("swStatus", "nicht verfuegbar");
+          return null;
+        }
+        try {
+          const registration = await navigator.serviceWorker.register("/service-worker.js", { updateViaCache: "none" });
+          try { await registration.update(); } catch (e) {}
+          setDebugValue("swStatus", "registriert");
+          return registration;
+        } catch (error) {
+          reportError("registerServiceWorker", error);
+          setDebugValue("swStatus", "Registrierung fehlgeschlagen");
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister().catch(() => false)));
+            setDebugValue("swStatus", "fehlerhafte Registrierung entfernt");
+          } catch (cleanupError) {
+            reportError("cleanupServiceWorker", cleanupError);
+          }
+          return null;
+        }
       }
 
       async function fetchPushConfig() {
         const res = await fetch("/api/push/public-key", { cache: "no-store", credentials: "same-origin" });
-        if (!res.ok) throw new Error("Push-Konfiguration konnte nicht geladen werden.");
+        if (!res.ok) {
+          rememberApiError("/api/push/public-key", `HTTP ${res.status}`);
+          throw new Error("Push-Konfiguration konnte nicht geladen werden.");
+        }
         return res.json();
       }
 
@@ -389,9 +577,13 @@
 
       async function resetBrowserPushSubscription() {
         if (isNativeApp) return false;
-        if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+        if (!(boot.canUseServiceWorker && boot.canUseServiceWorker()) || !(boot.canUsePushManager && boot.canUsePushManager())) return false;
         try {
-          const registration = await navigator.serviceWorker.ready;
+          const registration = await registerServiceWorker();
+          if (!registration) {
+            setPushUi('Service Worker ist auf diesem Geraet deaktiviert oder fehlerhaft.');
+            return;
+          }
           const existing = await registration.pushManager.getSubscription();
           if (!existing) return false;
           const payload = (typeof existing.toJSON === "function") ? existing.toJSON() : JSON.parse(JSON.stringify(existing || {}));
@@ -434,6 +626,7 @@
           }),
         });
         const data = await res.json().catch(() => ({}));
+        if (!res.ok) rememberApiError("/api/push/native-subscribe", `HTTP ${res.status}`);
         if (!res.ok || data.ok === false) throw new Error(data.error || 'Android-Push konnte nicht gespeichert werden.');
         return data;
       }
@@ -517,6 +710,7 @@ ${body}`);
         });
         await nativePushPlugin.register();
         await registrationPromise;
+        setDebugValue("pushStatus", "nativer Push registriert");
         if (showMessage) {
           alert(`Push ist für ${currentStaff()} aktiv.`);
           setTimeout(() => { closeAppMenuAfterPush(); closeDeviceStaffBar(); }, 150);
@@ -525,7 +719,7 @@ ${body}`);
       }
 
       async function registerBrowserPush(showMessage = true) {
-        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+        if (!(boot.canUseServiceWorker && boot.canUseServiceWorker()) || !(boot.canUsePushManager && boot.canUsePushManager()) || !(boot.canUseNotifications && boot.canUseNotifications())) {
           setPushUi('Dieser Browser unterstützt keine Hintergrund-Pushs.');
           if (showMessage) alert('Dieser Browser unterstützt keine Hintergrund-Pushs.');
           return false;
@@ -545,8 +739,11 @@ ${body}`);
           return false;
         }
         await resetBrowserPushSubscription();
-        await registerServiceWorker();
-        const registration = await navigator.serviceWorker.ready;
+        const registration = await registerServiceWorker();
+        if (!registration) {
+          setPushUi('Service Worker konnte nicht gestartet werden.');
+          return false;
+        }
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: vapidKeyToUint8Array(config.public_key),
@@ -563,6 +760,7 @@ ${body}`);
           }),
         });
         const saveData = await saveRes.json().catch(() => null);
+        if (!saveRes.ok) rememberApiError("/api/push/subscribe", `HTTP ${saveRes.status}`);
         if (!saveRes.ok || !saveData || saveData.ok === false) {
           const backendError = (saveData && (saveData.error || saveData.message)) || 'Push-Abo konnte nicht gespeichert werden.';
           setPushUi(backendError);
@@ -570,6 +768,7 @@ ${body}`);
         }
         const pingRes = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(currentStaff())}`, { cache: 'no-store', credentials: 'same-origin' });
         const pingData = await pingRes.json().catch(() => null);
+        if (!pingRes.ok) rememberApiError("/api/push/ping", `HTTP ${pingRes.status}`);
         const sentCount = pingData && pingData.result ? Number(pingData.result.sent || 0) : 0;
         const deviceCount = pingData && typeof pingData.device_count !== 'undefined' ? Number(pingData.device_count || 0) : 0;
         const errors = (pingData && pingData.result && pingData.result.errors) || [];
@@ -609,13 +808,13 @@ ${body}`);
           }
           return false;
         }
-        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return false;
+        if (!(boot.canUseServiceWorker && boot.canUseServiceWorker()) || !(boot.canUsePushManager && boot.canUsePushManager()) || !(boot.canUseNotifications && boot.canUseNotifications())) return false;
         if (Notification.permission !== 'granted') return false;
         try {
           const config = await fetchPushConfig();
           if (!config.enabled || !config.public_key) return false;
-          await registerServiceWorker();
-          const registration = await navigator.serviceWorker.ready;
+          const registration = await registerServiceWorker();
+          if (!registration) return false;
           let subscription = await registration.pushManager.getSubscription();
           if (!subscription) {
             subscription = await registration.pushManager.subscribe({
@@ -634,8 +833,10 @@ ${body}`);
               subscription: subscriptionPayload,
             }),
           });
+          if (!saveRes.ok) rememberApiError("/api/push/subscribe", `HTTP ${saveRes.status}`);
           return saveRes.ok;
         } catch (error) {
+          reportError("syncExistingPushSubscriptionSilently", error);
           return false;
         }
       }
@@ -643,7 +844,8 @@ ${body}`);
       async function triggerPushTest(showMessage = true) {
         const staff = currentPushTarget();
         const res = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staff)}`, { cache: 'no-store', credentials: 'same-origin' });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) rememberApiError("/api/push/ping", `HTTP ${res.status}`);
         const sent = (data.result && data.result.sent) || 0;
         const deviceCount = Number(data.device_count || 0);
         const errors = (data.result && data.result.errors) || [];
@@ -683,7 +885,7 @@ ${body}`);
             return;
           }
         }
-        if (!("Notification" in window)) {
+        if (!(boot.canUseNotifications && boot.canUseNotifications())) {
           setPushUi('Dieser Browser unterstützt keine Push-Benachrichtigungen.');
           return;
         }
@@ -693,7 +895,11 @@ ${body}`);
             setPushUi('Push ist serverseitig noch nicht vollständig eingerichtet.');
             return;
           }
-          const registration = await navigator.serviceWorker.ready;
+          const registration = await registerServiceWorker();
+          if (!registration) {
+            setPushUi('Service Worker ist auf diesem Geraet deaktiviert oder fehlerhaft.');
+            return;
+          }
           const subscription = await registration.pushManager.getSubscription();
           if (Notification.permission === 'granted' && subscription) {
             setPushUi(`Push ist für ${currentStaff()} aktiv.`, 'active');
@@ -739,8 +945,8 @@ ${body}`);
       if (staffSelect) {
         staffSelect.value = currentStaff();
         staffSelect.addEventListener('change', async () => {
-          localStorage.setItem(STORAGE_KEY_STAFF, staffSelect.value);
-          localStorage.setItem(STORAGE_KEY_PUSH_TARGET, staffSelect.value);
+          safeLocalStorageSet(STORAGE_KEY_STAFF, staffSelect.value);
+          safeLocalStorageSet(STORAGE_KEY_PUSH_TARGET, staffSelect.value);
           if (pushTargetSelect) pushTargetSelect.value = staffSelect.value;
           await refreshPushStatus();
           await syncExistingPushSubscriptionSilently();
@@ -749,10 +955,10 @@ ${body}`);
 
       if (pushTargetSelect) {
         pushTargetSelect.value = currentPushTarget();
-        if (!localStorage.getItem(STORAGE_KEY_PUSH_TARGET)) localStorage.setItem(STORAGE_KEY_PUSH_TARGET, pushTargetSelect.value || {{ default_staff|tojson }});
+        if (!safeLocalStorageGet(STORAGE_KEY_PUSH_TARGET, "")) safeLocalStorageSet(STORAGE_KEY_PUSH_TARGET, pushTargetSelect.value || {{ default_staff|tojson }});
         pushTargetSelect.addEventListener('change', () => {
           const nextTarget = allowedTargets.includes(pushTargetSelect.value) ? pushTargetSelect.value : {{ default_staff|tojson }};
-          localStorage.setItem(STORAGE_KEY_PUSH_TARGET, nextTarget);
+          safeLocalStorageSet(STORAGE_KEY_PUSH_TARGET, nextTarget);
           pushTargetSelect.value = nextTarget;
           setPushUi(`Push-Ziel: ${nextTarget}`);
         });
@@ -842,13 +1048,11 @@ ${body}`);
         const splash = document.getElementById('startupSplash');
         if (!splash) return;
         const splashKey = 'sk_startup_splash_seen';
-        try {
-          if (window.sessionStorage.getItem(splashKey) === '1') {
-            splash.remove();
-            return;
-          }
-          window.sessionStorage.setItem(splashKey, '1');
-        } catch (error) {}
+        if (safeSessionStorageGet(splashKey, '') === '1') {
+          splash.remove();
+          return;
+        }
+        safeSessionStorageSet(splashKey, '1');
         splash.classList.add('visible');
         playStartupSound();
         window.setTimeout(hideStartupSplash, 2200);
@@ -857,15 +1061,16 @@ ${body}`);
       window.addEventListener('load', async () => {
         try {
           if (loggedInStaff) {
-            localStorage.setItem(STORAGE_KEY_STAFF, loggedInStaff);
-            localStorage.setItem(STORAGE_KEY_PUSH_TARGET, loggedInStaff);
+            safeLocalStorageSet(STORAGE_KEY_STAFF, loggedInStaff);
+            safeLocalStorageSet(STORAGE_KEY_PUSH_TARGET, loggedInStaff);
           }
         } catch (e) {}
         flagVersionChangeForReload();
         try {
           const registration = await registerServiceWorker();
           watchServiceWorker(registration);
-          if (!isNativeApp && navigator.serviceWorker) {
+          if (!isNativeApp && navigator.serviceWorker && !swControllerListenerBound) {
+            swControllerListenerBound = true;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
               if (!window.__skReloaded) {
                 persistSeenAppVersion(APP_VERSION);
@@ -874,12 +1079,16 @@ ${body}`);
               }
             });
           }
-        } catch (e) {}
+        } catch (e) {
+          reportError("load.serviceWorker", e);
+        }
         runStartupSplash();
         closeMobileMenu();
         closeDeviceStaffBar();
-        await refreshPushStatus();
-        await syncExistingPushSubscriptionSilently();
+        window.setTimeout(() => {
+          refreshPushStatus().catch((error) => reportError("refreshPushStatus", error));
+          syncExistingPushSubscriptionSilently().catch((error) => reportError("syncExistingPushSubscriptionSilently", error));
+        }, 450);
       });
 
       window.addEventListener('pagehide', () => {
@@ -890,16 +1099,16 @@ ${body}`);
 
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
-          refreshPushStatus();
-          syncExistingPushSubscriptionSilently();
-          checkForAppUpdate();
+          refreshPushStatus().catch((error) => reportError("visibility.refreshPushStatus", error));
+          syncExistingPushSubscriptionSilently().catch((error) => reportError("visibility.syncPush", error));
+          checkForAppUpdate().catch((error) => reportError("visibility.checkForAppUpdate", error));
         }
       });
 
       window.addEventListener('focus', () => {
-        refreshPushStatus();
-        syncExistingPushSubscriptionSilently();
-        checkForAppUpdate();
+        refreshPushStatus().catch((error) => reportError("focus.refreshPushStatus", error));
+        syncExistingPushSubscriptionSilently().catch((error) => reportError("focus.syncPush", error));
+        checkForAppUpdate().catch((error) => reportError("focus.checkForAppUpdate", error));
       });
 
       let lastScrollY = window.scrollY || 0;

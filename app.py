@@ -2732,7 +2732,15 @@ def manifest():
 @app.route("/service-worker.js")
 def service_worker():
     service_worker_path = Path(app.static_folder) / "service-worker.js"
-    content = service_worker_path.read_text(encoding="utf-8").replace("__APP_VERSION__", APP_VERSION)
+    try:
+        content = service_worker_path.read_text(encoding="utf-8").replace("__APP_VERSION__", APP_VERSION)
+    except Exception:
+        app.logger.exception("Service Worker konnte nicht geladen werden.")
+        content = """const CACHE_NAME = 'salon-karola-fallback';
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', () => {});
+"""
     response = Response(content, mimetype="application/javascript")
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"

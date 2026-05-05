@@ -264,7 +264,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  const deviceStaff = localStorage.getItem("sk_device_staff") || {{ default_staff|tojson }};
+  let deviceStaff = {{ default_staff|tojson }};
+  try { deviceStaff = localStorage.getItem("sk_device_staff") || {{ default_staff|tojson }}; } catch (error) {}
   document.querySelectorAll(".actor-name-field").forEach((field) => field.value = deviceStaff);
   const newStaff = document.getElementById("newAppointmentStaff");
   if (newStaff) {

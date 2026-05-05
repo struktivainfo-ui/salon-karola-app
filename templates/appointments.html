@@ -223,7 +223,8 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   const initialPrefill = {{ prefill_payload|tojson }};
-  const storedDeviceStaff = localStorage.getItem("sk_device_staff");
+  let storedDeviceStaff = "";
+  try { storedDeviceStaff = localStorage.getItem("sk_device_staff") || ""; } catch (error) {}
   const templatePrefillStaff = "{{ prefill_staff }}".trim();
   const defaultStaff = {{ default_staff|tojson }};
   const deviceStaff = (storedDeviceStaff && storedDeviceStaff.trim()) || templatePrefillStaff || defaultStaff;

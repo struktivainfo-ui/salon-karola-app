@@ -1,22 +1,55 @@
 const CACHE_NAME = "salon-karola-__APP_VERSION__";
-const STATIC_URLS = [
+const STATIC_ASSETS = [
+  "/manifest.webmanifest",
   "/static/style.css",
   "/static/icon-192.png",
   "/static/icon-512.png",
   "/static/push-icon.png",
   "/static/push-badge.png",
-  "/manifest.webmanifest",
-  "/static/sounds/start-chime.wav"
 ];
 
+function isSameOrigin(urlString) {
+  try {
+    return new URL(urlString, self.location.origin).origin === self.location.origin;
+  } catch (error) {
+    return false;
+  }
+}
+
+async function safePrecache() {
+  const cache = await caches.open(CACHE_NAME);
+  await Promise.allSettled(
+    STATIC_ASSETS.map(async (assetUrl) => {
+      try {
+        const response = await fetch(assetUrl, { cache: "no-store" });
+        if (response && response.ok) {
+          await cache.put(assetUrl, response.clone());
+        }
+      } catch (error) {}
+    })
+  );
+}
+
+function offlineResponse() {
+  return new Response(
+    "<!doctype html><html lang='de'><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Salon Karola App</title><body style='font-family:sans-serif;padding:24px;background:#f7f3ee;color:#1f1f1f'><h1>Verbindung fehlgeschlagen</h1><p>Verbindung zur Salon Karola App konnte nicht hergestellt werden.</p><button onclick='location.reload()'>Erneut versuchen</button></body></html>",
+    {
+      status: 503,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    }
+  );
+}
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_URLS)));
+  event.waitUntil(safePrecache().finally(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+    } catch (error) {}
     await self.clients.claim();
   })());
 });
@@ -28,13 +61,21 @@ self.addEventListener("message", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
-  const url = new URL(event.request.url);
+  if (!event.request || event.request.method !== "GET") return;
+  if (!isSameOrigin(event.request.url)) return;
 
-  if (event.request.mode === "navigate" || url.pathname === "/" || url.pathname === "/calendar" || url.pathname === "/database-tools" || url.pathname === "/templates" || url.pathname === "/appointments" || url.pathname === "/whatsapp") {
-    event.respondWith(
-      fetch(event.request, { cache: "no-store" }).catch(() => caches.match("/calendar") || caches.match("/login"))
-    );
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith("/api/")) return;
+
+  if (event.request.mode === "navigate") {
+    event.respondWith((async () => {
+      try {
+        return await fetch(event.request, { cache: "no-store" });
+      } catch (error) {
+        const cachedLogin = await caches.match("/login");
+        return cachedLogin || offlineResponse();
+      }
+    })());
     return;
   }
 
@@ -42,57 +83,72 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      if (response) return response;
-      return fetch(event.request).then((networkResponse) => {
-        const copy = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return networkResponse;
-      });
-    })
-  );
+  event.respondWith((async () => {
+    try {
+      const cached = await caches.match(event.request);
+      if (cached) {
+        event.waitUntil((async () => {
+          try {
+            const fresh = await fetch(event.request, { cache: "no-store" });
+            if (fresh && fresh.ok) {
+              const cache = await caches.open(CACHE_NAME);
+              await cache.put(event.request, fresh.clone());
+            }
+          } catch (error) {}
+        })());
+        return cached;
+      }
+
+      const response = await fetch(event.request, { cache: "no-store" });
+      if (response && response.ok) {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(event.request, response.clone());
+      }
+      return response;
+    } catch (error) {
+      const fallback = await caches.match(event.request);
+      if (fallback) return fallback;
+      return new Response("", { status: 204 });
+    }
+  })());
 });
 
 self.addEventListener("push", (event) => {
-  let data = { title: "Salon Karola", body: "Neuer Termin", url: "/calendar" };
-  try {
-    if (event.data) data = Object.assign(data, event.data.json());
-  } catch (e) {}
-
   event.waitUntil((async () => {
-    const all = await self.registration.getNotifications();
-    const targetTag = data.tag || `push-${Date.now()}`;
-    all.filter((n) => n.tag === targetTag).forEach((n) => n.close());
-    return self.registration.showNotification(data.title || "Salon Karola", {
-      body: data.body || "Neue Benachrichtigung",
-      icon: "/static/push-icon.png",
-      badge: "/static/push-badge.png",
-      data: { url: data.url || "/calendar" },
-      tag: targetTag,
-      renotify: true,
-      requireInteraction: false,
-    });
+    try {
+      let data = { title: "Salon Karola", body: "Neue Nachricht", url: "/calendar" };
+      try {
+        if (event.data) data = Object.assign(data, event.data.json());
+      } catch (error) {}
+      await self.registration.showNotification(data.title || "Salon Karola", {
+        body: data.body || "Neue Nachricht",
+        icon: "/static/push-icon.png",
+        badge: "/static/push-badge.png",
+        data: { url: data.url || "/calendar" },
+        tag: data.tag || `push-${Date.now()}`,
+        renotify: true,
+        requireInteraction: false,
+      });
+    } catch (error) {}
   })());
 });
 
 self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || "/calendar";
   event.waitUntil((async () => {
-    const clientList = await clients.matchAll({ type: "window", includeUncontrolled: true });
-    for (const client of clientList) {
-      const sameOrigin = client.url && client.url.startsWith(self.location.origin);
-      if (sameOrigin && "focus" in client) {
-        try {
-          if ("navigate" in client) await client.navigate(targetUrl);
-        } catch (e) {}
-        return client.focus();
+    try {
+      event.notification.close();
+      const targetUrl = (event.notification.data && event.notification.data.url) || "/calendar";
+      const clientsList = await clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of clientsList) {
+        if (client.url && client.url.startsWith(self.location.origin)) {
+          try {
+            if ("focus" in client) await client.focus();
+            if ("navigate" in client) await client.navigate(targetUrl);
+            return;
+          } catch (error) {}
+        }
       }
-    }
-    if (clients.openWindow) {
-      return clients.openWindow(targetUrl);
-    }
-    return undefined;
+      if (clients.openWindow) await clients.openWindow(targetUrl);
+    } catch (error) {}
   })());
 });
