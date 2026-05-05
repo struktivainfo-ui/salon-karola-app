@@ -22,7 +22,7 @@
 <body class="app-body endpoint-{{ current_endpoint|default('public') }} {% if is_staff_world %}employee-mode{% elif is_admin_world %}admin-mode{% endif %}">
   <div class="app-ambient app-ambient-one" aria-hidden="true"></div>
   <div class="app-ambient app-ambient-two" aria-hidden="true"></div>
-  {% if session.get('admin_logged_in') and current_endpoint == 'calendar_view' and is_admin %}
+  {% if session.get('admin_logged_in') and current_endpoint == 'calendar_view' and is_admin and not safe_mode %}
   <div id="startupSplash" class="startup-splash" aria-hidden="true">
     <div class="startup-splash-inner">
       <div class="startup-splash-title">Salon Karola</div>
@@ -220,6 +220,33 @@
         renderDebugPanel();
       }
 
+      async function disableServiceWorkerForDebug() {
+        const out = { ok: true, removedRegistrations: 0, removedCaches: 0 };
+        try {
+          if (window.isSecureContext && navigator && "serviceWorker" in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            out.removedRegistrations = regs.length;
+            await Promise.all(regs.map((reg) => reg.unregister().catch(() => false)));
+          }
+        } catch (error) {
+          out.ok = false;
+          reportError("disableServiceWorkerForDebug.unregister", error);
+        }
+        try {
+          if ("caches" in window) {
+            const keys = await caches.keys();
+            out.removedCaches = keys.length;
+            await Promise.all(keys.map((key) => caches.delete(key).catch(() => false)));
+          }
+        } catch (error) {
+          out.ok = false;
+          reportError("disableServiceWorkerForDebug.caches", error);
+        }
+        try { localStorage.setItem("sk_sw_disabled_debug", "1"); } catch (error) {}
+        setDebugValue("swStatus", "deaktiviert und Cache geleert");
+        return out;
+      }
+
       window.addEventListener("DOMContentLoaded", () => {
         const retryButton = document.getElementById("appRuntimeRetryButton");
         if (retryButton) retryButton.addEventListener("click", () => window.location.reload());
@@ -263,6 +290,7 @@
         canUseNotifications: () => typeof window.Notification !== "undefined" && typeof Notification.requestPermission === "function",
         canUsePushManager: () => typeof window.PushManager !== "undefined",
         setDebugValue,
+        disableServiceWorkerForDebug,
       };
     })();
   </script>
@@ -276,6 +304,7 @@
       const safeSessionStorageGet = typeof boot.safeSessionStorageGet === "function" ? boot.safeSessionStorageGet : function (_key, fallback) { return fallback || ""; };
       const safeSessionStorageSet = typeof boot.safeSessionStorageSet === "function" ? boot.safeSessionStorageSet : function () { return false; };
       const setDebugValue = typeof boot.setDebugValue === "function" ? boot.setDebugValue : function () {};
+      const disableServiceWorkerForDebug = typeof boot.disableServiceWorkerForDebug === "function" ? boot.disableServiceWorkerForDebug : async function () { return { ok: false }; };
       const isLoggedIn = {{ 'true' if session.get('admin_logged_in') else 'false' }};
       if (!isLoggedIn) return;
 
@@ -309,14 +338,17 @@
       const isNativePlatform = !!(capacitorBridge && typeof capacitorBridge.isNativePlatform === "function" && capacitorBridge.isNativePlatform());
       const nativePushPlugin = isNativePlatform && capacitorBridge && capacitorBridge.Plugins ? capacitorBridge.Plugins.PushNotifications : null;
       const isNativeApp = isNativePlatform;
+      const runtimeSafeMode = {{ 'true' if safe_mode else 'false' }} || /(?:\?|&)safe=1(?:&|$)/.test(window.location.search);
+      const pushFeatureEnabled = {{ 'true' if enable_push else 'false' }} && !runtimeSafeMode;
+      const serviceWorkerFeatureEnabled = {{ 'true' if enable_service_worker else 'false' }} && !runtimeSafeMode;
       let nativePushListenersBound = false;
       let nativePushPending = null;
       let pendingUpdateRegistration = null;
       let swControllerListenerBound = false;
 
       setDebugValue("route", window.location.pathname + window.location.search);
-      setDebugValue("swStatus", isNativeApp ? "deaktiviert (native Android-App)" : "nicht initialisiert");
-      setDebugValue("pushStatus", isNativeApp ? "optional / nativer Push" : "nicht initialisiert");
+      setDebugValue("swStatus", (runtimeSafeMode || !serviceWorkerFeatureEnabled) ? "deaktiviert (safe-mode)" : (isNativeApp ? "deaktiviert (native Android-App)" : "nicht initialisiert"));
+      setDebugValue("pushStatus", pushFeatureEnabled ? (isNativeApp ? "optional / nativer Push" : "nicht initialisiert") : "deaktiviert (safe-mode)");
 
       function setPushPanelOpen(open) {
         if (!navPushGroup || !navPushPanel || !navPushToggle) return;
@@ -398,6 +430,10 @@
       }
 
       async function applyAppUpdate() {
+        if (!serviceWorkerFeatureEnabled) {
+          window.location.reload();
+          return;
+        }
         if (updatePromptButton) {
           updatePromptButton.disabled = true;
           updatePromptButton.textContent = "Aktualisiere...";
@@ -451,6 +487,7 @@
       }
 
       async function checkForAppUpdate() {
+        if (!serviceWorkerFeatureEnabled) return;
         if (isNativeApp || !(boot.canUseServiceWorker && boot.canUseServiceWorker())) return;
         try {
           const registration = await navigator.serviceWorker.getRegistration();
@@ -534,6 +571,10 @@
       });
 
       async function registerServiceWorker() {
+        if (!serviceWorkerFeatureEnabled) {
+          setDebugValue("swStatus", "deaktiviert (feature flag)");
+          return null;
+        }
         if (isNativeApp) {
           setDebugValue("swStatus", "deaktiviert (native Android-App)");
           return null;
@@ -689,6 +730,10 @@ ${body}`);
       }
 
       async function registerNativePush(showMessage = true) {
+        if (!pushFeatureEnabled) {
+          setPushUi("Push ist im sicheren Modus deaktiviert.");
+          return false;
+        }
         if (!nativePushPlugin) {
           setPushUi('Nativer Push ist auf diesem Gerät nicht verfügbar.');
           if (showMessage) alert('Nativer Push ist auf diesem Gerät nicht verfügbar.');
@@ -719,6 +764,10 @@ ${body}`);
       }
 
       async function registerBrowserPush(showMessage = true) {
+        if (!pushFeatureEnabled) {
+          setPushUi("Push ist im sicheren Modus deaktiviert.");
+          return false;
+        }
         if (!(boot.canUseServiceWorker && boot.canUseServiceWorker()) || !(boot.canUsePushManager && boot.canUsePushManager()) || !(boot.canUseNotifications && boot.canUseNotifications())) {
           setPushUi('Dieser Browser unterstützt keine Hintergrund-Pushs.');
           if (showMessage) alert('Dieser Browser unterstützt keine Hintergrund-Pushs.');
@@ -798,6 +847,7 @@ ${body}`);
       }
 
       async function syncExistingPushSubscriptionSilently() {
+        if (!pushFeatureEnabled) return false;
         if (isNativeApp) {
           try {
             await ensureNativePushListeners();
@@ -864,6 +914,10 @@ ${body}`);
       }
 
       async function refreshPushStatus() {
+        if (!pushFeatureEnabled) {
+          setPushUi("Push ist im sicheren Modus deaktiviert.");
+          return;
+        }
         if (staffSelect) staffSelect.value = currentStaff();
         if (deviceNameInput && document.activeElement !== deviceNameInput) deviceNameInput.value = currentDeviceName();
         if (isNativeApp) {
@@ -1067,8 +1121,12 @@ ${body}`);
         } catch (e) {}
         flagVersionChangeForReload();
         try {
-          const registration = await registerServiceWorker();
-          watchServiceWorker(registration);
+          if (runtimeSafeMode || !serviceWorkerFeatureEnabled) {
+            await disableServiceWorkerForDebug();
+          } else {
+            const registration = await registerServiceWorker();
+            watchServiceWorker(registration);
+          }
           if (!isNativeApp && navigator.serviceWorker && !swControllerListenerBound) {
             swControllerListenerBound = true;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -1082,13 +1140,15 @@ ${body}`);
         } catch (e) {
           reportError("load.serviceWorker", e);
         }
-        runStartupSplash();
+        if (!runtimeSafeMode) runStartupSplash();
         closeMobileMenu();
         closeDeviceStaffBar();
-        window.setTimeout(() => {
-          refreshPushStatus().catch((error) => reportError("refreshPushStatus", error));
-          syncExistingPushSubscriptionSilently().catch((error) => reportError("syncExistingPushSubscriptionSilently", error));
-        }, 450);
+        if (pushFeatureEnabled) {
+          window.setTimeout(() => {
+            refreshPushStatus().catch((error) => reportError("refreshPushStatus", error));
+            syncExistingPushSubscriptionSilently().catch((error) => reportError("syncExistingPushSubscriptionSilently", error));
+          }, 450);
+        }
       });
 
       window.addEventListener('pagehide', () => {
@@ -1099,15 +1159,19 @@ ${body}`);
 
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
-          refreshPushStatus().catch((error) => reportError("visibility.refreshPushStatus", error));
-          syncExistingPushSubscriptionSilently().catch((error) => reportError("visibility.syncPush", error));
+          if (pushFeatureEnabled) {
+            refreshPushStatus().catch((error) => reportError("visibility.refreshPushStatus", error));
+            syncExistingPushSubscriptionSilently().catch((error) => reportError("visibility.syncPush", error));
+          }
           checkForAppUpdate().catch((error) => reportError("visibility.checkForAppUpdate", error));
         }
       });
 
       window.addEventListener('focus', () => {
-        refreshPushStatus().catch((error) => reportError("focus.refreshPushStatus", error));
-        syncExistingPushSubscriptionSilently().catch((error) => reportError("focus.syncPush", error));
+        if (pushFeatureEnabled) {
+          refreshPushStatus().catch((error) => reportError("focus.refreshPushStatus", error));
+          syncExistingPushSubscriptionSilently().catch((error) => reportError("focus.syncPush", error));
+        }
         checkForAppUpdate().catch((error) => reportError("focus.checkForAppUpdate", error));
       });
 

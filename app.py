@@ -109,7 +109,7 @@ app.permanent_session_lifetime = timedelta(days=45)
 @app.after_request
 def add_no_cache_headers(response):
     try:
-        if request.path in ["/", "/login", "/calendar", "/database-tools", "/templates", "/api/templates/live"] or response.mimetype in {"text/html", "application/javascript", "application/json", "application/manifest+json"}:
+        if request.path in ["/", "/login", "/safe-start", "/diagnose", "/calendar", "/database-tools", "/templates", "/api/templates/live"] or response.mimetype in {"text/html", "application/javascript", "application/json", "application/manifest+json"}:
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
@@ -118,6 +118,20 @@ def add_no_cache_headers(response):
     return response
 
 APP_VERSION = "Salon Karola App 2026-05-05-stability-1"
+
+
+def env_bool(name, default=False):
+    raw = os.getenv(name)
+    if raw is None:
+        return bool(default)
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+SAFE_MODE = env_bool("SAFE_MODE", True)
+ENABLE_PUSH = env_bool("ENABLE_PUSH", not SAFE_MODE)
+ENABLE_SCHEDULER = env_bool("ENABLE_SCHEDULER", not SAFE_MODE)
+ENABLE_SERVICE_WORKER = env_bool("ENABLE_SERVICE_WORKER", not SAFE_MODE)
+ENABLE_FIREBASE = env_bool("ENABLE_FIREBASE", not SAFE_MODE)
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 ADMIN_STAFF_NAMES = {"Sven"}
 PRIMARY_BOOKING_STAFF = ["Ute", "Jessi"]
@@ -1619,10 +1633,14 @@ def firebase_project_id():
 
 
 def fcm_ready():
+    if not ENABLE_PUSH or not ENABLE_FIREBASE:
+        return False
     return bool(firebase_project_id() and firebase_service_account_info() and GoogleAuthRequest and service_account)
 
 
 def push_delivery_ready():
+    if not ENABLE_PUSH:
+        return False
     return bool(vapid_ready() or fcm_ready())
 
 
@@ -2345,6 +2363,8 @@ def run_automation_if_due(force=False):
 
 @app.before_request
 def opportunistic_automation_runner():
+    if SAFE_MODE or not ENABLE_SCHEDULER:
+        return None
     if request.endpoint in {"static", "manifest", "service_worker"}:
         return None
     if request.method != "GET":
@@ -2726,11 +2746,30 @@ def customer_search_results(q="", limit=120, db=None):
 # ---------- PWA ----------
 @app.route("/manifest.webmanifest")
 def manifest():
-    return send_from_directory(app.static_folder, "manifest.webmanifest", mimetype="application/manifest+json")
+    manifest_path = Path(app.static_folder) / "manifest.webmanifest"
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        payload["start_url"] = "/safe-start" if SAFE_MODE else "/login"
+        payload["scope"] = "/"
+        response = jsonify(payload)
+        response.mimetype = "application/manifest+json"
+        return response
+    except Exception:
+        return send_from_directory(app.static_folder, "manifest.webmanifest", mimetype="application/manifest+json")
 
 
 @app.route("/service-worker.js")
 def service_worker():
+    if SAFE_MODE or not ENABLE_SERVICE_WORKER:
+        content = """self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', () => {});
+"""
+        response = Response(content, mimetype="application/javascript")
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
     service_worker_path = Path(app.static_folder) / "service-worker.js"
     try:
         content = service_worker_path.read_text(encoding="utf-8").replace("__APP_VERSION__", APP_VERSION)
@@ -2749,6 +2788,164 @@ self.addEventListener('fetch', () => {});
 
 
 # ---------- Routes ----------
+@app.route("/safe-start")
+def safe_start():
+    diagnose_url = "/diagnose?safe=1"
+    login_url = "/login"
+    html = f"""<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Salon Karola App</title>
+  <style>
+    body{{font-family:Arial,sans-serif;background:#f5f1ea;color:#1b1b1b;padding:24px;line-height:1.5;}}
+    .card{{max-width:560px;margin:4vh auto;background:#fff;border-radius:14px;padding:22px;box-shadow:0 10px 28px rgba(0,0,0,.08);}}
+    h1{{margin:0 0 10px;font-size:1.5rem;}}
+    p{{margin:0 0 16px;}}
+    .row{{display:flex;gap:10px;flex-wrap:wrap;}}
+    .btn{{display:inline-block;padding:10px 14px;border-radius:10px;text-decoration:none;border:1px solid #111;color:#111;background:#fff;font-weight:600;}}
+  </style>
+</head>
+<body>
+  <section class="card">
+    <h1>Salon Karola App</h1>
+    <p>App wurde im sicheren Modus gestartet.</p>
+    <div class="row">
+      <a class="btn" href="{login_url}">Zur Anmeldung</a>
+      <a class="btn" href="{diagnose_url}">Diagnose anzeigen</a>
+      <a class="btn" href="#" id="clearCacheBtn">Cache loeschen</a>
+    </div>
+    <p id="safeInfo" style="margin-top:12px;font-size:.92rem;color:#444;"></p>
+  </section>
+  <script>
+    async function disableServiceWorkerForDebug() {{
+      var msg = [];
+      try {{
+        if ("serviceWorker" in navigator) {{
+          var regs = await navigator.serviceWorker.getRegistrations();
+          msg.push("Service Worker: " + regs.length + " gefunden");
+          await Promise.all(regs.map(function (r) {{ return r.unregister().catch(function () {{ return false; }}); }}));
+        }}
+      }} catch (e) {{
+        msg.push("SW-Fehler: " + String(e));
+      }}
+      try {{
+        if ("caches" in window) {{
+          var keys = await caches.keys();
+          msg.push("Caches: " + keys.length + " gefunden");
+          await Promise.all(keys.map(function (k) {{ return caches.delete(k).catch(function () {{ return false; }}); }}));
+        }}
+      }} catch (e) {{
+        msg.push("Cache-Fehler: " + String(e));
+      }}
+      try {{ localStorage.setItem("sk_sw_disabled_debug", "1"); }} catch (e) {{}}
+      var info = document.getElementById("safeInfo");
+      if (info) info.textContent = msg.join(" | ") || "Safe-Mode aktiv.";
+    }}
+    document.getElementById("clearCacheBtn").addEventListener("click", function (event) {{
+      event.preventDefault();
+      disableServiceWorkerForDebug();
+    }});
+    disableServiceWorkerForDebug();
+  </script>
+</body>
+</html>"""
+    return Response(html, mimetype="text/html")
+
+
+@app.route("/diagnose")
+def diagnose():
+    safe_access = SAFE_MODE or (request.args.get("safe") or "").strip() == "1"
+    if not safe_access and not is_admin_session():
+        return redirect(url_for("login"))
+
+    diagnostics = {
+        "app_version": APP_VERSION,
+        "server_time": datetime.now().isoformat(timespec="seconds"),
+        "database_path": str(DB_PATH),
+        "database_reachable": False,
+        "customer_count": "n/a",
+        "appointment_count": "n/a",
+        "push_configured": False,
+        "scheduler_enabled": ENABLE_SCHEDULER,
+        "scheduler_running": False,
+        "service_worker_enabled": ENABLE_SERVICE_WORKER and not SAFE_MODE,
+        "safe_mode": SAFE_MODE,
+        "env_flags": {
+            "SAFE_MODE": SAFE_MODE,
+            "ENABLE_PUSH": ENABLE_PUSH,
+            "ENABLE_SCHEDULER": ENABLE_SCHEDULER,
+            "ENABLE_SERVICE_WORKER": ENABLE_SERVICE_WORKER,
+            "ENABLE_FIREBASE": ENABLE_FIREBASE,
+        },
+        "user_agent": request.headers.get("User-Agent", ""),
+    }
+    try:
+        db = get_db()
+        diagnostics["database_reachable"] = True
+        row_customers = db.execute("SELECT COUNT(*) AS cnt FROM _Customers").fetchone()
+        row_appointments = db.execute("SELECT COUNT(*) AS cnt FROM appointments").fetchone()
+        diagnostics["customer_count"] = int(row_customers["cnt"] or 0) if row_customers else 0
+        diagnostics["appointment_count"] = int(row_appointments["cnt"] or 0) if row_appointments else 0
+    except Exception as exc:
+        diagnostics["database_reachable"] = False
+        diagnostics["database_error"] = str(exc)
+    try:
+        diagnostics["scheduler_running"] = bool(getattr(scheduler, "running", False))
+    except Exception:
+        diagnostics["scheduler_running"] = False
+    try:
+        diagnostics["push_configured"] = bool(ENABLE_PUSH and push_delivery_ready())
+    except Exception:
+        diagnostics["push_configured"] = False
+
+    payload = json.dumps(diagnostics, ensure_ascii=False, indent=2)
+    html = f"""<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Diagnose - Salon Karola App</title>
+  <style>
+    body{{font-family:Arial,sans-serif;background:#111;color:#f6f6f6;padding:18px;}}
+    .card{{max-width:860px;margin:0 auto;background:#1e1e1e;border-radius:12px;padding:16px;}}
+    pre{{white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.5;}}
+    .row{{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}}
+    .btn{{display:inline-block;padding:8px 12px;border-radius:8px;text-decoration:none;border:1px solid #aaa;color:#fff;}}
+  </style>
+</head>
+<body>
+  <section class="card">
+    <div class="row">
+      <a class="btn" href="/safe-start">Sicherer Start</a>
+      <a class="btn" href="/login">Zur Anmeldung</a>
+      <a class="btn" href="#" onclick="location.reload();return false;">Erneut laden</a>
+    </div>
+    <pre id="diagServer">{payload}</pre>
+    <pre id="diagClient"></pre>
+  </section>
+  <script>
+    (function () {{
+      var lines = [];
+      try {{
+        lines.push("localStorage verfügbar: ja");
+        lines.push("JS-Fehler: " + (localStorage.getItem("sk_last_runtime_errors") || "[]"));
+        lines.push("API-Fehler: " + (localStorage.getItem("sk_last_api_errors") || "[]"));
+      }} catch (e) {{
+        lines.push("localStorage verfügbar: nein");
+        lines.push("localStorage Fehler: " + String(e));
+      }}
+      try {{
+        document.getElementById("diagClient").textContent = lines.join("\\n");
+      }} catch (e) {{}}
+    }})();
+  </script>
+</body>
+</html>"""
+    return Response(html, mimetype="text/html")
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     login_options = default_login_options()
@@ -2977,6 +3174,8 @@ def logout():
 @app.route("/")
 @login_required
 def index():
+    if SAFE_MODE:
+        return redirect(url_for("safe_start"))
     if is_admin_world_session():
         return redirect(url_for("admin_dashboard"))
     return redirect(url_for("staff_today"))
@@ -4060,12 +4259,16 @@ def appointments_feed():
 @app.route("/api/push/public-key")
 @login_required
 def push_public_key():
+    if not ENABLE_PUSH:
+        return {"ok": True, "public_key": "", "enabled": False, "native_enabled": False, "delivery_enabled": False, "disabled": True}
     return {"ok": True, "public_key": vapid_public_key(), "enabled": vapid_ready(), "native_enabled": fcm_ready(), "delivery_enabled": push_delivery_ready(), "format": "base64url", "generated": bool(_get_app_setting("push:vapid_generated_at", ""))}
 
 
 @app.route("/api/push/status")
 @login_required
 def push_status():
+    if not ENABLE_PUSH:
+        return {"ok": True, "enabled": False, "permission": None, "device_count": 0, "staff_name": _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF), "disabled": True}
     staff_name = _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF)
     if staff_name == "Alle":
         staff_name = DEFAULT_STAFF
@@ -4086,6 +4289,8 @@ def push_status():
 @app.route("/api/push/overview")
 @admin_required
 def push_overview():
+    if not ENABLE_PUSH:
+        return {"ok": True, "enabled": False, "webpush_enabled": False, "native_enabled": False, "generated_keys": False, "total_devices": 0, "active_devices": 0, "counts_by_staff": {}, "disabled": True}
     db = get_db()
     total_devices = 0
     total_active = 0
@@ -4114,6 +4319,8 @@ def push_overview():
 @app.route("/api/push/devices")
 @admin_required
 def push_devices():
+    if not ENABLE_PUSH:
+        return {"ok": True, "items": [], "disabled": True}
     db = get_db()
     active_staff = get_staff_members(db)
     staff_name = (request.args.get("staff_name") or "").strip()
@@ -4125,6 +4332,8 @@ def push_devices():
 @app.route("/api/push/device/<int:subscription_id>/test")
 @admin_required
 def push_test_device(subscription_id):
+    if not ENABLE_PUSH:
+        return {"ok": False, "error": "Push ist deaktiviert."}, 503
     row = get_db().execute("SELECT * FROM push_subscriptions WHERE id = ?", (subscription_id,)).fetchone()
     if not row:
         return {"ok": False, "error": "Geraet nicht gefunden."}, 404
@@ -4142,6 +4351,8 @@ def push_test_device(subscription_id):
 @app.route("/api/push/device/<int:subscription_id>", methods=["DELETE"])
 @admin_required
 def push_delete_device(subscription_id):
+    if not ENABLE_PUSH:
+        return {"ok": False, "error": "Push ist deaktiviert."}, 503
     db = get_db()
     db.execute("DELETE FROM push_subscriptions WHERE id = ?", (subscription_id,))
     db.commit()
@@ -4151,6 +4362,8 @@ def push_delete_device(subscription_id):
 @app.route("/api/push/subscribe", methods=["POST"])
 @login_required
 def push_subscribe():
+    if not ENABLE_PUSH:
+        return {"ok": False, "error": "Push ist deaktiviert."}, 503
     payload = request.get_json(silent=True) or {}
     subscription = payload.get("subscription") or {}
     if isinstance(subscription, str):
@@ -4211,6 +4424,8 @@ def push_subscribe():
 @app.route("/api/push/native-subscribe", methods=["POST"])
 @login_required
 def push_native_subscribe():
+    if not ENABLE_PUSH:
+        return {"ok": False, "error": "Push ist deaktiviert."}, 503
     payload = request.get_json(silent=True) or {}
     token = (payload.get("token") or "").strip()
     if not token:
@@ -4259,6 +4474,8 @@ def push_native_subscribe():
 @app.route("/api/push/unsubscribe", methods=["POST"])
 @login_required
 def push_unsubscribe():
+    if not ENABLE_PUSH:
+        return {"ok": True, "disabled": True}
     payload = request.get_json(silent=True) or {}
     endpoint = ((payload.get("subscription") or {}).get("endpoint") or payload.get("endpoint") or "").strip()
     token = (payload.get("token") or "").strip()
@@ -4274,6 +4491,8 @@ def push_unsubscribe():
 @app.route("/api/push/ping")
 @login_required
 def push_ping():
+    if not ENABLE_PUSH:
+        return {"ok": False, "error": "Push ist deaktiviert.", "enabled": False}, 503
     staff_name = _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF)
     actor_name = _normalize_staff_name(session.get("staff_name"), default=DEFAULT_STAFF)
     if staff_name == "Alle":
@@ -4593,31 +4812,46 @@ def inject_globals():
         "simple_default_staff": default_staff_for_simple_mode(),
         "passkeys_ready": passkeys_ready(),
         "service_presets": SERVICE_PRESETS,
+        "safe_mode": SAFE_MODE,
+        "enable_push": ENABLE_PUSH and not SAFE_MODE,
+        "enable_scheduler": ENABLE_SCHEDULER and not SAFE_MODE,
+        "enable_service_worker": ENABLE_SERVICE_WORKER and not SAFE_MODE,
+        "enable_firebase": ENABLE_FIREBASE and not SAFE_MODE,
     }
 
 
 def boot_app():
     init_db()
-    run_auto_backup_if_due()
     ensure_default_admin(force_reset=False)
-    _ensure_vapid_keys()
-    interval_minutes = int(os.getenv("AUTOMATION_INTERVAL_MINUTES", "5"))
-    set_setting("automation:scheduler_interval_minutes", str(interval_minutes))
-    if not scheduler.running:
-        existing_jobs = {job.id for job in scheduler.get_jobs()}
-        if "automation_loop" not in existing_jobs:
-            scheduler.add_job(
-                scheduler_tick,
-                "interval",
-                minutes=interval_minutes,
-                id="automation_loop",
-                replace_existing=True,
-            )
-        scheduler.start()
-    try:
-        run_automation_if_due(force=True)
-    except Exception:
-        pass
+    if ENABLE_PUSH and not SAFE_MODE:
+        try:
+            _ensure_vapid_keys()
+        except Exception as exc:
+            try:
+                app.logger.warning("VAPID-Key-Erzeugung uebersprungen: %s", exc)
+            except Exception:
+                pass
+    if ENABLE_SCHEDULER and not SAFE_MODE:
+        try:
+            interval_minutes = int(os.getenv("AUTOMATION_INTERVAL_MINUTES", "5"))
+            set_setting("automation:scheduler_interval_minutes", str(interval_minutes))
+            if not scheduler.running:
+                existing_jobs = {job.id for job in scheduler.get_jobs()}
+                if "automation_loop" not in existing_jobs:
+                    scheduler.add_job(
+                        scheduler_tick,
+                        "interval",
+                        minutes=interval_minutes,
+                        id="automation_loop",
+                        replace_existing=True,
+                    )
+                scheduler.start()
+            run_automation_if_due(force=True)
+        except Exception as exc:
+            try:
+                app.logger.warning("Scheduler-Start uebersprungen: %s", exc)
+            except Exception:
+                pass
 
 
 # ---------- Database import / export ----------
