@@ -439,6 +439,10 @@ def set_ui_world(world):
 
 
 def default_route_after_login(staff_name):
+    if SAFE_MODE:
+        if is_admin_staff_name(staff_name):
+            return url_for("test_admin_dashboard")
+        return url_for("test_staff_today")
     if is_admin_staff_name(staff_name):
         return url_for("admin_start")
     return url_for("staff_today")
@@ -2792,6 +2796,11 @@ self.addEventListener('fetch', () => {});
 def safe_start():
     diagnose_url = "/diagnose?safe=1"
     login_url = "/login"
+    test_login_url = "/test-login"
+    test_staff_url = "/test-staff-today"
+    test_admin_url = "/test-admin-dashboard"
+    test_sw_url = "/test-service-worker"
+    test_push_url = "/test-push"
     html = f"""<!doctype html>
 <html lang="de">
 <head>
@@ -2813,6 +2822,11 @@ def safe_start():
     <p>App wurde im sicheren Modus gestartet.</p>
     <div class="row">
       <a class="btn" href="{login_url}">Zur Anmeldung</a>
+      <a class="btn" href="{test_login_url}">Login testen</a>
+      <a class="btn" href="{test_staff_url}">Mitarbeiter Heute testen</a>
+      <a class="btn" href="{test_admin_url}">Admin Dashboard testen</a>
+      <a class="btn" href="{test_sw_url}">Service Worker Test</a>
+      <a class="btn" href="{test_push_url}">Push Test</a>
       <a class="btn" href="{diagnose_url}">Diagnose anzeigen</a>
       <a class="btn" href="#" id="clearCacheBtn">Cache loeschen</a>
     </div>
@@ -2849,6 +2863,7 @@ def safe_start():
     }});
     disableServiceWorkerForDebug();
   </script>
+  <script src="/static/js/safe-start.js?v={APP_VERSION}"></script>
 </body>
 </html>"""
     return Response(html, mimetype="text/html")
@@ -2943,6 +2958,134 @@ def diagnose():
   </script>
 </body>
 </html>"""
+    return Response(html, mimetype="text/html")
+
+
+@app.route("/test-login")
+def test_login():
+    login_options = default_login_options()
+    options_html = "\n".join(
+        [f'<option value="{option["staff_name"]}">{option["label"]}</option>' for option in login_options]
+    )
+    html = f"""<!doctype html>
+<html lang="de"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test Login - Salon Karola App</title>
+  <style>body{{font-family:Arial,sans-serif;background:#f4efe8;color:#1f1f1f;padding:20px}}.card{{max-width:620px;margin:0 auto;background:#fff;padding:18px;border-radius:12px}}label{{display:block;margin-top:10px}}input,select{{width:100%;padding:10px}}button,a{{display:inline-block;margin-top:12px;padding:10px 14px;border:1px solid #222;border-radius:8px;background:#fff;color:#111;text-decoration:none;font-weight:600}}</style>
+</head><body>
+  <section class="card">
+    <h1>Test Login</h1>
+    <p>Status: OK | Route: /test-login | Push: inaktiv | Service Worker: inaktiv | Firebase: inaktiv | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
+    <form method="post" action="/login">
+      <input type="hidden" name="action" value="login">
+      <label for="staff_name">Name</label>
+      <select id="staff_name" name="staff_name" required>{options_html}</select>
+      <label for="password">Passwort</label>
+      <input id="password" type="password" name="password" autocomplete="current-password" required>
+      <button type="submit">Einloggen</button>
+    </form>
+    <a href="/safe-start">Zurueck zu Safe-Start</a>
+  </section>
+  <script src="/static/js/login.js?v={APP_VERSION}"></script>
+</body></html>"""
+    return Response(html, mimetype="text/html")
+
+
+@app.route("/test-staff-today")
+@login_required
+def test_staff_today():
+    try:
+        db = get_db()
+        staff_name = _normalize_staff_name(session.get("staff_name"), default=default_staff_for_simple_mode(db), db=db)
+        selected_date = datetime.now().date()
+        items = appointments_for_day(selected_date, staff_name, limit=40, db=db)
+        rows = []
+        for item in items[:40]:
+            call_url = item.get("call_url") or ""
+            wa_url = item.get("whatsapp_url") or ""
+            row = f"<li><strong>{item.get('time_label','')}</strong> - {item.get('customer_name','')} ({item.get('staff_name','')})"
+            if call_url:
+                row += f' | <a href="{call_url}">Telefon</a>'
+            if wa_url:
+                row += f' | <a href="{wa_url}" target="_blank" rel="noopener">WhatsApp</a>'
+            row += "</li>"
+            rows.append(row)
+        list_html = "<ul>" + "\n".join(rows) + "</ul>" if rows else "<p>Heute keine Termine.</p>"
+        status = "OK"
+        error_text = ""
+    except Exception as exc:
+        list_html = ""
+        status = "Fehler"
+        error_text = str(exc)
+    html = f"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test Mitarbeiter Heute</title>
+<style>body{{font-family:Arial,sans-serif;background:#f4efe8;color:#1f1f1f;padding:20px}}.card{{max-width:760px;margin:0 auto;background:#fff;padding:18px;border-radius:12px}}a{{color:#111}} .err{{color:#9a1f1f;font-weight:700}}</style></head><body>
+<section class="card"><h1>Test Mitarbeiter Heute</h1>
+<p>Status: {status} | Route: /test-staff-today | Push: inaktiv | Service Worker: inaktiv | Firebase: inaktiv | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
+{f'<p class="err">Fehler: {error_text}</p>' if error_text else list_html}
+<a href="/safe-start">Zurueck zu Safe-Start</a></section></body></html>"""
+    return Response(html, mimetype="text/html")
+
+
+@app.route("/test-admin-dashboard")
+@admin_required
+def test_admin_dashboard():
+    status = "OK"
+    error_text = ""
+    customers = today_count = next_7_days = 0
+    try:
+        db = get_db()
+        row_customers = db.execute("SELECT COUNT(*) AS cnt FROM _Customers WHERE COALESCE(_name, '') <> ?", (MANUAL_PLACEHOLDER_LASTNAME,)).fetchone()
+        customers = int(row_customers["cnt"] or 0) if row_customers else 0
+        day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+        week_end = day_start + timedelta(days=7)
+        row_today = db.execute("SELECT COUNT(*) AS cnt FROM appointments WHERE appointment_at >= ? AND appointment_at < ?", (day_start.isoformat(timespec="minutes"), day_end.isoformat(timespec="minutes"))).fetchone()
+        row_week = db.execute("SELECT COUNT(*) AS cnt FROM appointments WHERE appointment_at >= ? AND appointment_at < ?", (day_start.isoformat(timespec="minutes"), week_end.isoformat(timespec="minutes"))).fetchone()
+        today_count = int(row_today["cnt"] or 0) if row_today else 0
+        next_7_days = int(row_week["cnt"] or 0) if row_week else 0
+    except Exception as exc:
+        status = "Fehler"
+        error_text = str(exc)
+    html = f"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test Admin Dashboard</title>
+<style>body{{font-family:Arial,sans-serif;background:#f4efe8;color:#1f1f1f;padding:20px}}.card{{max-width:760px;margin:0 auto;background:#fff;padding:18px;border-radius:12px}}.grid{{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:10px}}.box{{border:1px solid #ddd;border-radius:8px;padding:12px}}a{{display:inline-block;margin-top:12px;color:#111}}</style></head><body>
+<section class="card"><h1>Test Admin Dashboard</h1>
+<p>Status: {status} | Route: /test-admin-dashboard | Push: inaktiv | Service Worker: inaktiv | Firebase: inaktiv | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
+{f'<p style="color:#9a1f1f;font-weight:700">Fehler: {error_text}</p>' if error_text else f'<div class="grid"><div class="box"><strong>Kunden</strong><div>{customers}</div></div><div class="box"><strong>Termine heute</strong><div>{today_count}</div></div><div class="box"><strong>Naechste 7 Tage</strong><div>{next_7_days}</div></div></div>'}
+<a href="/safe-start">Zurueck zu Safe-Start</a></section></body></html>"""
+    return Response(html, mimetype="text/html")
+
+
+@app.route("/test-service-worker")
+@login_required
+def test_service_worker():
+    html = f"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test Service Worker</title>
+<style>body{{font-family:Arial,sans-serif;background:#f4efe8;color:#1f1f1f;padding:20px}}.card{{max-width:760px;margin:0 auto;background:#fff;padding:18px;border-radius:12px}}button,a{{display:inline-block;margin:8px 8px 0 0;padding:10px 14px;border:1px solid #222;border-radius:8px;background:#fff;color:#111;text-decoration:none;font-weight:600}}pre{{background:#111;color:#f5f5f5;padding:12px;border-radius:8px;white-space:pre-wrap}}</style></head><body>
+<section class="card"><h1>Service Worker Test</h1>
+<p>Status: bereit | Route: /test-service-worker | Push: inaktiv | Service Worker: testbar | Firebase: inaktiv | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
+<button id="registerBtn">Service Worker registrieren</button>
+<button id="unregisterBtn">Service Worker deregistrieren</button>
+<button id="clearCacheBtn">Cache loeschen</button>
+<a href="/safe-start">Zurueck zu Safe-Start</a>
+<pre id="out">Warte auf Test...</pre></section>
+<script src="/static/js/service-worker-register.js?v={APP_VERSION}"></script>
+</body></html>"""
+    return Response(html, mimetype="text/html")
+
+
+@app.route("/test-push")
+@admin_required
+def test_push():
+    html = f"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test Push</title>
+<style>body{{font-family:Arial,sans-serif;background:#f4efe8;color:#1f1f1f;padding:20px}}.card{{max-width:760px;margin:0 auto;background:#fff;padding:18px;border-radius:12px}}button,a{{display:inline-block;margin:8px 8px 0 0;padding:10px 14px;border:1px solid #222;border-radius:8px;background:#fff;color:#111;text-decoration:none;font-weight:600}}pre{{background:#111;color:#f5f5f5;padding:12px;border-radius:8px;white-space:pre-wrap}}</style></head><body>
+<section class="card"><h1>Push Test</h1>
+<p>Status: bereit | Route: /test-push | Push: {"aktivierbar" if ENABLE_PUSH and not SAFE_MODE else "inaktiv"} | Service Worker: {"aktivierbar" if ENABLE_SERVICE_WORKER and not SAFE_MODE else "inaktiv"} | Firebase: {"aktivierbar" if ENABLE_FIREBASE and not SAFE_MODE else "inaktiv"} | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
+<button id="initPushBtn">Push initialisieren</button>
+<button id="sendTestPushBtn">Test Push senden</button>
+<a href="/safe-start">Zurueck zu Safe-Start</a>
+<pre id="out">Warte auf Test...</pre></section>
+<script>window.__pushFlags = {{ enabled: {str(ENABLE_PUSH and not SAFE_MODE).lower()}, swEnabled: {str(ENABLE_SERVICE_WORKER and not SAFE_MODE).lower()}, firebaseEnabled: {str(ENABLE_FIREBASE and not SAFE_MODE).lower()} }};</script>
+<script src="/static/js/push.js?v={APP_VERSION}"></script>
+</body></html>"""
     return Response(html, mimetype="text/html")
 
 
