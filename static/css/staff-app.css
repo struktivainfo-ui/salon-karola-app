@@ -2,6 +2,29 @@
   display: none;
 }
 
+body.employee-mode {
+  overflow-x: hidden;
+}
+
+.employee-mode .app-main {
+  padding-bottom: 96px;
+}
+
+.employee-mode .simple-action-button,
+.employee-mode .simple-save-button,
+.employee-mode .simple-filter-chip,
+.employee-mode .mobile-app-link {
+  min-height: 44px;
+}
+
+.employee-mode .simple-shell,
+.employee-mode .simple-panel,
+.employee-mode .simple-card-list,
+.employee-mode .simple-appointment-card,
+.employee-mode .simple-customer-card {
+  max-width: 100%;
+}
+
 @media (min-width: 1024px) {
   .staff-desktop-hint {
     display: block;
@@ -14,4 +37,3 @@
     text-align: center;
   }
 }
-

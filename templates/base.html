@@ -76,10 +76,10 @@
             <a class="{% if current_endpoint == 'customer_birthdays_page' %}active{% endif %}" href="{{ url_for('customer_birthdays_page') }}" data-nav-link="geburtstage">Geburtstage</a>
             <a class="{% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('admin_push_alias') }}" data-nav-link="push">Push</a>
             <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('admin_templates_alias') }}" data-nav-link="vorlagen">Vorlagen</a>
-            <a class="{% if current_endpoint == 'staff_management' %}active{% endif %}" href="{{ url_for('staff_management') }}" data-nav-link="mitarbeiter">Mitarbeiter</a>
+            <a class="{% if current_endpoint == 'staff_management' %}active{% endif %}" href="{{ url_for('admin_staff_alias') }}" data-nav-link="mitarbeiter">Mitarbeiter</a>
             <a class="{% if current_endpoint in ['database_tools', 'import_customers', 'email_logs'] %}active{% endif %}" href="{{ url_for('admin_backup_alias') }}" data-nav-link="datenbank">Backup / Technik</a>
             <a class="{% if current_endpoint == 'admin_settings' %}active{% endif %}" href="{{ url_for('admin_settings') }}" data-nav-link="einstellungen">Einstellungen</a>
-            <a href="{{ url_for('admin_automations_alias') }}" data-nav-link="automationen">Automationen</a>
+            <a class="{% if current_endpoint == 'admin_automation' %}active{% endif %}" href="{{ url_for('admin_automation') }}" data-nav-link="automationen">Automationen</a>
             <a href="{{ url_for('switch_to_staff_app') }}" data-nav-link="staff-app">Mitarbeiter-App</a>
             <a href="{{ url_for('logout') }}" data-nav-link="logout">Abmelden</a>
           </div>
@@ -113,8 +113,8 @@
     <a class="mobile-app-link {% if current_endpoint in ['salon_reminders', 'customer_birthdays_page'] %}active{% endif %}" href="{{ url_for('staff_more') }}">Mehr</a>
     {% else %}
     <a class="mobile-app-link {% if current_endpoint in ['admin_dashboard', 'dashboard_legacy'] %}active{% endif %}" href="{{ url_for('admin_dashboard') }}">Dashboard</a>
-    <a class="mobile-app-link {% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view', view='week') }}">Kalender</a>
-    <a class="mobile-app-link {% if current_endpoint == 'customer_search_page' %}active{% endif %}" href="{{ url_for('customer_search_page') }}">Kunden</a>
+    <a class="mobile-app-link {% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('admin_calendar_alias') }}">Kalender</a>
+    <a class="mobile-app-link {% if current_endpoint == 'customer_search_page' %}active{% endif %}" href="{{ url_for('admin_customers_alias') }}">Kunden</a>
     <button type="button" class="mobile-app-link mobile-app-link-button" id="menuDockToggle" onclick="return window.skToggleMenu ? window.skToggleMenu(event) : false;">Mehr</button>
     {% endif %}
   </nav>

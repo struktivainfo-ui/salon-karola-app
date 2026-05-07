@@ -1,0 +1,55 @@
+{% extends 'staff_base.html' %}
+{% block title %}Termin bearbeiten - Salon Karola{% endblock %}
+{% block content %}
+<section class="simple-shell">
+  <section class="simple-panel simple-wizard-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Termin bearbeiten</div>
+        <h1 class="simple-section-title">{{ appt['customer_firstname'] }} {{ appt['customer_lastname'] }}</h1>
+        <p class="simple-subtitle">Termin schnell anpassen und speichern.</p>
+      </div>
+    </div>
+
+    <form method="post" class="simple-wizard">
+      <div class="simple-form-grid">
+        <label class="full">
+          <span>Service</span>
+          <div class="simple-service-grid">
+            {% set selected_codes = (appt['service_codes'] or '') %}
+            {% for service in service_presets %}
+            <label class="simple-choice-card">
+              <input type="checkbox" name="selected_services" value="{{ service['id'] }}" {% if service['id'] in selected_codes %}checked{% endif %}>
+              <span>{{ service['label'] }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </label>
+        <label><span>Datum/Uhrzeit</span><input type="datetime-local" name="appointment_at" value="{{ (appt['appointment_at'] or '')[:16] }}" required></label>
+        <label><span>Mitarbeiter</span>
+          <select name="staff_name">
+            {% for member in simple_staff_members %}
+            <option value="{{ member }}" {% if (appt['staff_name'] or '') == member %}selected{% endif %}>{{ member }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label><span>Status</span>
+          <select name="status">
+            {% for status in ['geplant', 'erledigt', 'abgesagt', 'verschoben', 'no_show'] %}
+            <option value="{{ status }}" {% if (appt['status'] or 'geplant') == status %}selected{% endif %}>{{ status }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <details class="simple-more-options full">
+          <summary>Mehr Optionen</summary>
+          <label class="full"><span>Notiz</span><textarea name="notes">{{ appt['notes'] or '' }}</textarea></label>
+        </details>
+      </div>
+      <div class="simple-wizard-actions">
+        <a href="{{ url_for('staff_today') }}" class="simple-action-button">Zurueck</a>
+        <button type="submit" class="simple-save-button simple-submit-button">Speichern</button>
+      </div>
+    </form>
+  </section>
+</section>
+{% endblock %}

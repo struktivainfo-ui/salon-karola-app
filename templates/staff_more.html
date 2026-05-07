@@ -14,6 +14,10 @@
         <strong>Geburtstage</strong>
         <span>Kundinnen mit Geburtstag ansehen</span>
       </a>
+      <div class="simple-list-card">
+        <strong>Mein Bereich</strong>
+        <span>Angemeldet als {{ logged_in_staff or default_staff }}</span>
+      </div>
       <a class="simple-list-card" href="{{ url_for('logout') }}">
         <strong>Abmelden</strong>
         <span>App sicher verlassen</span>

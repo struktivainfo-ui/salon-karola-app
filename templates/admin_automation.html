@@ -1,0 +1,45 @@
+{% extends 'admin_base.html' %}
+{% block title %}Automationen - Salon Karola{% endblock %}
+{% block content %}
+<section class="premium-shell">
+  <section class="premium-page-head">
+    <div>
+      <div class="premium-page-kicker">Admin</div>
+      <h1 class="premium-page-title">Automationen</h1>
+      <div class="premium-page-subtitle">Status und sicherer manueller Lauf.</div>
+    </div>
+  </section>
+
+  <section class="premium-stat-grid">
+    <article class="premium-stat-card">
+      <div class="premium-stat-label">Safe Mode</div>
+      <div class="premium-stat-value">{{ 'aktiv' if safe_mode else 'aus' }}</div>
+      <div class="premium-stat-foot">Startmodus</div>
+    </article>
+    <article class="premium-stat-card">
+      <div class="premium-stat-label">Scheduler</div>
+      <div class="premium-stat-value">{{ 'aktiv' if scheduler_enabled else 'aus' }}</div>
+      <div class="premium-stat-foot">ENABLE_SCHEDULER</div>
+    </article>
+    <article class="premium-stat-card">
+      <div class="premium-stat-label">Letzter Lauf</div>
+      <div class="premium-stat-value">{{ automation.get('last_run_at') or '-' }}</div>
+      <div class="premium-stat-foot">Automationen</div>
+    </article>
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Aktionen</div>
+        <h2 class="premium-panel-title">Manuell steuern</h2>
+      </div>
+    </div>
+    <div class="premium-action-grid">
+      <a class="premium-action-card" href="{{ url_for('run_automation_now') }}">Automationen jetzt ausfuehren</a>
+      <a class="premium-action-card" href="{{ url_for('database_tools') }}">Backup / Technik</a>
+      <a class="premium-action-card" href="{{ url_for('admin_dashboard') }}">Zurueck zum Dashboard</a>
+    </div>
+  </section>
+</section>
+{% endblock %}

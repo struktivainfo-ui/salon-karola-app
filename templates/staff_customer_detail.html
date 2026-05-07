@@ -22,7 +22,7 @@
       {% else %}
       <span class="simple-action-button disabled">WhatsApp fehlt</span>
       {% endif %}
-      <a class="simple-action-button primary" href="{{ url_for('appointments_hub', customer_id=customer['_id']) }}">Neuer Termin</a>
+      <a class="simple-action-button primary" href="{{ url_for('staff_new_appointment', customer_id=customer['_id']) }}">Neuer Termin</a>
       <a class="simple-action-button" href="#kunde-bearbeiten">Bearbeiten</a>
     </div>
 

@@ -2690,10 +2690,15 @@ def appointments_for_day(selected_date, staff_name="Alle", limit=120, db=None):
                 "status": row["status"] or "geplant",
                 "time_label": dt.strftime("%H:%M") if dt else "--:--",
                 "appointment_label": dt.strftime("%d.%m.%Y %H:%M") if dt else (row["appointment_at"] or ""),
+                "notes_short": ((row["notes"] or "").strip()[:90]),
                 "phone": phone_value,
                 "call_url": phone_href(phone_value),
                 "whatsapp_url": whatsapp_link(row),
-                "edit_url": url_for("customer_detail", customer_id=row["customer_id"]) + f"#appointment-{row['id']}",
+                "edit_url": (
+                    url_for("customer_detail", customer_id=row["customer_id"]) + f"#appointment-{row['id']}"
+                    if is_admin_world_session()
+                    else url_for("staff_appointment_edit", appointment_id=row["id"])
+                ),
                 "detail_url": url_for("customer_detail", customer_id=row["customer_id"]),
             }
         )
@@ -3671,12 +3676,32 @@ def admin_backup_alias():
     return database_tools()
 
 
-@app.route("/admin/automations")
+@app.route("/admin/staff")
 @admin_required
-def admin_automations_alias():
+def admin_staff_alias():
     set_ui_world("admin")
-    flash("Automationen koennen ueber den manuellen Lauf gestartet werden.")
-    return redirect(url_for("database_tools"))
+    return staff_management()
+
+
+@app.route("/admin/customers/<int:customer_id>", methods=["GET", "POST"])
+@admin_required
+def admin_customer_detail_alias(customer_id):
+    set_ui_world("admin")
+    return customer_detail(customer_id)
+
+
+@app.route("/admin/automation")
+@admin_required
+def admin_automation():
+    set_ui_world("admin")
+    return render_template(
+        "admin_automation.html",
+        automation=get_automation_status(),
+        scheduler_enabled=ENABLE_SCHEDULER and not SAFE_MODE,
+        safe_mode=SAFE_MODE,
+        current_endpoint="admin_automation",
+        app_version=APP_VERSION,
+    )
 
 
 @app.route("/admin/settings")
@@ -4021,6 +4046,85 @@ def appointment_update_status(appointment_id):
     return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
 
 
+@app.route("/staff/appointment/<int:appointment_id>/edit", methods=["GET", "POST"])
+@staff_or_admin_required
+def staff_appointment_edit(appointment_id):
+    set_ui_world("staff")
+    db = get_db()
+    row = db.execute(
+        """
+        SELECT a.*, c._id AS customer_id_ref,
+               COALESCE(NULLIF(a.manual_firstname, ''), c._firstname, '') AS customer_firstname,
+               COALESCE(NULLIF(a.manual_lastname, ''), c._name, '') AS customer_lastname
+        FROM appointments a
+        LEFT JOIN _Customers c ON c._id = a.customer_id
+        WHERE a.id = ?
+        LIMIT 1
+        """,
+        (appointment_id,),
+    ).fetchone()
+    if not row:
+        flash("Termin wurde nicht gefunden.")
+        return redirect(url_for("staff_today"))
+
+    if request.method == "POST":
+        appointment_at = (request.form.get("appointment_at") or "").strip()
+        if not appointment_at or not _parse_dt_safe(appointment_at):
+            flash("Bitte ein gueltiges Datum und eine Uhrzeit auswaehlen.")
+            return redirect(url_for("staff_appointment_edit", appointment_id=appointment_id))
+
+        allowed_status = {"geplant", "erledigt", "abgesagt", "verschoben", "no_show"}
+        next_status = (request.form.get("status") or "geplant").strip()
+        if next_status not in allowed_status:
+            next_status = "geplant"
+
+        selected_ids = [part.strip() for part in request.form.getlist("selected_services") if part.strip()]
+        if not selected_ids:
+            selected_ids = [part.strip() for part in (request.form.get("selected_services") or "").split(",") if part.strip()]
+        selected_services = [SERVICE_PRESET_MAP[item] for item in selected_ids if item in SERVICE_PRESET_MAP]
+        service_summary = ", ".join(item["label"] for item in selected_services)
+        duration_minutes = sum(int(item.get("active", 0) or 0) for item in selected_services) or 30
+        processing_minutes = sum(int(item.get("processing", 0) or 0) for item in selected_services)
+        service_codes = ",".join(item["id"] for item in selected_services)
+        staff_name = _normalize_staff_name(
+            request.form.get("staff_name"),
+            default=default_staff_for_simple_mode(db),
+            db=db,
+        )
+
+        db.execute(
+            """
+            UPDATE appointments
+            SET appointment_at = ?, staff_name = ?, status = ?, notes = ?, service_codes = ?, service_summary = ?, duration_minutes = ?, processing_minutes = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                appointment_at,
+                staff_name,
+                next_status,
+                (request.form.get("notes") or "").strip(),
+                service_codes,
+                service_summary,
+                duration_minutes,
+                processing_minutes,
+                datetime.now().isoformat(timespec="seconds"),
+                appointment_id,
+            ),
+        )
+        db.commit()
+        flash("Termin wurde aktualisiert.")
+        return redirect(url_for("staff_today"))
+
+    return render_template(
+        "staff_appointment_edit.html",
+        appt=row,
+        service_presets=SERVICE_PRESETS,
+        simple_staff_members=staff_members_for_simple_mode(db),
+        current_endpoint="staff_appointment_edit",
+        app_version=APP_VERSION,
+    )
+
+
 
 
 
@@ -4323,7 +4427,9 @@ def appointments_hub():
         elif not vapid_ready() and is_admin_session():
             flash_msg += " Push ist noch nicht komplett aktiv - bitte VAPID-Keys in Render setzen."
         flash(flash_msg)
-        return redirect(url_for("appointments_hub"))
+        if is_admin_world_session():
+            return redirect(url_for("appointments_hub"))
+        return redirect(url_for("staff_today"))
 
     email_sql, mobile_sql, phone_sql, _ = customer_contact_select_sql()
     if is_admin_world_session():
@@ -4441,11 +4547,20 @@ def calendar_view():
     selected_date = parse_iso_date(request.args.get("date"))
     db = get_db()
     staff_options = get_staff_options(db)
-    staff = (request.args.get("staff") or "Alle").strip()
+    own_staff = default_staff_for_simple_mode(db)
+    mine_param = (request.args.get("mine") or "").strip().lower()
+    mine_mode = mine_param in {"1", "true", "yes", "on"}
+    if not is_admin_session() and not mine_param and not (request.args.get("staff") or "").strip():
+        mine_mode = True
+
+    staff = (request.args.get("staff") or ("Alle" if is_admin_session() else own_staff)).strip()
     if staff not in staff_options:
-        staff = "Alle" if is_admin_session() else default_staff_for_simple_mode(db)
-    if not is_admin_session() and staff == "Sven":
-        staff = default_staff_for_simple_mode(db)
+        staff = "Alle" if is_admin_session() else own_staff
+    if not is_admin_session():
+        if mine_mode:
+            staff = own_staff
+        elif staff == "Sven":
+            staff = own_staff
 
     day_view = _build_day_view(selected_date, staff) if view == "day" else None
     week_view = _build_week_view(selected_date, staff) if view == "week" else None
@@ -4475,6 +4590,8 @@ def calendar_view():
         month_view=month_view,
         split_day_views=split_day_views,
         simple_day_items=simple_day_items,
+        mine_mode=mine_mode,
+        own_staff=own_staff,
         current_endpoint="calendar_view",
         app_version=APP_VERSION,
         bookable_staff=simple_staff_members if (simple_staff_members := staff_members_for_simple_mode(db)) else get_staff_members(db),

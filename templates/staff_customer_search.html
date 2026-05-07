@@ -42,7 +42,12 @@
       </div>
     </article>
     {% else %}
-    <div class="simple-empty">Kein Kunde gefunden.</div>
+    <div class="simple-empty">
+      Kein Kunde gefunden.
+      <div class="simple-space-top">
+        <a class="simple-save-button" href="{{ url_for('staff_new_appointment') }}">Manuellen Termin erstellen</a>
+      </div>
+    </div>
     {% endfor %}
   </section>
 </section>

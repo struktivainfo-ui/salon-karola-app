@@ -13,7 +13,7 @@
           <h1 class="simple-section-title">{% if selected_date == today_date %}Heute{% else %}Tagesuebersicht{% endif %}</h1>
           <p class="simple-subtitle">{{ selected_date_label or selected_date }}</p>
         </div>
-        <a class="simple-floating-action" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">+ Termin</a>
+        <a class="simple-floating-action" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">+ Termin</a>
       </div>
       <div class="simple-filter-row">
         <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=today_date, staff=staff) }}">Heute</a>
@@ -22,8 +22,12 @@
     </div>
 
     <div class="simple-filter-row simple-filter-row-wrap">
-      {% for member in ['Alle'] + bookable_staff %}
-      <a class="simple-filter-chip {% if staff == member %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=member) }}">{{ member }}</a>
+      <a class="simple-filter-chip {% if mine_mode %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, mine=1) }}">Meine Termine</a>
+      <a class="simple-filter-chip {% if staff == 'Alle' and not mine_mode %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff='Alle') }}">Alle</a>
+      {% for member in bookable_staff %}
+      {% if member != 'Sven' %}
+      <a class="simple-filter-chip {% if staff == member and not mine_mode %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=member) }}">{{ member }}</a>
+      {% endif %}
       {% endfor %}
     </div>
   </section>
@@ -42,6 +46,9 @@
         </div>
       </div>
       <div class="simple-appointment-meta">{{ item.service_label }}</div>
+      {% if item.notes_short %}
+      <div class="simple-appointment-meta">{{ item.notes_short }}</div>
+      {% endif %}
       <div class="simple-action-row">
         {% if item.call_url %}
         <a class="simple-action-button" href="{{ item.call_url }}">Anrufen</a>
@@ -60,7 +67,7 @@
     <div class="simple-empty simple-empty-state">
       <strong>Heute sind noch keine Termine eingetragen.</strong>
       <span>Wenn ein Termin dazu kommt, ist er hier sofort sichtbar.</span>
-      <a class="simple-save-button" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">Termin erstellen</a>
+      <a class="simple-save-button" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">Termin erstellen</a>
     </div>
     {% endfor %}
   </section>
