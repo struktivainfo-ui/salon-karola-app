@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Salon Karola App" />
+  <script src="{{ url_for('static', filename='js/crash-guard.js', v=app_version) }}"></script>
   <title>{% block title %}Salon Karola App{% endblock %}</title>
   <link rel="manifest" href="{{ url_for('manifest') }}?v={{ app_version|urlencode }}" />
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}" />
@@ -271,13 +272,15 @@
         renderDebugPanel();
       });
 
-      window.addEventListener("error", (event) => {
-        reportError("window.onerror", event.error || event.message || "Unbekannter Fehler");
-      });
+      if (!window.__skCrashGuardInstalled) {
+        window.addEventListener("error", (event) => {
+          reportError("window.onerror", event.error || event.message || "Unbekannter Fehler");
+        });
 
-      window.addEventListener("unhandledrejection", (event) => {
-        reportError("unhandledrejection", event.reason || "Unbekannte Promise-Ablehnung");
-      });
+        window.addEventListener("unhandledrejection", (event) => {
+          reportError("unhandledrejection", event.reason || "Unbekannte Promise-Ablehnung");
+        });
+      }
 
       window.skAppBoot = {
         reportError,
@@ -341,14 +344,18 @@
       const runtimeSafeMode = {{ 'true' if safe_mode else 'false' }} || /(?:\?|&)safe=1(?:&|$)/.test(window.location.search);
       const pushFeatureEnabled = {{ 'true' if enable_push else 'false' }} && !runtimeSafeMode;
       const serviceWorkerFeatureEnabled = {{ 'true' if enable_service_worker else 'false' }} && !runtimeSafeMode;
+      const autoPushBootAllowed = {{ 'true' if allow_auto_push_boot else 'false' }};
+      const autoServiceWorkerBootAllowed = {{ 'true' if allow_auto_service_worker_boot else 'false' }};
+      const manualPushControlsAllowed = {{ 'true' if allow_manual_push_controls else 'false' }};
+      const manualServiceWorkerControlsAllowed = {{ 'true' if allow_manual_service_worker_controls else 'false' }};
       let nativePushListenersBound = false;
       let nativePushPending = null;
       let pendingUpdateRegistration = null;
       let swControllerListenerBound = false;
 
       setDebugValue("route", window.location.pathname + window.location.search);
-      setDebugValue("swStatus", (runtimeSafeMode || !serviceWorkerFeatureEnabled) ? "deaktiviert (safe-mode)" : (isNativeApp ? "deaktiviert (native Android-App)" : "nicht initialisiert"));
-      setDebugValue("pushStatus", pushFeatureEnabled ? (isNativeApp ? "optional / nativer Push" : "nicht initialisiert") : "deaktiviert (safe-mode)");
+      setDebugValue("swStatus", (runtimeSafeMode || !serviceWorkerFeatureEnabled) ? "deaktiviert (safe-mode)" : (autoServiceWorkerBootAllowed ? (isNativeApp ? "deaktiviert (native Android-App)" : "nicht initialisiert") : "manuell aktivierbar"));
+      setDebugValue("pushStatus", pushFeatureEnabled ? (autoPushBootAllowed ? (isNativeApp ? "optional / nativer Push" : "nicht initialisiert") : "manuell aktivierbar") : "deaktiviert (safe-mode)");
 
       function setPushPanelOpen(open) {
         if (!navPushGroup || !navPushPanel || !navPushToggle) return;
@@ -1046,7 +1053,7 @@ ${body}`);
         });
       }
 
-      if (testPushBtn) {
+      if (manualPushControlsAllowed && testPushBtn) {
         testPushBtn.addEventListener('click', async () => {
           try { await triggerPushTest(true); }
           catch (error) {
@@ -1056,7 +1063,7 @@ ${body}`);
         });
       }
 
-      if (enablePushBtn) {
+      if (manualPushControlsAllowed && enablePushBtn) {
         enablePushBtn.addEventListener('click', async () => {
           try { await registerPushSubscription(true); }
           catch (error) {
@@ -1121,7 +1128,7 @@ ${body}`);
         } catch (e) {}
         flagVersionChangeForReload();
         try {
-          if (runtimeSafeMode || !serviceWorkerFeatureEnabled) {
+          if (runtimeSafeMode || !serviceWorkerFeatureEnabled || !autoServiceWorkerBootAllowed) {
             await disableServiceWorkerForDebug();
           } else {
             const registration = await registerServiceWorker();
@@ -1143,7 +1150,7 @@ ${body}`);
         if (!runtimeSafeMode) runStartupSplash();
         closeMobileMenu();
         closeDeviceStaffBar();
-        if (pushFeatureEnabled) {
+        if (pushFeatureEnabled && autoPushBootAllowed) {
           window.setTimeout(() => {
             refreshPushStatus().catch((error) => reportError("refreshPushStatus", error));
             syncExistingPushSubscriptionSilently().catch((error) => reportError("syncExistingPushSubscriptionSilently", error));
@@ -1159,20 +1166,20 @@ ${body}`);
 
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden) {
-          if (pushFeatureEnabled) {
+          if (pushFeatureEnabled && autoPushBootAllowed) {
             refreshPushStatus().catch((error) => reportError("visibility.refreshPushStatus", error));
             syncExistingPushSubscriptionSilently().catch((error) => reportError("visibility.syncPush", error));
           }
-          checkForAppUpdate().catch((error) => reportError("visibility.checkForAppUpdate", error));
+          if (autoServiceWorkerBootAllowed) checkForAppUpdate().catch((error) => reportError("visibility.checkForAppUpdate", error));
         }
       });
 
       window.addEventListener('focus', () => {
-        if (pushFeatureEnabled) {
+        if (pushFeatureEnabled && autoPushBootAllowed) {
           refreshPushStatus().catch((error) => reportError("focus.refreshPushStatus", error));
           syncExistingPushSubscriptionSilently().catch((error) => reportError("focus.syncPush", error));
         }
-        checkForAppUpdate().catch((error) => reportError("focus.checkForAppUpdate", error));
+        if (autoServiceWorkerBootAllowed) checkForAppUpdate().catch((error) => reportError("focus.checkForAppUpdate", error));
       });
 
       let lastScrollY = window.scrollY || 0;

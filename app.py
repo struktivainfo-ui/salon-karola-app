@@ -3320,7 +3320,7 @@ def index():
     if SAFE_MODE:
         return redirect(url_for("safe_start"))
     if is_admin_world_session():
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin_start"))
     return redirect(url_for("staff_today"))
 
 
@@ -4933,6 +4933,9 @@ def format_phone_href(value):
 @app.context_processor
 def inject_globals():
     ui_world = current_ui_world()
+    endpoint_name = request.endpoint or ""
+    push_manual_page = endpoint_name in {"push_center", "test_push"}
+    sw_manual_page = endpoint_name in {"test_service_worker", "test_push"}
     return {
         "admin_name": session.get("admin_name"),
         "logged_in_staff": session.get("staff_name") or get_default_staff(),
@@ -4960,6 +4963,10 @@ def inject_globals():
         "enable_scheduler": ENABLE_SCHEDULER and not SAFE_MODE,
         "enable_service_worker": ENABLE_SERVICE_WORKER and not SAFE_MODE,
         "enable_firebase": ENABLE_FIREBASE and not SAFE_MODE,
+        "allow_auto_push_boot": False,
+        "allow_auto_service_worker_boot": False,
+        "allow_manual_push_controls": push_manual_page,
+        "allow_manual_service_worker_controls": sw_manual_page,
     }
 
 
