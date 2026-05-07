@@ -3797,7 +3797,6 @@ def customer_new():
 
 
 @app.route("/customer/<int:customer_id>", methods=["GET", "POST"])
-@app.route("/customer/<int:customer_id>", methods=["GET", "POST"])
 @login_required
 def customer_detail(customer_id):
     db = get_db()
@@ -3871,7 +3870,6 @@ def customer_detail(customer_id):
     )
 
 
-@app.route("/api/customer/<int:customer_id>/summary")
 @app.route("/api/customer/<int:customer_id>/summary")
 @login_required
 def customer_summary_api(customer_id):
@@ -5014,7 +5012,6 @@ def whatsapp_hub():
     )
 
 
-@app.route("/api/templates/live")
 @app.route("/api/templates/live")
 @admin_required
 def templates_live_api():

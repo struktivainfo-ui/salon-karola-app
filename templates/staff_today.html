@@ -16,8 +16,13 @@
         <a class="simple-floating-action" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">+ Termin</a>
       </div>
       <div class="simple-filter-row">
+        {% if mine_mode %}
+        <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=today_date, mine=1) }}">Heute</a>
+        <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=next_date, mine=1) }}">Morgen</a>
+        {% else %}
         <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=today_date, staff=staff) }}">Heute</a>
         <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=next_date, staff=staff) }}">Morgen</a>
+        {% endif %}
       </div>
     </div>
 
