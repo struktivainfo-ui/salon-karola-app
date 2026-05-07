@@ -24,18 +24,18 @@
     </article>
     <article class="premium-stat-card">
       <div class="premium-stat-label">Heute</div>
-      <div class="premium-stat-value">{{ stats.appointments_today }}</div>
+      <div class="premium-stat-value">{{ today_count }}</div>
       <div class="premium-stat-foot">Termine</div>
     </article>
     <article class="premium-stat-card">
       <div class="premium-stat-label">Woche</div>
-      <div class="premium-stat-value">{{ stats.appointments_week }}</div>
+      <div class="premium-stat-value">{{ week_count }}</div>
       <div class="premium-stat-foot">geplant</div>
     </article>
     <article class="premium-stat-card">
-      <div class="premium-stat-label">R?ckholung</div>
-      <div class="premium-stat-value">{{ stats.inactive_60 }}</div>
-      <div class="premium-stat-foot">60+ Tage</div>
+      <div class="premium-stat-label">Geburtstage</div>
+      <div class="premium-stat-value">{{ birthdays_today }}</div>
+      <div class="premium-stat-foot">heute</div>
     </article>
   </section>
 
@@ -109,6 +109,11 @@
       <a class="premium-action-card" href="{{ url_for('customer_new') }}">Kontakt</a>
       <a class="premium-action-card" href="{{ url_for('templates_view') }}">Vorlagen</a>
       <a class="premium-action-card" href="{{ url_for('push_center') }}">Push</a>
+      <a class="premium-action-card" href="{{ url_for('database_tools') }}">Backup</a>
+      <a class="premium-action-card" href="{{ url_for('staff_management') }}">Mitarbeiter</a>
+      <a class="premium-action-card" href="{{ url_for('admin_settings') }}">Einstellungen</a>
+      <a class="premium-action-card" href="{{ url_for('admin_automations_alias') }}">Automationen</a>
+      <a class="premium-action-card" href="{{ url_for('switch_to_staff_app') }}">Mitarbeiter-App</a>
     </div>
   </section>
 

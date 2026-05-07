@@ -237,24 +237,29 @@ document.addEventListener("DOMContentLoaded", function () {
       customerResults.innerHTML = "";
       return;
     }
-    const response = await fetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}`, { credentials: "same-origin" });
-    const payload = await response.json();
-    customerResults.innerHTML = (payload.items || []).map((item) => `
+    try {
+      const response = await fetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}`, { credentials: "same-origin" });
+      const payload = await response.json();
+      customerResults.innerHTML = (payload.items || []).map((item) => `
       <button type="button" class="simple-live-result" data-id="${item.id}" data-name="${item.name}">
         <strong>${item.name}</strong>
         <span>${item.phone || "Keine Nummer gespeichert"}</span>
       </button>
     `).join("");
-    customerResults.querySelectorAll(".simple-live-result").forEach((button) => {
-      button.addEventListener("click", function () {
-        customerIdField.value = this.dataset.id;
-        customerSearch.value = this.dataset.name;
-        customerResults.querySelectorAll(".simple-live-result").forEach((item) => item.classList.remove("active"));
-        this.classList.add("active");
-        showError("");
-        updateSummary();
+      customerResults.querySelectorAll(".simple-live-result").forEach((button) => {
+        button.addEventListener("click", function () {
+          customerIdField.value = this.dataset.id;
+          customerSearch.value = this.dataset.name;
+          customerResults.querySelectorAll(".simple-live-result").forEach((item) => item.classList.remove("active"));
+          this.classList.add("active");
+          showError("");
+          updateSummary();
+        });
       });
-    });
+    } catch (error) {
+      console.error("Kundensuche fehlgeschlagen", error);
+      customerResults.innerHTML = '<div class="simple-empty">Suche gerade nicht verfuegbar. Bitte erneut versuchen.</div>';
+    }
   }
 
   modeInputs.forEach((input) => input.addEventListener("change", updateMode));

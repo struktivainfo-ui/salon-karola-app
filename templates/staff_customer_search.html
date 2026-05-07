@@ -65,10 +65,11 @@ document.addEventListener("DOMContentLoaded", function () {
       results.innerHTML = "";
       return;
     }
-    const response = await fetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}`, { credentials: "same-origin" });
-    const payload = await response.json();
-    const items = payload.items || [];
-    results.innerHTML = items.map((item) => `
+    try {
+      const response = await fetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}`, { credentials: "same-origin" });
+      const payload = await response.json();
+      const items = payload.items || [];
+      results.innerHTML = items.map((item) => `
       <article class="simple-live-result">
         <a class="simple-customer-main" href="${item.detail_url}">
           <strong>${item.name}</strong>
@@ -81,6 +82,10 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
       </article>
     `).join("");
+    } catch (error) {
+      console.error("Live-Suche fehlgeschlagen", error);
+      results.innerHTML = '<div class="simple-empty">Suche gerade nicht verfuegbar. Bitte erneut versuchen.</div>';
+    }
   }
 
   input.addEventListener("input", refreshSuggestions);

@@ -117,7 +117,7 @@ def add_no_cache_headers(response):
         pass
     return response
 
-APP_VERSION = "Salon Karola App 2026-05-05-stability-1"
+APP_VERSION = "Salon Karola App 2026-05-07-production-rebuild-1"
 
 
 def env_bool(name, default=False):
@@ -177,7 +177,15 @@ def admin_required(view):
             if request.path.startswith("/api/"):
                 return jsonify({"ok": False, "error": "Dieser Bereich ist nur fuer Sven/Admin sichtbar."}), 403
             flash("Dieser Bereich ist nur fuer Sven/Admin sichtbar.")
-            return redirect(url_for("salon_home"))
+            return redirect(url_for("staff_today"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def staff_or_admin_required(view):
+    @wraps(view)
+    @login_required
+    def wrapped(*args, **kwargs):
         return view(*args, **kwargs)
     return wrapped
 
@@ -3361,6 +3369,34 @@ def staff_today():
     return redirect(url_for("calendar_view", view="day"))
 
 
+@app.route("/staff/appointment/new", methods=["GET", "POST"])
+@staff_or_admin_required
+def staff_new_appointment():
+    set_ui_world("staff")
+    return appointments_hub()
+
+
+@app.route("/staff/customers")
+@staff_or_admin_required
+def staff_customers():
+    set_ui_world("staff")
+    return customer_search_page()
+
+
+@app.route("/staff/customers/<int:customer_id>", methods=["GET", "POST"])
+@staff_or_admin_required
+def staff_customer_detail(customer_id):
+    set_ui_world("staff")
+    return customer_detail(customer_id)
+
+
+@app.route("/staff/more")
+@staff_or_admin_required
+def staff_more():
+    set_ui_world("staff")
+    return salon_reminders()
+
+
 @app.route("/salon")
 @login_required
 def salon_home():
@@ -3488,6 +3524,7 @@ def dashboard_legacy():
 @login_required
 def customer_search_page():
     db = get_db()
+    is_admin_world = is_admin_world_session()
     q = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
     sort = (request.args.get("sort") or "az").strip().lower()
@@ -3527,10 +3564,14 @@ def customer_search_page():
     elif sort == "recent":
         order_sql = "MAX(a.appointment_at) DESC, COALESCE(c._name, '') COLLATE NOCASE, COALESCE(c._firstname, '') COLLATE NOCASE"
 
-    base_query += f" GROUP BY c._id ORDER BY {order_sql} LIMIT 300"
-    customers = db.execute(base_query, params).fetchall()
+    limit = 300 if is_admin_world else 20
+    if not is_admin_world and not q:
+        customers = []
+    else:
+        base_query += f" GROUP BY c._id ORDER BY {order_sql} LIMIT {limit}"
+        customers = db.execute(base_query, params).fetchall()
     tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
-    template_name = "admin_customers.html" if is_admin_world_session() else "staff_customer_search.html"
+    template_name = "admin_customers.html" if is_admin_world else "staff_customer_search.html"
     return render_template(
         template_name,
         customers=customers,
@@ -3553,7 +3594,89 @@ def admin_home():
 @admin_required
 def admin_dashboard():
     set_ui_world("admin")
-    return dashboard_legacy()
+    db = get_db()
+    today = datetime.now().date()
+    next_week = today + timedelta(days=7)
+    stats = dashboard_stats()
+    counts = db.execute(
+        """
+        SELECT
+            SUM(CASE WHEN DATE(appointment_at) = DATE(?) THEN 1 ELSE 0 END) AS today_count,
+            SUM(CASE WHEN DATE(appointment_at) BETWEEN DATE(?) AND DATE(?) THEN 1 ELSE 0 END) AS week_count
+        FROM appointments
+        """,
+        (today.isoformat(), today.isoformat(), next_week.isoformat()),
+    ).fetchone()
+    birthdays_today = db.execute(
+        "SELECT COUNT(*) AS cnt FROM _Customers WHERE strftime('%m-%d', _birthdate) = strftime('%m-%d', ?)",
+        (today.isoformat(),),
+    ).fetchone()
+    upcoming = next_appointments(limit=14)
+    due_items = due_reminders(limit=14)
+    return render_template(
+        "admin_dashboard.html",
+        stats=stats,
+        upcoming=upcoming,
+        due_items=due_items,
+        staff_counts=staff_dashboard_counts(),
+        today_items=today_appointments(limit=20),
+        now=datetime.now(),
+        today_count=int((counts["today_count"] if counts and counts["today_count"] is not None else 0)),
+        week_count=int((counts["week_count"] if counts and counts["week_count"] is not None else 0)),
+        birthdays_today=int((birthdays_today["cnt"] if birthdays_today and birthdays_today["cnt"] is not None else 0)),
+        current_endpoint="admin_dashboard",
+        app_version=APP_VERSION,
+    )
+
+
+@app.route("/admin/calendar")
+@admin_required
+def admin_calendar_alias():
+    set_ui_world("admin")
+    return redirect(url_for("calendar_view", view=request.args.get("view") or "week", date=request.args.get("date"), staff=request.args.get("staff")))
+
+
+@app.route("/admin/customers")
+@admin_required
+def admin_customers_alias():
+    set_ui_world("admin")
+    return customer_search_page()
+
+
+@app.route("/admin/appointments")
+@admin_required
+def admin_appointments_alias():
+    set_ui_world("admin")
+    return appointments_hub()
+
+
+@app.route("/admin/push")
+@admin_required
+def admin_push_alias():
+    set_ui_world("admin")
+    return push_center()
+
+
+@app.route("/admin/templates")
+@admin_required
+def admin_templates_alias():
+    set_ui_world("admin")
+    return templates_view()
+
+
+@app.route("/admin/backup")
+@admin_required
+def admin_backup_alias():
+    set_ui_world("admin")
+    return database_tools()
+
+
+@app.route("/admin/automations")
+@admin_required
+def admin_automations_alias():
+    set_ui_world("admin")
+    flash("Automationen koennen ueber den manuellen Lauf gestartet werden.")
+    return redirect(url_for("database_tools"))
 
 
 @app.route("/admin/settings")
@@ -4203,16 +4326,19 @@ def appointments_hub():
         return redirect(url_for("appointments_hub"))
 
     email_sql, mobile_sql, phone_sql, _ = customer_contact_select_sql()
-    customers = db.execute(
-        f"""
-        SELECT _id, COALESCE(_firstname, '') AS firstname, COALESCE(_name, '') AS lastname,
-               COALESCE({mobile_sql}, {phone_sql}, '') AS phone
-        FROM _Customers
-        WHERE COALESCE(_name, '') <> '__MANUELLER_TERMIN__'
-        ORDER BY COALESCE(_name, '') COLLATE NOCASE ASC, COALESCE(_firstname, '') COLLATE NOCASE ASC
-        LIMIT 500
-        """
-    ).fetchall()
+    if is_admin_world_session():
+        customers = db.execute(
+            f"""
+            SELECT _id, COALESCE(_firstname, '') AS firstname, COALESCE(_name, '') AS lastname,
+                   COALESCE({mobile_sql}, {phone_sql}, '') AS phone
+            FROM _Customers
+            WHERE COALESCE(_name, '') <> '__MANUELLER_TERMIN__'
+            ORDER BY COALESCE(_name, '') COLLATE NOCASE ASC, COALESCE(_firstname, '') COLLATE NOCASE ASC
+            LIMIT 300
+            """
+        ).fetchall()
+    else:
+        customers = []
     today_rows = today_appointments(limit=50)
     active_staff = get_staff_members(db)
     simple_staff_members = staff_members_for_simple_mode(db)
