@@ -9,7 +9,7 @@
     <div class="simple-panel-head simple-panel-head-stack">
       <div class="simple-page-title-row">
         <div>
-          <div class="simple-kicker">Tagesplan</div>
+          <div class="simple-kicker">Salon Karola · {{ logged_in_staff or default_staff }}</div>
           <h1 class="simple-section-title">{% if selected_date == today_date %}Heute{% else %}Tagesuebersicht{% endif %}</h1>
           <p class="simple-subtitle">{{ selected_date_label or selected_date }}</p>
         </div>
@@ -22,7 +22,7 @@
     </div>
 
     <div class="simple-filter-row simple-filter-row-wrap">
-      <a class="simple-filter-chip {% if mine_mode %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, mine=1) }}">Meine Termine</a>
+      <a class="simple-filter-chip {% if mine_mode %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, mine=1) }}">Meine</a>
       <a class="simple-filter-chip {% if staff == 'Alle' and not mine_mode %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff='Alle') }}">Alle</a>
       {% for member in bookable_staff %}
       {% if member != 'Sven' %}

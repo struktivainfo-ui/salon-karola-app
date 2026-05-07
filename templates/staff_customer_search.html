@@ -22,7 +22,7 @@
     {% set phone = customer_phone(customer) %}
     {% set wa_link = whatsapp_link(customer) %}
     <article class="simple-customer-card">
-      <a class="simple-customer-main" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">
+      <a class="simple-customer-main" href="{{ url_for('staff_customer_detail', customer_id=customer['_id']) }}">
         <strong>{{ customer_full_name(customer) }}</strong>
         <span>{{ phone or 'Keine Nummer gespeichert' }}</span>
         <small>{{ customer['_mail'] or 'Keine E-Mail gespeichert' }}</small>
@@ -38,9 +38,14 @@
         {% else %}
         <span class="simple-action-button disabled">WhatsApp fehlt</span>
         {% endif %}
-        <a class="simple-action-button" href="{{ url_for('appointments_hub', customer_id=customer['_id']) }}">Termin</a>
+        <a class="simple-action-button" href="{{ url_for('staff_new_appointment', customer_id=customer['_id']) }}">Termin</a>
       </div>
     </article>
+    {% else %}
+    {% if not q %}
+    <div class="simple-empty">
+      Gib einen Namen oder eine Telefonnummer ein.
+    </div>
     {% else %}
     <div class="simple-empty">
       Kein Kunde gefunden.
@@ -48,6 +53,7 @@
         <a class="simple-save-button" href="{{ url_for('staff_new_appointment') }}">Manuellen Termin erstellen</a>
       </div>
     </div>
+    {% endif %}
     {% endfor %}
   </section>
 </section>

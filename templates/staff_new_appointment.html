@@ -7,7 +7,7 @@
       <div>
         <div class="simple-kicker">Neuer Termin</div>
         <h1 class="simple-section-title">Termin eintragen</h1>
-        <p class="simple-subtitle">Vier kurze Schritte, ohne lange Formularseite.</p>
+        <p class="simple-subtitle">Schnell in 4 Schritten.</p>
       </div>
     </div>
 
@@ -23,16 +23,15 @@
       <input type="hidden" name="status" value="{{ prefill_payload['status'] or 'geplant' }}">
 
       <div class="simple-step-indicator">
-        <span class="active">Kunde</span>
-        <span>Service</span>
-        <span>Zeit</span>
-        <span>Speichern</span>
+        <span class="active">1 Kunde</span>
+        <span>2 Leistung</span>
+        <span>3 Zeit</span>
+        <span>4 Fertig</span>
       </div>
       <div class="simple-wizard-error" id="simpleWizardError" hidden></div>
 
       <section class="simple-step active" data-step="1">
-        <h2>Kunde suchen</h2>
-        <p>Name oder Telefonnummer eingeben, oder einen manuellen Kunden nutzen.</p>
+        <h2>Kunde</h2>
         <div class="simple-mode-toggle">
           <label class="simple-choice-card">
             <input type="radio" name="customer_mode" value="existing" checked>
@@ -47,6 +46,7 @@
         <div id="existingCustomerBlock" class="simple-step-card">
           <input type="text" id="simpleCustomerSearch" placeholder="Name oder Telefonnummer suchen" autocomplete="off">
           <input type="hidden" name="customer_id" id="simpleCustomerId" value="{{ prefill_payload['customer_id'] }}">
+          <div class="simple-selected-customer" id="simpleSelectedCustomer" hidden></div>
           <div class="simple-live-results" id="simpleCustomerResults"></div>
         </div>
 
@@ -61,7 +61,7 @@
       </section>
 
       <section class="simple-step" data-step="2">
-        <h2>Service auswaehlen</h2>
+        <h2>Leistung</h2>
         <div class="simple-service-grid">
           {% for service in service_presets %}
           <button type="button" class="simple-service-button" data-service-id="{{ service['id'] }}" data-label="{{ service['label'] }}" data-active="{{ service['active'] }}" data-processing="{{ service['processing'] }}">{{ service['label'] }}</button>
@@ -83,7 +83,7 @@
         <details class="simple-more-options">
           <summary>Mehr Optionen</summary>
           <div class="simple-form-grid">
-            <label class="full"><span>Notiz</span><textarea name="notes" placeholder="Optional">{{ prefill_payload['notes'] }}</textarea></label>
+            <label class="full"><span>Notiz</span><textarea name="notes" placeholder="Kurz notieren (optional)">{{ prefill_payload['notes'] }}</textarea></label>
             <label class="full"><span>Erinnerung</span>
               <select id="simpleReminderSelect">
                 <option value="24" {% if (prefill_payload['reminder_hours'] or 24)|int == 24 %}selected{% endif %}>1 Tag vorher</option>
@@ -96,7 +96,7 @@
       </section>
 
       <section class="simple-step" data-step="4">
-        <h2>Passt alles?</h2>
+        <h2>Fertig</h2>
         <div class="simple-summary-box" id="simpleWizardSummary"></div>
         <button type="submit" class="simple-save-button simple-submit-button">Termin speichern</button>
       </section>
@@ -124,6 +124,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const manualBlock = document.getElementById("manualCustomerBlock");
   const customerSearch = document.getElementById("simpleCustomerSearch");
   const customerResults = document.getElementById("simpleCustomerResults");
+  const selectedCustomer = document.getElementById("simpleSelectedCustomer");
   const customerIdField = document.getElementById("simpleCustomerId");
   const serviceButtons = Array.from(wizard.querySelectorAll(".simple-service-button[data-service-id]"));
   const staffButtons = Array.from(wizard.querySelectorAll(".staff-select-button"));
@@ -136,6 +137,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const reminderField = document.getElementById("simpleReminderHours");
   const reminderSelect = document.getElementById("simpleReminderSelect");
   const titleField = document.getElementById("simpleTitleField");
+  const submitButton = wizard.querySelector(".simple-submit-button");
   let stepIndex = 0;
 
   function showError(message) {
@@ -185,6 +187,17 @@ document.addEventListener("DOMContentLoaded", function () {
     return customerSearch.value.trim() || "Noch kein Kunde";
   }
 
+  function renderSelectedCustomerCard() {
+    if (!selectedCustomer) return;
+    const hasSelection = !!customerIdField.value || activeMode() === "manual";
+    selectedCustomer.hidden = !hasSelection;
+    if (!hasSelection) {
+      selectedCustomer.textContent = "";
+      return;
+    }
+    selectedCustomer.innerHTML = `<strong>Ausgewaehlt:</strong> <span>${selectedCustomerText()}</span>`;
+  }
+
   function updateSummary() {
     const appointmentAt = wizard.querySelector('[name="appointment_at"]').value || "Noch nicht gewaehlt";
     summaryBox.innerHTML = `
@@ -192,6 +205,8 @@ document.addEventListener("DOMContentLoaded", function () {
       <div><strong>Service</strong><span>${serviceSummaryField.value || "Noch nicht gewaehlt"}</span></div>
       <div><strong>Mitarbeiterin</strong><span>${staffField.value || "Noch nicht gewaehlt"}</span></div>
       <div><strong>Zeit</strong><span>${appointmentAt.replace("T", " ")}</span></div>
+      <div><strong>Dauer</strong><span>${durationField.value || 30} Min.</span></div>
+      <div><strong>Einwirkzeit</strong><span>${processingField.value || 0} Min.</span></div>
     `;
   }
 
@@ -254,6 +269,7 @@ document.addEventListener("DOMContentLoaded", function () {
           this.classList.add("active");
           showError("");
           updateSummary();
+          renderSelectedCustomerCard();
         });
       });
     } catch (error) {
@@ -264,6 +280,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   modeInputs.forEach((input) => input.addEventListener("change", updateMode));
   customerSearch.addEventListener("input", fetchCustomers);
+  customerSearch.addEventListener("input", renderSelectedCustomerCard);
   serviceButtons.forEach((button) => {
     button.addEventListener("click", function () {
       this.classList.toggle("active");
@@ -301,7 +318,14 @@ document.addEventListener("DOMContentLoaded", function () {
   if (customerIdField.value) {
     customerSearch.value = "Ausgewaehlter Kunde";
   }
+  renderSelectedCustomerCard();
   renderStep();
+
+  wizard.addEventListener("submit", function () {
+    if (!submitButton) return;
+    submitButton.disabled = true;
+    submitButton.textContent = "Speichert...";
+  }, { once: true });
 });
 </script>
 {% endblock %}

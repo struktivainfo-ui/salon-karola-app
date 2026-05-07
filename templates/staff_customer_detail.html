@@ -27,11 +27,11 @@
     </div>
 
     <div class="simple-detail-grid">
-      <div><strong>Telefon</strong><span>{{ row_value(customer, 'Customer_PersoenlichesTelefon') or 'Nicht gespeichert' }}</span></div>
-      <div><strong>Mobil</strong><span>{{ row_value(customer, 'Customer_Mobiltelefon') or 'Nicht gespeichert' }}</span></div>
-      <div><strong>E-Mail</strong><span>{{ customer['_mail'] or 'Nicht gespeichert' }}</span></div>
-      <div><strong>Geburtstag</strong><span>{{ customer['_birthdate'] or 'Nicht gespeichert' }}</span></div>
-      <div class="full"><strong>Notizen</strong><span>{{ customer['_notes'] or 'Keine Notiz vorhanden' }}</span></div>
+      <div><strong>Telefon</strong><span>{{ row_value(customer, 'Customer_PersoenlichesTelefon') or 'Nicht hinterlegt' }}</span></div>
+      <div><strong>Mobil</strong><span>{{ row_value(customer, 'Customer_Mobiltelefon') or 'Nicht hinterlegt' }}</span></div>
+      <div><strong>E-Mail</strong><span>{{ customer['_mail'] or 'Nicht hinterlegt' }}</span></div>
+      <div><strong>Geburtstag</strong><span>{{ customer['_birthdate'] or 'Nicht hinterlegt' }}</span></div>
+      <div class="full"><strong>Notizen</strong><span>{{ customer['_notes'] or 'Nicht hinterlegt' }}</span></div>
     </div>
   </section>
 
@@ -70,7 +70,7 @@
     <div class="simple-panel-head">
       <div>
         <div class="simple-kicker">Termine</div>
-        <h2 class="simple-section-title">Letzte und naechste Termine</h2>
+        <h2 class="simple-section-title">Naechste und letzte Termine</h2>
       </div>
     </div>
     <div class="simple-compact-list">

@@ -25,6 +25,175 @@ body.employee-mode {
   max-width: 100%;
 }
 
+.employee-mode .simple-shell {
+  gap: 10px;
+}
+
+.employee-mode .simple-panel {
+  padding: 14px;
+  border-radius: 18px;
+}
+
+.employee-mode .simple-subtitle {
+  margin-top: 4px;
+  font-size: 0.9rem;
+}
+
+.employee-mode .simple-filter-row {
+  gap: 6px;
+}
+
+.employee-mode .simple-filter-chip {
+  min-height: 38px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+}
+
+.employee-mode .simple-appointment-card {
+  padding: 12px;
+  border-radius: 16px;
+}
+
+.employee-mode .simple-appointment-time {
+  font-size: 1.2rem;
+}
+
+.employee-mode .simple-appointment-card h2 {
+  margin-top: 2px;
+  font-size: 1rem;
+}
+
+.employee-mode .simple-appointment-meta {
+  margin: 6px 0 8px;
+  font-size: 0.88rem;
+}
+
+.employee-mode .simple-card-badges {
+  gap: 6px;
+}
+
+.employee-mode .simple-status-pill {
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+}
+
+.employee-mode .simple-appointment-card .simple-action-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.employee-mode .simple-appointment-card .simple-action-button,
+.employee-mode .simple-card-actions .simple-action-button,
+.employee-mode .simple-detail-actions .simple-action-button {
+  min-height: 40px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  font-size: 0.82rem;
+}
+
+.employee-mode .simple-page-title-row {
+  align-items: flex-start;
+}
+
+.employee-mode .simple-floating-action {
+  min-height: 42px;
+  padding: 0 12px;
+  font-size: 0.86rem;
+}
+
+.employee-mode .simple-step-indicator {
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.employee-mode .simple-step-indicator span {
+  min-height: 34px;
+  padding: 4px 6px;
+  font-size: 0.72rem;
+}
+
+.employee-mode .simple-step h2 {
+  margin: 2px 0;
+  font-size: 1.02rem;
+}
+
+.employee-mode .simple-service-grid {
+  gap: 8px;
+}
+
+.employee-mode .simple-service-button {
+  min-height: 46px;
+  border-radius: 14px;
+  font-size: 0.86rem;
+}
+
+.employee-mode .simple-search-form {
+  margin-top: 8px;
+  gap: 8px;
+}
+
+.employee-mode .simple-search-form input {
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.employee-mode .simple-search-submit {
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+.employee-mode .simple-live-results {
+  margin-top: 10px;
+  gap: 8px;
+}
+
+.employee-mode .simple-live-result,
+.employee-mode .simple-customer-card {
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.employee-mode .simple-selected-customer {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(191, 147, 87, 0.18);
+  display: grid;
+  gap: 2px;
+  font-size: 0.86rem;
+  color: #4a3324;
+}
+
+.employee-mode .simple-wizard-actions {
+  position: sticky;
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+  z-index: 25;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(255, 250, 242, 0.96);
+  border: 1px solid rgba(191, 147, 87, 0.14);
+}
+
+.employee-mode .simple-wizard-actions .simple-action-button,
+.employee-mode .simple-wizard-actions .simple-next-button {
+  min-height: 44px;
+}
+
+.employee-mode .mobile-app-dock {
+  min-height: 60px;
+  padding: 6px;
+}
+
+.employee-mode .mobile-app-link {
+  min-height: 44px;
+  border-radius: 14px;
+  font-size: 0.8rem;
+}
+
 @media (min-width: 1024px) {
   .staff-desktop-hint {
     display: block;

@@ -3719,6 +3719,7 @@ def admin_settings():
 @login_required
 def customer_quick_search():
     q = request.args.get("q", "").strip()
+    in_admin_world = is_admin_world_session()
     items = []
     for row in customer_search_results(q, limit=12):
         mobile = (row["mobile_phone"] or "").strip() if "mobile_phone" in row.keys() else ""
@@ -3730,8 +3731,8 @@ def customer_quick_search():
                 "name": customer_full_name(row),
                 "phone": primary_phone,
                 "email": row["_mail"] or "",
-                "detail_url": url_for("customer_detail", customer_id=row["_id"]),
-                "new_appointment_url": url_for("appointments_hub", customer_id=row["_id"]),
+                "detail_url": (url_for("customer_detail", customer_id=row["_id"]) if in_admin_world else url_for("staff_customer_detail", customer_id=row["_id"])),
+                "new_appointment_url": (url_for("appointments_hub", customer_id=row["_id"]) if in_admin_world else url_for("staff_new_appointment", customer_id=row["_id"])),
                 "call_url": phone_href(primary_phone) if primary_phone else "",
                 "whatsapp_url": whatsapp_link(row),
             }
@@ -3833,9 +3834,10 @@ def customer_detail(customer_id):
         flash("Kontakt nicht gefunden.")
         return redirect(url_for("index"))
 
+    appt_limit = 40 if is_admin_world_session() else 8
     appointments = db.execute(
-        "SELECT * FROM appointments WHERE customer_id = ? ORDER BY appointment_at DESC",
-        (customer_id,),
+        "SELECT * FROM appointments WHERE customer_id = ? ORDER BY appointment_at DESC LIMIT ?",
+        (customer_id, appt_limit),
     ).fetchall()
     logs = db.execute(
         "SELECT * FROM email_log WHERE customer_id = ? ORDER BY sent_at DESC LIMIT 25",

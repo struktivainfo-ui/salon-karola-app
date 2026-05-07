@@ -23,7 +23,7 @@
         <span>App sicher verlassen</span>
       </a>
       {% for item in reminder_items %}
-      <a class="simple-list-card" href="{{ url_for('customer_detail', customer_id=item['customer_id']) }}">
+      <a class="simple-list-card" href="{{ url_for('staff_customer_detail', customer_id=item['customer_id']) }}">
         <strong>{{ item['appointment_at']|dt }}</strong>
         <span>{{ item['_firstname'] }} {{ item['_name'] }}</span>
       </a>
@@ -42,7 +42,7 @@
     </div>
     <div class="simple-compact-list">
       {% for customer in birthday_items %}
-      <a class="simple-list-card" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">
+      <a class="simple-list-card" href="{{ url_for('staff_customer_detail', customer_id=customer['_id']) }}">
         <strong>{{ customer_full_name(customer) }}</strong>
         <span>{{ customer['_birthdate']|birthday }}</span>
       </a>
