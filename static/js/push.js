@@ -14,10 +14,22 @@
       return;
     }
     try {
-      var res = await fetch("/api/push/public-key", { cache: "no-store", credentials: "same-origin" });
-      var data = await res.json().catch(function () { return {}; });
-      if (!res.ok || data.ok === false) {
-        write("Fehler beim Laden der Push-Konfiguration: HTTP " + res.status);
+      if (typeof window.safeFetch !== "function") {
+        write("Fehler: safeFetch nicht verfügbar.");
+        return;
+      }
+      var result = await window.safeFetch("/api/push/public-key", { cache: "no-store", credentials: "same-origin", timeoutMs: 12000 });
+      if (!result.ok) {
+        write("Fehler beim Laden der Push-Konfiguration: " + result.error);
+        return;
+      }
+      var data = result.data || {};
+      if (data.ok === false) {
+        write("Fehler beim Laden der Push-Konfiguration: " + (data.error || "Unbekannter Fehler"));
+        return;
+      }
+      if (data.service_worker_required && !data.service_worker_enabled) {
+        write("Push benötigt Service Worker. Bitte ENABLE_SERVICE_WORKER=true setzen.");
         return;
       }
       write("OK: Push-Konfiguration geladen.\nWebPush: " + (data.enabled ? "aktiv" : "inaktiv") + "\nFirebase: " + (data.native_enabled ? "aktiv" : "inaktiv"));
@@ -32,13 +44,17 @@
       return;
     }
     try {
-      var res = await fetch("/api/push/ping?staff_name=Sven", { cache: "no-store", credentials: "same-origin" });
-      var data = await res.json().catch(function () { return {}; });
-      if (!res.ok || data.ok === false) {
-        write("Fehler beim Test-Push: " + (data.error || ("HTTP " + res.status)));
+      if (typeof window.safeFetch !== "function") {
+        write("Fehler: safeFetch nicht verfügbar.");
         return;
       }
-      write("OK: Test-Push ausgefuehrt.\nGesendet: " + (((data.result || {}).sent) || 0) + "\nGeraete: " + (data.device_count || 0));
+      var result = await window.safeFetch("/api/push/ping?staff_name=Sven", { cache: "no-store", credentials: "same-origin", timeoutMs: 12000 });
+      var data = result.data || {};
+      if (!result.ok || data.ok === false) {
+        write("Fehler beim Test-Push: " + (data.error || result.error || "Unbekannter Fehler"));
+        return;
+      }
+      write("OK: Test-Push ausgeführt.\nGesendet: " + (((data.result || {}).sent) || 0) + "\nGeräte: " + (data.device_count || 0));
     } catch (error) {
       write("Fehler beim Senden: " + String(error));
     }

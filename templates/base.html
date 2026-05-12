@@ -3,16 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#ffffff" />
+  <meta name="theme-color" content="#0f172a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Salon Karola App" />
+  <meta name="apple-mobile-web-app-title" content="Salon Karola" />
   <script src="{{ url_for('static', filename='js/crash-guard.js', v=app_version) }}"></script>
+  <script src="{{ url_for('static', filename='js/safe-fetch.js', v=app_version) }}"></script>
   <title>{% block title %}Salon Karola App{% endblock %}</title>
-  <link rel="manifest" href="{{ url_for('manifest') }}?v={{ app_version|urlencode }}" />
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}" />
-  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icon-192.png') }}" />
-  <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icon-512.png') }}" />
+  <link rel="manifest" href="/manifest.json?v={{ app_version|urlencode }}" />
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}" />
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}" />
+  <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/icon-512.png') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=app_version) }}" />
   {% if is_admin_world %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css', v=app_version) }}" />
@@ -27,7 +29,7 @@
   <div id="startupSplash" class="startup-splash" aria-hidden="true">
     <div class="startup-splash-inner">
       <div class="startup-splash-title">Salon Karola</div>
-      <img class="startup-splash-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Emblem">
+      <img class="startup-splash-logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="Salon Karola Emblem">
       <div class="startup-splash-subtitle">Salon Karola</div>
       <audio id="startupSound" preload="auto" playsinline>
         <source src="{{ url_for('static', filename='sounds/start-chime.wav', v=app_version) }}" type="audio/wav">
@@ -39,7 +41,7 @@
   <header class="topbar" id="appTopbar">
     <div class="container topbar-inner">
       <div class="brand">
-        <img class="brand-logo" src="{{ url_for('static', filename='icon-192.png') }}" alt="Salon Karola Logo">
+        <img class="brand-logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="Salon Karola Logo">
         <div class="brand-main">
           <div class="brand-overline">{% if is_admin_world %}Admin-Modus{% else %}Mitarbeiter-App{% endif %}</div>
           <div class="brand-title-row">
@@ -49,9 +51,9 @@
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks" onclick="window.skToggleMenu && window.skToggleMenu(event)">Menue</button>
+        <button type="button" class="menu-toggle mobile-only-inline" id="menuToggle" aria-expanded="false" aria-controls="mainNavLinks" onclick="window.skToggleMenu && window.skToggleMenu(event)">Menü</button>
       </div>
-      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menue schliessen" onclick="window.skCloseMenu && window.skCloseMenu(event)">Schliessen</button>
+      <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menü schließen" onclick="window.skCloseMenu && window.skCloseMenu(event)">Schließen</button>
       <nav class="nav-links" id="mainNavLinks" hidden>
         {% if is_staff_world %}
         <a class="{% if current_endpoint in ['salon_home', 'calendar_view', 'staff_today'] %}active{% endif %}" href="{{ url_for('staff_today') }}" data-nav-link="heute">Heute</a>
@@ -101,7 +103,7 @@
     {% block content %}{% endblock %}
   </main>
   <div id="appRuntimeErrorBanner" class="flash" hidden aria-live="assertive">
-    Die App konnte einen Bereich nicht laden. Bitte App schliessen und erneut oeffnen.
+    Die App konnte einen Bereich nicht laden. Bitte App schließen und erneut öffnen.
     <button type="button" id="appRuntimeRetryButton" class="premium-button secondary">Erneut versuchen</button>
   </div>
   {% if session.get('admin_logged_in') %}
@@ -630,7 +632,7 @@
         try {
           const registration = await registerServiceWorker();
           if (!registration) {
-            setPushUi('Service Worker ist auf diesem Geraet deaktiviert oder fehlerhaft.');
+            setPushUi('Service Worker ist auf diesem Gerät deaktiviert oder fehlerhaft.');
             return;
           }
           const existing = await registration.pushManager.getSubscription();
@@ -959,7 +961,7 @@ ${body}`);
           }
           const registration = await registerServiceWorker();
           if (!registration) {
-            setPushUi('Service Worker ist auf diesem Geraet deaktiviert oder fehlerhaft.');
+            setPushUi('Service Worker ist auf diesem Gerät deaktiviert oder fehlerhaft.');
             return;
           }
           const subscription = await registration.pushManager.getSubscription();

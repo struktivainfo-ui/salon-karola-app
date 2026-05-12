@@ -77,8 +77,10 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     try {
-      const response = await fetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}`, { credentials: "same-origin" });
-      const payload = await response.json();
+      if (typeof window.safeFetch !== "function") throw new Error("safeFetch nicht verfügbar");
+      const result = await window.safeFetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}`, { credentials: "same-origin", timeoutMs: 12000 });
+      if (!result.ok) throw new Error(result.error || "Suche fehlgeschlagen");
+      const payload = result.data || {};
       const items = payload.items || [];
       results.innerHTML = items.map((item) => `
       <article class="simple-live-result">
@@ -95,7 +97,7 @@ document.addEventListener("DOMContentLoaded", function () {
     `).join("");
     } catch (error) {
       console.error("Live-Suche fehlgeschlagen", error);
-      results.innerHTML = '<div class="simple-empty">Suche gerade nicht verfuegbar. Bitte erneut versuchen.</div>';
+      results.innerHTML = '<div class="simple-empty">Suche gerade nicht verfügbar. Bitte erneut versuchen.</div>';
     }
   }
 

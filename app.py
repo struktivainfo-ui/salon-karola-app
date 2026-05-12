@@ -109,6 +109,12 @@ app.permanent_session_lifetime = timedelta(days=45)
 @app.after_request
 def add_no_cache_headers(response):
     try:
+        if response.mimetype == "text/html" and "charset=" not in (response.headers.get("Content-Type", "").lower()):
+            response.headers["Content-Type"] = "text/html; charset=utf-8"
+        elif response.mimetype == "application/json" and "charset=" not in (response.headers.get("Content-Type", "").lower()):
+            response.headers["Content-Type"] = "application/json; charset=utf-8"
+        elif response.mimetype == "application/manifest+json" and "charset=" not in (response.headers.get("Content-Type", "").lower()):
+            response.headers["Content-Type"] = "application/manifest+json; charset=utf-8"
         if request.path in ["/", "/login", "/safe-start", "/diagnose", "/calendar", "/database-tools", "/templates", "/api/templates/live"] or response.mimetype in {"text/html", "application/javascript", "application/json", "application/manifest+json"}:
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
@@ -191,7 +197,7 @@ def staff_or_admin_required(view):
 
 
 def safe_user_error():
-    return "Die Aktion konnte nicht ausgefuehrt werden. Bitte erneut versuchen oder Sven informieren."
+    return "Die Aktion konnte nicht ausgeführt werden. Bitte erneut versuchen oder Sven informieren."
 
 
 @app.errorhandler(404)
@@ -1805,8 +1811,8 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
             db.execute("DELETE FROM push_subscriptions WHERE id = ?", (row["id"],))
             db.commit()
             if mismatch:
-                return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Geraet war mit alten Push-Schluesseln registriert und wurde entfernt. Bitte Push auf diesem Geraet neu aktivieren."]}
-            return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Geraet war nicht mehr gueltig und wurde entfernt."]}
+                return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Gerät war mit alten Push-Schlüsseln registriert und wurde entfernt. Bitte Push auf diesem Gerät neu aktivieren."]}
+            return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Gerät war nicht mehr gültig und wurde entfernt."]}
         fail_count = int(row["fail_count"] or 0) + 1
         _touch_push_subscription(
             row["id"],
@@ -2762,12 +2768,21 @@ def customer_search_results(q="", limit=120, db=None):
 # ---------- PWA ----------
 # ---------- PWA ----------
 @app.route("/manifest.webmanifest")
+@app.route("/manifest.json")
 def manifest():
     manifest_path = Path(app.static_folder) / "manifest.webmanifest"
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
         payload["start_url"] = "/"
         payload["scope"] = "/"
+        payload["name"] = "Salon Karola App"
+        payload["short_name"] = "Salon Karola"
+        payload["background_color"] = "#0f172a"
+        payload["theme_color"] = "#0f172a"
+        payload["icons"] = [
+            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+        ]
         response = jsonify(payload)
         response.mimetype = "application/manifest+json"
         return response
@@ -2908,6 +2923,14 @@ def diagnose():
             "ENABLE_FIREBASE": ENABLE_FIREBASE,
         },
         "user_agent": request.headers.get("User-Agent", ""),
+        "manifest_url": "/manifest.webmanifest",
+        "manifest_reachable": False,
+        "manifest_start_url": "n/a",
+        "icon_checks": {},
+        "utf8_test": "ä ö ü Ä Ö Ü ß",
+        "pywebpush_available": bool(webpush),
+        "vapid_public_available": False,
+        "vapid_private_available": False,
     }
     try:
         db = get_db()
@@ -2927,6 +2950,26 @@ def diagnose():
         diagnostics["push_configured"] = bool(ENABLE_PUSH and push_delivery_ready())
     except Exception:
         diagnostics["push_configured"] = False
+    try:
+        manifest_payload = json.loads(manifest().get_data(as_text=True))
+        diagnostics["manifest_reachable"] = True
+        diagnostics["manifest_start_url"] = manifest_payload.get("start_url", "n/a")
+    except Exception as exc:
+        diagnostics["manifest_reachable"] = False
+        diagnostics["manifest_error"] = str(exc)
+    try:
+        for icon_path in ["/static/icons/icon-192.png", "/static/icons/icon-512.png", "/static/icons/apple-touch-icon.png"]:
+            diagnostics["icon_checks"][icon_path] = (BASE_DIR / icon_path.lstrip("/")).exists()
+    except Exception as exc:
+        diagnostics["icon_error"] = str(exc)
+    try:
+        diagnostics["vapid_public_available"] = bool(vapid_public_key())
+    except Exception:
+        diagnostics["vapid_public_available"] = False
+    try:
+        diagnostics["vapid_private_available"] = bool(vapid_private_key())
+    except Exception:
+        diagnostics["vapid_private_available"] = False
 
     payload = json.dumps(diagnostics, ensure_ascii=False, indent=2)
     html = f"""<!doctype html>
@@ -2997,7 +3040,7 @@ def test_login():
       <input id="password" type="password" name="password" autocomplete="current-password" required>
       <button type="submit">Einloggen</button>
     </form>
-    <a href="/safe-start">Zurueck zu Safe-Start</a>
+    <a href="/safe-start">Zurück zu Safe-Start</a>
   </section>
   <script src="/static/js/login.js?v={APP_VERSION}"></script>
 </body></html>"""
@@ -3035,7 +3078,7 @@ def test_staff_today():
 <section class="card"><h1>Test Mitarbeiter Heute</h1>
 <p>Status: {status} | Route: /test-staff-today | Push: inaktiv | Service Worker: inaktiv | Firebase: inaktiv | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
 {f'<p class="err">Fehler: {error_text}</p>' if error_text else list_html}
-<a href="/safe-start">Zurueck zu Safe-Start</a></section></body></html>"""
+<a href="/safe-start">Zurück zu Safe-Start</a></section></body></html>"""
     return Response(html, mimetype="text/html")
 
 
@@ -3064,7 +3107,7 @@ def test_admin_dashboard():
 <section class="card"><h1>Test Admin Dashboard</h1>
 <p>Status: {status} | Route: /test-admin-dashboard | Push: inaktiv | Service Worker: inaktiv | Firebase: inaktiv | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
 {f'<p style="color:#9a1f1f;font-weight:700">Fehler: {error_text}</p>' if error_text else f'<div class="grid"><div class="box"><strong>Kunden</strong><div>{customers}</div></div><div class="box"><strong>Termine heute</strong><div>{today_count}</div></div><div class="box"><strong>Naechste 7 Tage</strong><div>{next_7_days}</div></div></div>'}
-<a href="/safe-start">Zurueck zu Safe-Start</a></section></body></html>"""
+<a href="/safe-start">Zurück zu Safe-Start</a></section></body></html>"""
     return Response(html, mimetype="text/html")
 
 
@@ -3078,7 +3121,7 @@ def test_service_worker():
 <button id="registerBtn">Service Worker registrieren</button>
 <button id="unregisterBtn">Service Worker deregistrieren</button>
 <button id="clearCacheBtn">Cache loeschen</button>
-<a href="/safe-start">Zurueck zu Safe-Start</a>
+<a href="/safe-start">Zurück zu Safe-Start</a>
 <pre id="out">Warte auf Test...</pre></section>
 <script src="/static/js/service-worker-register.js?v={APP_VERSION}"></script>
 </body></html>"""
@@ -3094,9 +3137,10 @@ def test_push():
 <p>Status: bereit | Route: /test-push | Push: {"aktivierbar" if ENABLE_PUSH and not SAFE_MODE else "inaktiv"} | Service Worker: {"aktivierbar" if ENABLE_SERVICE_WORKER and not SAFE_MODE else "inaktiv"} | Firebase: {"aktivierbar" if ENABLE_FIREBASE and not SAFE_MODE else "inaktiv"} | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
 <button id="initPushBtn">Push initialisieren</button>
 <button id="sendTestPushBtn">Test Push senden</button>
-<a href="/safe-start">Zurueck zu Safe-Start</a>
+<a href="/safe-start">Zurück zu Safe-Start</a>
 <pre id="out">Warte auf Test...</pre></section>
 <script>window.__pushFlags = {{ enabled: {str(ENABLE_PUSH and not SAFE_MODE).lower()}, swEnabled: {str(ENABLE_SERVICE_WORKER and not SAFE_MODE).lower()}, firebaseEnabled: {str(ENABLE_FIREBASE and not SAFE_MODE).lower()} }};</script>
+<script src="/static/js/safe-fetch.js?v={APP_VERSION}"></script>
 <script src="/static/js/push.js?v={APP_VERSION}"></script>
 </body></html>"""
     return Response(html, mimetype="text/html")
@@ -4647,7 +4691,17 @@ def appointments_feed():
 def push_public_key():
     if not ENABLE_PUSH:
         return {"ok": True, "public_key": "", "enabled": False, "native_enabled": False, "delivery_enabled": False, "disabled": True}
-    return {"ok": True, "public_key": vapid_public_key(), "enabled": vapid_ready(), "native_enabled": fcm_ready(), "delivery_enabled": push_delivery_ready(), "format": "base64url", "generated": bool(_get_app_setting("push:vapid_generated_at", ""))}
+    return {
+        "ok": True,
+        "public_key": vapid_public_key(),
+        "enabled": vapid_ready(),
+        "native_enabled": fcm_ready(),
+        "delivery_enabled": push_delivery_ready(),
+        "service_worker_required": True,
+        "service_worker_enabled": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
+        "format": "base64url",
+        "generated": bool(_get_app_setting("push:vapid_generated_at", "")),
+    }
 
 
 @app.route("/api/push/status")
@@ -4722,12 +4776,12 @@ def push_test_device(subscription_id):
         return {"ok": False, "error": "Push ist deaktiviert."}, 503
     row = get_db().execute("SELECT * FROM push_subscriptions WHERE id = ?", (subscription_id,)).fetchone()
     if not row:
-        return {"ok": False, "error": "Geraet nicht gefunden."}, 404
+        return {"ok": False, "error": "Gerät nicht gefunden."}, 404
     label = _push_device_label(row)
     result = send_push_to_subscription_row(
         row,
         f"Test-Push fuer {label}",
-        f"Dieses Geraet ist fuer {row['staff_name'] or 'Ute'} aktiv.",
+        f"Dieses Gerät ist für {row['staff_name'] or 'Ute'} aktiv.",
         "/calendar",
     )
     _touch_push_subscription(subscription_id, last_test_at=datetime.now().isoformat(timespec="seconds"))
@@ -4884,7 +4938,7 @@ def push_ping():
     if staff_name == "Alle":
         result = webpush_send_to_all_staff(
             "Salon Karola Test-Push",
-            f"Test-Push von {actor_name} an alle registrierten Geraete.",
+            f"Test-Push von {actor_name} an alle registrierten Geräte.",
             "/calendar",
         )
         devices = push_devices_for_staff(None)

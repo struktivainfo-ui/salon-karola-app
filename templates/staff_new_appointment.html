@@ -102,7 +102,7 @@
       </section>
 
       <div class="simple-wizard-actions">
-        <button type="button" class="simple-action-button" id="simplePrevStep" hidden>Zurueck</button>
+        <button type="button" class="simple-action-button" id="simplePrevStep" hidden>Zurück</button>
         <button type="button" class="simple-action-button simple-next-button" id="simpleNextStep">Weiter</button>
       </div>
     </form>
@@ -253,8 +253,10 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
     try {
-      const response = await fetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}`, { credentials: "same-origin" });
-      const payload = await response.json();
+      if (typeof window.safeFetch !== "function") throw new Error("safeFetch nicht verfügbar");
+      const result = await window.safeFetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}`, { credentials: "same-origin", timeoutMs: 12000 });
+      if (!result.ok) throw new Error(result.error || "Suche fehlgeschlagen");
+      const payload = result.data || {};
       customerResults.innerHTML = (payload.items || []).map((item) => `
       <button type="button" class="simple-live-result" data-id="${item.id}" data-name="${item.name}">
         <strong>${item.name}</strong>
@@ -274,7 +276,7 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     } catch (error) {
       console.error("Kundensuche fehlgeschlagen", error);
-      customerResults.innerHTML = '<div class="simple-empty">Suche gerade nicht verfuegbar. Bitte erneut versuchen.</div>';
+      customerResults.innerHTML = '<div class="simple-empty">Suche gerade nicht verfügbar. Bitte erneut versuchen.</div>';
     }
   }
 
