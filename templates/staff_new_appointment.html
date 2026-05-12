@@ -11,7 +11,7 @@
       </div>
     </div>
 
-    <form method="post" class="simple-wizard" id="simpleAppointmentWizard">
+    <form method="post" class="simple-wizard" id="simpleAppointmentWizard" autocomplete="off">
       <input type="hidden" name="source" value="{{ prefill_source }}">
       <input type="hidden" name="actor_name" value="{{ logged_in_staff }}">
       <input type="hidden" name="title" id="simpleTitleField" value="Salon-Termin">
@@ -108,7 +108,7 @@
 
       <div class="simple-wizard-actions">
         <button type="button" class="simple-action-button" id="simplePrevStep" hidden>Zurück</button>
-        <button type="button" class="simple-action-button simple-next-button" id="simpleNextStep">Weiter</button>
+        <button type="button" class="simple-action-button simple-next-button" id="simpleNextStep">Weiter →</button>
       </div>
     </form>
   </section>

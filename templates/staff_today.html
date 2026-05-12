@@ -12,8 +12,8 @@
       <a class="simple-floating-action" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else own_staff) }}">+ Termin</a>
     </div>
     <div class="staff-quick-actions">
-      <a class="simple-action-button" href="{{ url_for('staff_appointments_center') }}">Termin-Center</a>
-      <a class="simple-action-button" href="{{ url_for('staff_customers') }}">Kunde suchen</a>
+      <a class="simple-action-button" href="{{ url_for('staff_appointments_center') }}">Termin</a>
+      <a class="simple-action-button" href="{{ url_for('staff_customers') }}">Kunden</a>
       <a class="simple-action-button" href="{{ url_for('staff_more') }}">Mehr</a>
     </div>
   </section>
