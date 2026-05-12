@@ -96,6 +96,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const sheet = document.getElementById("customerSheet");
   const closeSheetButton = document.getElementById("customerSheetClose");
   if (!input || !results) return;
+  let bodyScrollY = 0;
 
   const sheetFields = {
     title: document.getElementById("customerSheetTitle"),
@@ -132,20 +133,32 @@ document.addEventListener("DOMContentLoaded", function () {
           sheetFields.whatsapp.hidden = true;
         }
 
+        bodyScrollY = window.scrollY || window.pageYOffset || 0;
+        document.body.style.position = "fixed";
+        document.body.style.top = `-${bodyScrollY}px`;
+        document.body.style.width = "100%";
         sheet.hidden = false;
         sheet.setAttribute("aria-hidden", "false");
         overlay.hidden = false;
         document.body.classList.add("staff-sheet-open");
+        closeSheetButton.focus();
       });
     });
   }
 
   function closeSheet() {
     if (!sheet || !overlay) return;
+    const hadLock = document.body.classList.contains("staff-sheet-open");
     sheet.hidden = true;
     sheet.setAttribute("aria-hidden", "true");
     overlay.hidden = true;
     document.body.classList.remove("staff-sheet-open");
+    if (hadLock) {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
+      window.scrollTo(0, bodyScrollY);
+    }
   }
 
   function actionLink(url, label, disabledText) {

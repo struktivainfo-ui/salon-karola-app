@@ -319,6 +319,8 @@ body.employee-mode {
   padding: 12px 12px calc(14px + env(safe-area-inset-bottom, 0px));
   max-height: 72vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.18);
 }
 
@@ -337,6 +339,7 @@ body.employee-mode {
 
 .employee-mode.staff-sheet-open {
   overflow: hidden;
+  touch-action: none;
 }
 
 .employee-mode .staff-premium-header .simple-kicker {
