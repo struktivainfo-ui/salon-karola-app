@@ -22,7 +22,7 @@
 
   {% if customer %}
   <section class="premium-action-grid premium-space-top">
-    {% if customer['Customer_Mobiltelefon'] or customer['Customer_Pers?nlichesTelefon'] %}<a class="premium-action-card" href="{{ customer_phone(customer)|phone_href }}">Anrufen</a>{% endif %}
+    {% if row_value(customer, 'Customer_Mobiltelefon') or customer_phone(customer) %}<a class="premium-action-card" href="{{ customer_phone(customer)|phone_href }}">Anrufen</a>{% endif %}
     {% if wa_link %}<a class="premium-action-card" href="{{ wa_link }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
     <a class="premium-action-card" href="#termin-hinzufuegen">Termin anlegen</a>
     {% if wa_next_appt_link %}<a class="premium-action-card" href="{{ wa_next_appt_link }}" target="_blank" rel="noopener">Termin senden</a>{% endif %}

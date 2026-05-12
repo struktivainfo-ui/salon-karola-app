@@ -3,9 +3,25 @@
   const initBtn = document.getElementById("initPushBtn");
   const sendBtn = document.getElementById("sendTestPushBtn");
   const flags = window.__pushFlags || {};
+  let busy = false;
 
   function write(message) {
     if (out) out.textContent = String(message || "");
+  }
+
+  function isAndroidWebView() {
+    try {
+      const ua = String(navigator.userAgent || "");
+      return /; wv\)/i.test(ua) || /\bVersion\/[\d.]+\s+Chrome\/[\d.]+\s+Mobile/i.test(ua) || !!window.Capacitor;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function setBusy(next) {
+    busy = !!next;
+    if (initBtn) initBtn.disabled = busy;
+    if (sendBtn) sendBtn.disabled = busy;
   }
 
   function toUint8Array(base64Url) {
@@ -31,10 +47,17 @@
   }
 
   async function initPush() {
+    if (busy) return;
     if (!flags.enabled) {
       write("Push ist serverseitig deaktiviert.");
       return;
     }
+    if (isAndroidWebView()) {
+      write("Diese Android-App verwendet keine Web-Push-Benachrichtigungen. Für native Push-Benachrichtigungen ist Firebase/FCM erforderlich.");
+      return;
+    }
+
+    setBusy(true);
     try {
       if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
         write("Push wird auf diesem Gerät oder in dieser App-Ansicht nicht unterstützt.");
@@ -70,7 +93,9 @@
           applicationServerKey: toUint8Array(config.public_key),
         });
       }
-      const payload = (typeof subscription.toJSON === "function") ? subscription.toJSON() : JSON.parse(JSON.stringify(subscription || {}));
+      const payload = (typeof subscription.toJSON === "function")
+        ? subscription.toJSON()
+        : JSON.parse(JSON.stringify(subscription || {}));
       const save = await sf("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -79,14 +104,23 @@
       write("Push aktiv. Geräte: " + (save.device_count || 0));
     } catch (error) {
       write("Push konnte nicht aktiviert werden: " + String(error && error.message ? error.message : error));
+    } finally {
+      setBusy(false);
     }
   }
 
   async function sendTestPush() {
+    if (busy) return;
     if (!flags.enabled) {
       write("Push ist serverseitig deaktiviert.");
       return;
     }
+    if (isAndroidWebView()) {
+      write("In der Android-App wird Web-Push nicht verwendet. Teste stattdessen native Firebase/FCM-Benachrichtigungen.");
+      return;
+    }
+
+    setBusy(true);
     try {
       const result = await sf("/api/push/test", {
         method: "POST",
@@ -96,6 +130,8 @@
       write("Test-Push gesendet. Gesendet: " + (result.sent || 0));
     } catch (error) {
       write("Test-Push fehlgeschlagen: " + String(error && error.message ? error.message : error));
+    } finally {
+      setBusy(false);
     }
   }
 

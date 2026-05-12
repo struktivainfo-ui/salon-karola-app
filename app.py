@@ -3051,6 +3051,13 @@ def diagnose():
         "manifest_icons": [],
         "icon_checks": {},
         "utf8_test": "ä ö ü Ä Ö Ü ß",
+        "utf8_phrases": [
+            "Persönliches Telefon",
+            "Gerät verfügbar",
+            "Benachrichtigungen können aktiviert werden",
+            "Terminerinnerung",
+            "Geburtstagsmail",
+        ],
         "pywebpush_available": bool(webpush),
         "vapid_public_available": False,
         "vapid_private_available": False,

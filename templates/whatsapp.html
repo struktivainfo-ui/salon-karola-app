@@ -41,9 +41,9 @@
       <div class="premium-action-grid compact premium-space-top">
         <a class="premium-action-card" href="{{ whatsapp_link(customer) }}" target="_blank" rel="noopener">Nachricht</a>
         {% if next_appt %}
-        <a class="premium-action-card" href="{{ whatsapp_link(customer, 'Hallo ' ~ customer['_firstname'] ~ ', wir freuen uns auf deinen Termin am ' ~ (next_appt['appointment_at']|dt) ~ '. Viele Gr??e vom Salon Karola') }}" target="_blank" rel="noopener">Termin senden</a>
+        <a class="premium-action-card" href="{{ whatsapp_link(customer, 'Hallo ' ~ customer['_firstname'] ~ ', wir freuen uns auf deinen Termin am ' ~ (next_appt['appointment_at']|dt) ~ '. Viele Grüße vom Salon Karola') }}" target="_blank" rel="noopener">Termin senden</a>
         {% endif %}
-        <a class="premium-action-card" href="{{ whatsapp_link(customer, 'Hallo ' ~ customer['_firstname'] ~ ', wir w?rden uns freuen, dich bald wieder bei uns im Salon zu sehen. Melde dich gerne f?r einen neuen Termin. Viele Gr??e vom Salon Karola') }}" target="_blank" rel="noopener">R?ckholung</a>
+        <a class="premium-action-card" href="{{ whatsapp_link(customer, 'Hallo ' ~ customer['_firstname'] ~ ', wir würden uns freuen, dich bald wieder bei uns im Salon zu sehen. Melde dich gerne für einen neuen Termin. Viele Grüße vom Salon Karola') }}" target="_blank" rel="noopener">Rückholung</a>
       </div>
     </article>
     {% else %}
