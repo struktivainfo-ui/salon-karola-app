@@ -339,8 +339,143 @@ body.employee-mode {
   overflow: hidden;
 }
 
+.employee-mode .staff-premium-header .simple-kicker {
+  letter-spacing: 0.04em;
+  font-weight: 800;
+}
+
+.employee-mode .staff-premium-header .simple-section-title {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.employee-mode .staff-premium-header .simple-subtitle {
+  margin: 4px 0 0;
+  color: #6b4a2f;
+}
+
+.employee-mode .simple-panel {
+  background: linear-gradient(180deg, rgba(255, 253, 249, 0.98), rgba(250, 243, 232, 0.95));
+  border: 1px solid rgba(146, 103, 58, 0.12);
+  box-shadow: 0 8px 20px rgba(75, 47, 21, 0.06);
+}
+
+.employee-mode .staff-quick-actions .simple-action-button {
+  min-height: 42px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.employee-mode .staff-timeline-card {
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.employee-mode .staff-card-open {
+  padding: 2px 0;
+}
+
+.employee-mode .simple-appointment-time {
+  font-size: 1.25rem;
+  letter-spacing: 0.01em;
+}
+
+.employee-mode .staff-timeline-card h2 {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.employee-mode .simple-appointment-meta {
+  color: #684a2f;
+}
+
+.employee-mode .simple-status-pill {
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.employee-mode .compact-action-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.employee-mode .compact-action-row .simple-action-button,
+.employee-mode .simple-card-actions .simple-action-button {
+  min-height: 38px;
+  padding: 6px 8px;
+  font-size: 0.78rem;
+}
+
+.employee-mode .simple-empty-state {
+  text-align: center;
+  padding: 16px 12px;
+}
+
+.employee-mode .staff-sheet {
+  border-radius: 20px 20px 0 0;
+}
+
+.employee-mode .simple-wizard-panel {
+  padding: 12px;
+}
+
+.employee-mode .simple-step {
+  margin-top: 8px;
+}
+
+.employee-mode .simple-mode-toggle {
+  gap: 8px;
+}
+
+.employee-mode .simple-choice-card {
+  border-radius: 14px;
+}
+
+.employee-mode .simple-step-card {
+  padding: 10px;
+  border-radius: 14px;
+}
+
+.employee-mode .simple-summary-box {
+  border-radius: 14px;
+  background: rgba(255, 251, 244, 0.96);
+  border: 1px solid rgba(191, 147, 87, 0.18);
+}
+
+.employee-mode .staff-sticky-search-wrap {
+  top: 66px;
+}
+
+.employee-mode .simple-customer-main {
+  gap: 4px;
+}
+
 @media (max-width: 430px) {
   .employee-mode .staff-quick-actions {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .employee-mode .staff-premium-header .simple-section-title {
+    font-size: 1.32rem;
+  }
+
+  .employee-mode .staff-premium-header {
+    padding: 12px;
+  }
+
+  .employee-mode .simple-panel {
+    padding: 12px;
+  }
+
+  .employee-mode .simple-wizard-actions {
+    bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+    padding: 7px;
+  }
+
+  .employee-mode .mobile-app-dock {
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   }
 }
