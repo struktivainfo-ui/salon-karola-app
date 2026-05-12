@@ -104,6 +104,7 @@ app = Flask(
 app.secret_key = os.getenv("SECRET_KEY") or os.getenv("FLASK_SECRET_KEY") or os.urandom(32).hex()
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 app.permanent_session_lifetime = timedelta(days=45)
+app.json.ensure_ascii = False
 
 
 @app.after_request
@@ -124,7 +125,7 @@ def add_no_cache_headers(response):
     return response
 
 APP_VERSION = "Salon Karola App 2026-05-07-production-rebuild-1"
-
+# -*- coding: utf-8 -*-
 
 def env_bool(name, default=False):
     raw = os.getenv(name)
@@ -181,8 +182,8 @@ def admin_required(view):
     def wrapped(*args, **kwargs):
         if not is_admin_session():
             if request.path.startswith("/api/"):
-                return jsonify({"ok": False, "error": "Dieser Bereich ist nur fuer Sven/Admin sichtbar."}), 403
-            flash("Dieser Bereich ist nur fuer Sven/Admin sichtbar.")
+                return jsonify({"ok": False, "error": "Dieser Bereich ist nur für Sven/Admin sichtbar."}), 403
+            flash("Dieser Bereich ist nur für Sven/Admin sichtbar.")
             return redirect(url_for("staff_today"))
         return view(*args, **kwargs)
     return wrapped
@@ -1185,13 +1186,13 @@ def send_sms_via_twilio(to_number, body):
     messaging_service_sid = (os.getenv("TWILIO_MESSAGING_SERVICE_SID") or "").strip()
 
     if not account_sid or not auth_token:
-        raise RuntimeError("Twilio ist nicht vollstÃ¤ndig konfiguriert. TWILIO_ACCOUNT_SID oder TWILIO_AUTH_TOKEN fehlt.")
+        raise RuntimeError("Twilio ist nicht vollständig konfiguriert. TWILIO_ACCOUNT_SID oder TWILIO_AUTH_TOKEN fehlt.")
     if not from_number and not messaging_service_sid:
-        raise RuntimeError("Twilio ist nicht vollstÃ¤ndig konfiguriert. Bitte TWILIO_FROM_NUMBER oder TWILIO_MESSAGING_SERVICE_SID setzen.")
+        raise RuntimeError("Twilio ist nicht vollständig konfiguriert. Bitte TWILIO_FROM_NUMBER oder TWILIO_MESSAGING_SERVICE_SID setzen.")
 
     normalized_to = normalized_phone_number(to_number)
     if not normalized_to:
-        raise RuntimeError("Es ist keine gÃ¼ltige Mobil- oder Telefonnummer fÃ¼r SMS vorhanden.")
+        raise RuntimeError("Es ist keine gültige Mobil- oder Telefonnummer für SMS vorhanden.")
 
     payload = {
         "To": normalized_to,
@@ -1229,11 +1230,11 @@ def send_whatsapp_via_twilio(to_number, body):
     from_number = (os.getenv("TWILIO_WHATSAPP_FROM") or "").strip()
 
     if not account_sid or not auth_token or not from_number:
-        raise RuntimeError("Twilio WhatsApp ist nicht vollstÃ¤ndig konfiguriert. Bitte TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN und TWILIO_WHATSAPP_FROM setzen.")
+        raise RuntimeError("Twilio WhatsApp ist nicht vollständig konfiguriert. Bitte TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN und TWILIO_WHATSAPP_FROM setzen.")
 
     normalized_to = normalized_phone_number(to_number)
     if not normalized_to:
-        raise RuntimeError("Es ist keine gÃ¼ltige Mobil- oder Telefonnummer fÃ¼r WhatsApp vorhanden.")
+        raise RuntimeError("Es ist keine gültige Mobil- oder Telefonnummer für WhatsApp vorhanden.")
 
     payload = {
         "From": from_number if from_number.startswith("whatsapp:") else f"whatsapp:{from_number}",
@@ -2973,7 +2974,7 @@ def safe_start():
       <a class="btn" href="{test_sw_url}">Service Worker Test</a>
       <a class="btn" href="{test_push_url}">Push Test</a>
       <a class="btn" href="{diagnose_url}">Diagnose anzeigen</a>
-      <a class="btn" href="#" id="clearCacheBtn">Cache loeschen</a>
+      <a class="btn" href="#" id="clearCacheBtn">Cache löschen</a>
     </div>
     <p id="safeInfo" style="margin-top:12px;font-size:.92rem;color:#444;"></p>
   </section>
@@ -3197,7 +3198,7 @@ def diagnose():
         lines.push("Notification.permission: " + (("Notification" in window) ? Notification.permission : "n/a"));
         lines.push("Android WebView erkannt: " + (((navigator.userAgent || "").includes("wv") || !!window.Capacitor) ? "ja" : "nein"));
         lines.push("AndroidPush Bridge vorhanden: " + (window.AndroidPush ? "ja" : "nein"));
-        lines.push("Web Push verfÃ¼gbar: " + ((("PushManager" in window) && ("serviceWorker" in navigator)) ? "ja" : "nein"));
+        lines.push("Web Push verfügbar: " + ((("PushManager" in window) && ("serviceWorker" in navigator)) ? "ja" : "nein"));
       }} catch (e) {{
         lines.push("Client Push-Check Fehler: " + String(e));
       }}
@@ -3422,7 +3423,7 @@ def test_service_worker():
 <p>Status: bereit | Route: /test-service-worker | Push: inaktiv | Service Worker: testbar | Firebase: inaktiv | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
 <button id="registerBtn">Service Worker registrieren</button>
 <button id="unregisterBtn">Service Worker deregistrieren</button>
-<button id="clearCacheBtn">Cache loeschen</button>
+<button id="clearCacheBtn">Cache löschen</button>
 <a href="/safe-start">Zurück zu Safe-Start</a>
 <pre id="out">Warte auf Test...</pre></section>
 <script src="/static/js/service-worker-register.js?v={APP_VERSION}"></script>
@@ -3474,7 +3475,7 @@ def login():
                 )
                 db.commit()
                 login_user(user, staff_name=selected_staff, remember_device=remember_device)
-                flash(f"Passwort fuer {selected_staff} gespeichert. Willkommen, {selected_staff}.")
+                flash(f"Passwort für {selected_staff} gespeichert. Willkommen, {selected_staff}.")
                 return redirect(request.args.get("next") or default_route_after_login(selected_staff))
         else:
             password = request.form.get("password", "")
@@ -5915,7 +5916,7 @@ def boot_app():
             _ensure_vapid_keys()
         except Exception as exc:
             try:
-                app.logger.warning("VAPID-Key-Erzeugung uebersprungen: %s", exc)
+                app.logger.warning("VAPID-Key-Erzeugung übersprungen: %s", exc)
             except Exception:
                 pass
     if ENABLE_SCHEDULER and not SAFE_MODE:
@@ -5938,7 +5939,7 @@ def boot_app():
             run_automation_if_due(force=True)
         except Exception as exc:
             try:
-                app.logger.warning("Scheduler-Start uebersprungen: %s", exc)
+                app.logger.warning("Scheduler-Start übersprungen: %s", exc)
             except Exception:
                 pass
 
@@ -6262,3 +6263,4 @@ if __name__ == "__main__":
         boot_app()
         app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=False)
 
+# -*- coding: utf-8 -*-

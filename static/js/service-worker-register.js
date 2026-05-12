@@ -24,7 +24,7 @@
   async function unregisterWorker() {
     try {
       if (!("serviceWorker" in navigator)) {
-        write("Service Worker nicht verfuegbar.");
+        write("Service Worker nicht verfügbar.");
         return;
       }
       var regs = await navigator.serviceWorker.getRegistrations();
@@ -38,7 +38,7 @@
   async function clearCaches() {
     try {
       if (!("caches" in window)) {
-        write("Cache API nicht verfuegbar.");
+        write("Cache API nicht verfügbar.");
         return;
       }
       var keys = await caches.keys();

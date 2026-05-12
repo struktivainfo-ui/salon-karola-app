@@ -84,7 +84,7 @@
           <div class="day-slot-content">
             {% for appt in slot['items'] %}
             <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-              <strong>{{ appt['customer_name'] }}</strong> Â· {{ appt['title'] }}
+              <strong>{{ appt['customer_name'] }}</strong> · {{ appt['title'] }}
             </a>
             {% else %}
             <div class="day-slot-empty">frei</div>
@@ -120,7 +120,7 @@
       <div class="day-slot-content">
         {% for appt in slot['items'] %}
         <a class="day-slot-item mobile-summary-{{ appt['status_class'] }}" href="{{ url_for('customer_detail', customer_id=appt['customer_id']) }}">
-          <strong>{{ appt['customer_name'] }}</strong> Â· {{ appt['title'] }} Â· {{ appt['staff_name'] }}
+          <strong>{{ appt['customer_name'] }}</strong> · {{ appt['title'] }} · {{ appt['staff_name'] }}
         </a>
         {% else %}
         <div class="day-slot-empty">frei</div>

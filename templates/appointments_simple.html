@@ -61,7 +61,7 @@
       </section>
 
       <section class="simple-step" data-step="2">
-        <h2>Service auswaehlen</h2>
+        <h2>Service auswählen</h2>
         <div class="simple-service-grid">
           {% for service in service_presets %}
           <button type="button" class="simple-service-button" data-service-id="{{ service['id'] }}" data-label="{{ service['label'] }}" data-active="{{ service['active'] }}" data-processing="{{ service['processing'] }}">{{ service['label'] }}</button>
@@ -207,7 +207,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function validateCurrentStep() {
     if (stepIndex === 0) {
       if (activeMode() === "existing" && !customerIdField.value) {
-        showError("Bitte zuerst einen Kunden auswaehlen.");
+        showError("Bitte zuerst einen Kunden auswählen.");
         return false;
       }
       if (activeMode() === "manual") {
@@ -220,11 +220,11 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
     if (stepIndex === 1 && !selectedServicesField.value) {
-      showError("Bitte einen Service auswaehlen.");
+      showError("Bitte einen Service auswählen.");
       return false;
     }
     if (stepIndex === 2 && !wizard.querySelector('[name="appointment_at"]').value) {
-      showError("Bitte Datum und Uhrzeit auswaehlen.");
+      showError("Bitte Datum und Uhrzeit auswählen.");
       return false;
     }
     return true;

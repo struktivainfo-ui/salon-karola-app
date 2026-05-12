@@ -35,7 +35,7 @@
             <h3>QR-Ping</h3>
             <span class="premium-badge">ohne Copy-Paste</span>
           </div>
-          <p class="qr-ping-copy">Aktuellen Termin-Entwurf als kurzen Salon-Link erzeugen und auf einem anderen Geraet per QR uebernehmen.</p>
+          <p class="qr-ping-copy">Aktuellen Termin-Entwurf als kurzen Salon-Link erzeugen und auf einem anderen Gerät per QR übernehmen.</p>
           <div class="premium-button-row qr-ping-actions">
             <button type="button" class="premium-button secondary" id="qrPingCreateBtn">QR-Ping erstellen</button>
             <button type="button" class="premium-button secondary" id="qrPingCopyBtn" hidden>Link kopieren</button>
@@ -44,7 +44,7 @@
             <img id="qrPingImage" class="qr-ping-image" alt="QR-Ping Code">
             <div class="qr-ping-meta">
               <strong id="qrPingStatus">QR-Ping bereit.</strong>
-              <a id="qrPingLink" href="#" target="_blank" rel="noopener">Ping-Link oeffnen</a>
+              <a id="qrPingLink" href="#" target="_blank" rel="noopener">Ping-Link öffnen</a>
               <div class="helper-text">Im QR steckt nur ein kurzer Salon-Token. Die eigentlichen Termindaten bleiben auf eurem System.</div>
             </div>
           </div>
@@ -56,7 +56,7 @@
             <input type="text" id="customerSearchInput" class="customer-search-input" placeholder="Vorname oder Nachname eingeben" autocomplete="off">
             <div class="customer-search-hint">Beispiel: A zeigt nur Namen mit A, AL nur Namen mit AL.</div>
             <select name="customer_id" id="customer_id" size="8">
-              <option value="">Kontakt auswaehlen</option>
+              <option value="">Kontakt auswählen</option>
               {% for customer in customers %}
               <option value="{{ customer['_id'] }}" data-firstname="{{ (customer['firstname'] or '')|lower }}" data-lastname="{{ (customer['lastname'] or '')|lower }}">{{ customer['lastname'] }}{% if customer['firstname'] %}, {{ customer['firstname'] }}{% endif %}{% if customer['phone'] %} - {{ customer['phone'] }}{% endif %}</option>
               {% endfor %}
@@ -122,7 +122,7 @@
             <label for="status">Status</label>
             <select name="status" id="status">
               <option value="geplant" {% if prefill_payload['status'] == 'geplant' %}selected{% endif %}>geplant</option>
-              <option value="bestaetigt" {% if prefill_payload['status'] == 'bestaetigt' %}selected{% endif %}>bestaetigt</option>
+              <option value="bestaetigt" {% if prefill_payload['status'] == 'bestaetigt' %}selected{% endif %}>bestätigt</option>
               <option value="erledigt" {% if prefill_payload['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
               <option value="nicht erschienen" {% if prefill_payload['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
             </select>
@@ -157,7 +157,7 @@
 
         <div class="premium-button-row">
           <button type="submit" class="premium-button">Termin speichern</button>
-          <a class="premium-button secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender oeffnen</a>
+          <a class="premium-button secondary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Kalender öffnen</a>
         </div>
       </form>
     </article>
@@ -166,7 +166,7 @@
       <div class="premium-panel-head">
         <div>
           <div class="premium-panel-kicker">Heute</div>
-          <h2 class="premium-panel-title">Teamueberblick</h2>
+          <h2 class="premium-panel-title">Teamüberblick</h2>
         </div>
       </div>
       <div class="premium-team-columns compact-team-columns">
@@ -275,7 +275,7 @@ document.addEventListener("DOMContentLoaded", function () {
       customerSelect.innerHTML = "";
       const emptyOption = document.createElement("option");
       emptyOption.value = "";
-      emptyOption.textContent = matches.length ? "Kontakt auswaehlen" : "Kein passender Kontakt";
+      emptyOption.textContent = matches.length ? "Kontakt auswählen" : "Kein passender Kontakt";
       customerSelect.appendChild(emptyOption);
 
       matches.forEach((item) => {

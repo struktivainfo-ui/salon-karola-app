@@ -28,7 +28,7 @@
       <small>Name oder Nummer</small>
     </a>
     <a class="simple-home-card" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">
-      <span class="simple-home-label">Tagesuebersicht</span>
+      <span class="simple-home-label">Tagesübersicht</span>
       <strong>{{ all_appointments|length }}</strong>
       <small>Alle Mitarbeiter</small>
     </a>
@@ -49,7 +49,7 @@
         <span>{{ item.service_label }}</span>
       </a>
       {% else %}
-      <div class="simple-empty">Heute sind fuer {{ own_staff }} noch keine Termine eingetragen.</div>
+      <div class="simple-empty">Heute sind für {{ own_staff }} noch keine Termine eingetragen.</div>
       {% endfor %}
     </div>
   </section>

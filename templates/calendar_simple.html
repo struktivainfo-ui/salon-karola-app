@@ -7,7 +7,7 @@
       <div class="simple-page-title-row">
         <div>
           <div class="simple-kicker">Tagesplan</div>
-          <h1 class="simple-section-title">{% if selected_date == today_date %}Heute{% else %}Tagesuebersicht{% endif %}</h1>
+          <h1 class="simple-section-title">{% if selected_date == today_date %}Heute{% else %}Tagesübersicht{% endif %}</h1>
           <p class="simple-subtitle">{{ selected_date_label or selected_date }}</p>
         </div>
         <a class="simple-floating-action" href="{{ url_for('appointments_hub', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">+ Termin</a>
