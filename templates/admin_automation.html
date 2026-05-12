@@ -53,8 +53,12 @@
     <div class="premium-table-wrap">
       <table class="premium-table">
         <tbody>
+          <tr><th>Konfigurierter Provider (ENV)</th><td>{{ mail_status.requested_provider }}</td></tr>
+          <tr><th>Aktiver Provider</th><td>{{ mail_status.provider }}</td></tr>
           <tr><th>RESEND_API_KEY gesetzt</th><td>{{ 'ja' if mail_status.resend_api_key_set else 'nein' }}</td></tr>
           <tr><th>RESEND_FROM gesetzt</th><td>{{ 'ja' if mail_status.resend_from_set else 'nein' }}</td></tr>
+          <tr><th>RESEND_FROM Wert</th><td>{{ mail_status.resend_from or '-' }}</td></tr>
+          <tr><th>RESEND_FROM Domain</th><td>{{ mail_status.resend_from_domain or '-' }}</td></tr>
           <tr><th>SMTP_HOST gesetzt</th><td>{{ 'ja' if mail_status.smtp_host_set else 'nein' }}</td></tr>
           <tr><th>SMTP_SENDER gesetzt</th><td>{{ 'ja' if mail_status.smtp_sender_set else 'nein' }}</td></tr>
           <tr><th>Resend bereit</th><td>{{ 'ja' if mail_status.resend_ready else 'nein' }}</td></tr>
@@ -62,6 +66,11 @@
         </tbody>
       </table>
     </div>
+    {% if mail_status.resend_from_is_onboarding %}
+    <p class="premium-help-text" style="margin-top:12px;color:#b42318;">
+      Warnung: RESEND_FROM zeigt auf <code>@resend.dev</code>. Damit sind oft nur Test-Empfänger erlaubt.
+    </p>
+    {% endif %}
     {% if not mail_status.mail_ready %}
     <p class="premium-help-text" style="margin-top:12px;color:#b42318;">
       E-Mail-Versand ist nicht konfiguriert.
@@ -104,6 +113,23 @@
       <a class="premium-action-card" href="{{ url_for('admin_dashboard') }}">Zurück zum Dashboard</a>
       <a class="premium-action-card" href="{{ url_for('run_automation_now') }}">Legacy: alten Lauf-Trigger öffnen</a>
     </div>
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Letzter Fehler</div>
+        <h2 class="premium-panel-title">Letzter Mail-Fehler</h2>
+      </div>
+    </div>
+    {% if last_mail_error %}
+    <p class="premium-help-text">
+      {{ last_mail_error.sent_at or '-' }}<br>
+      {{ last_mail_error.error_message or '-' }}
+    </p>
+    {% else %}
+    <p class="premium-help-text">Kein letzter Mail-Fehler vorhanden.</p>
+    {% endif %}
   </section>
 
   <section class="premium-panel premium-space-top">

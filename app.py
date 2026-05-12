@@ -988,17 +988,19 @@ def ensure_default_admin(force_reset=False):
 
 # ---------- Mail ----------
 def email_delivery_mode():
-    requested = (os.getenv("EMAIL_PROVIDER") or os.getenv("MAIL_PROVIDER") or "auto").strip().lower()
+    requested = (os.getenv("EMAIL_PROVIDER") or os.getenv("MAIL_PROVIDER") or "").strip().lower()
     if requested in {"resend", "smtp"}:
         return requested
-    if (os.getenv("RESEND_API_KEY") or "").strip():
+    if smtp_ready():
+        return "smtp"
+    if resend_ready():
         return "resend"
-    return "smtp"
+    return "none"
 
 
 def resend_ready():
     api_key = (os.getenv("RESEND_API_KEY") or "").strip()
-    sender = (os.getenv("RESEND_FROM") or os.getenv("SMTP_SENDER") or "").strip()
+    sender = (os.getenv("RESEND_FROM") or "").strip()
     return bool(api_key and sender)
 
 
@@ -1011,17 +1013,28 @@ def mail_ready():
     mode = email_delivery_mode()
     if mode == "resend":
         return resend_ready()
-    return smtp_ready()
+    if mode == "smtp":
+        return smtp_ready()
+    return False
 
 
 def mail_status_summary():
+    resend_from = (os.getenv("RESEND_FROM") or "").strip()
+    resend_from_domain = ""
+    if "@" in resend_from:
+        resend_from_domain = resend_from.split("@", 1)[1].strip(" >")
+    requested_provider = (os.getenv("EMAIL_PROVIDER") or os.getenv("MAIL_PROVIDER") or "").strip()
     mode = email_delivery_mode()
     return {
+        "requested_provider": requested_provider or "auto",
         "provider": mode,
         "mail_ready": mail_ready(),
         "resend_ready": resend_ready(),
         "smtp_ready": smtp_ready(),
-        "resend_from_set": bool((os.getenv("RESEND_FROM") or "").strip()),
+        "resend_from_set": bool(resend_from),
+        "resend_from": resend_from,
+        "resend_from_domain": resend_from_domain,
+        "resend_from_is_onboarding": resend_from.lower().endswith("@resend.dev"),
         "resend_api_key_set": bool((os.getenv("RESEND_API_KEY") or "").strip()),
         "smtp_host_set": bool((os.getenv("SMTP_HOST") or "").strip()),
         "smtp_sender_set": bool((os.getenv("SMTP_SENDER") or "").strip()),
@@ -1101,6 +1114,10 @@ def send_email_via_resend(to_email, subject, body):
             json=payload,
             timeout=30,
         )
+        if response.status_code == 403:
+            raise RuntimeError(
+                "Resend blockiert den Versand, weil die Absenderdomain nicht verifiziert ist oder RESEND_FROM auf die falsche Domain zeigt."
+            )
         if response.status_code >= 400:
             raise RuntimeError(f"Resend Fehler: HTTP {response.status_code} {response.text}")
         return response.json()
@@ -1158,7 +1175,7 @@ def send_email(to_email, subject, body):
         return send_email_via_resend(to_email, subject, body)
     if mode == "smtp":
         return send_email_via_smtp(to_email, subject, body)
-    raise RuntimeError("Kein gültiger Mail-Provider konfiguriert.")
+    raise RuntimeError("E-Mail-Versand ist nicht konfiguriert.")
 
 
 def send_sms_via_twilio(to_number, body):
@@ -3025,6 +3042,9 @@ def diagnose():
         "push_subscription_count": 0,
         "push_last_error": "",
         "push_last_error_at": "",
+        "mail_status": {},
+        "mail_last_error": "",
+        "mail_last_error_at": "",
     }
     try:
         db = get_db()
@@ -3044,6 +3064,16 @@ def diagnose():
         diagnostics["push_configured"] = bool(ENABLE_PUSH and push_delivery_ready())
     except Exception:
         diagnostics["push_configured"] = False
+    try:
+        diagnostics["mail_status"] = mail_status_summary()
+        row_mail_error = db.execute(
+            "SELECT error_message, sent_at FROM email_log WHERE COALESCE(status, '') = 'error' AND COALESCE(error_message, '') <> '' ORDER BY sent_at DESC LIMIT 1"
+        ).fetchone()
+        if row_mail_error:
+            diagnostics["mail_last_error"] = row_mail_error["error_message"] or ""
+            diagnostics["mail_last_error_at"] = row_mail_error["sent_at"] or ""
+    except Exception as exc:
+        diagnostics["mail_error"] = str(exc)
     try:
         row_push = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
         diagnostics["push_subscription_count"] = int(row_push["cnt"] or 0) if row_push else 0
@@ -4031,6 +4061,9 @@ def admin_automation():
     latest_mail = db.execute(
         "SELECT recipient, email_type, status, sent_at, error_message FROM email_log ORDER BY sent_at DESC LIMIT 1"
     ).fetchone()
+    last_mail_error = db.execute(
+        "SELECT error_message, sent_at FROM email_log WHERE COALESCE(status, '') = 'error' AND COALESCE(error_message, '') <> '' ORDER BY sent_at DESC LIMIT 1"
+    ).fetchone()
     recent_logs = db.execute(
         "SELECT email_type, recipient, status, sent_at, error_message FROM email_log ORDER BY sent_at DESC LIMIT 20"
     ).fetchall()
@@ -4040,6 +4073,7 @@ def admin_automation():
         mail_status=mail_status,
         email_sent_today=email_sent_today,
         latest_mail=latest_mail,
+        last_mail_error=last_mail_error,
         recent_logs=recent_logs,
         scheduler_enabled=ENABLE_SCHEDULER and not SAFE_MODE,
         safe_mode=SAFE_MODE,
