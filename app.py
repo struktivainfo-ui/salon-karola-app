@@ -3594,7 +3594,7 @@ def passkey_register_verify():
     )
     db.commit()
     session.pop("passkey_register_challenge", None)
-    return {"ok": True, "message": "Fingerabdruck/Passkey wurde f?r dieses Ger?t gespeichert."}
+    return {"ok": True, "message": "Fingerabdruck/Passkey wurde für dieses Gerät gespeichert."}
 
 
 @app.route("/api/passkeys/auth/options", methods=["POST"])
@@ -4206,6 +4206,35 @@ def customer_quick_search():
                 "new_appointment_url": (url_for("appointments_hub", customer_id=row["_id"]) if in_admin_world else url_for("staff_new_appointment", customer_id=row["_id"])),
                 "call_url": phone_href(primary_phone) if primary_phone else "",
                 "whatsapp_url": whatsapp_link(row),
+            }
+        )
+    return {"ok": True, "items": items}
+
+
+@app.route("/api/customers/search")
+@login_required
+def customer_search_alias():
+    q = request.args.get("q", "").strip()
+    limit_raw = (request.args.get("limit") or "").strip()
+    try:
+        limit = int(limit_raw) if limit_raw else 20
+    except Exception:
+        limit = 20
+    limit = max(1, min(limit, 50))
+    items = []
+    for row in customer_search_results(q, limit=limit):
+        mobile = (row["mobile_phone"] or "").strip() if "mobile_phone" in row.keys() else ""
+        phone = (row["phone_phone"] or "").strip() if "phone_phone" in row.keys() else ""
+        primary_phone = mobile or phone
+        items.append(
+            {
+                "id": row["_id"],
+                "firstname": row["_firstname"] or "",
+                "lastname": row["_name"] or "",
+                "name": customer_full_name(row),
+                "email": row["_mail"] or "",
+                "phone": primary_phone,
+                "mobile": mobile,
             }
         )
     return {"ok": True, "items": items}
@@ -5123,6 +5152,51 @@ def appointments_feed():
         })
 
     return {"ok": True, "items": items, "server_time": datetime.now().isoformat(timespec="seconds")}
+
+
+@app.route("/api/appointments/today")
+@login_required
+def api_appointments_today():
+    db = get_db()
+    day = datetime.now().date().isoformat()
+    rows = db.execute(
+        """
+        SELECT a.id, a.appointment_at, a.title, a.staff_name, a.status,
+               COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
+               COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name
+        FROM appointments a
+        LEFT JOIN _Customers c ON c._id = a.customer_id
+        WHERE substr(a.appointment_at, 1, 10) = ?
+        ORDER BY a.appointment_at ASC
+        LIMIT 200
+        """,
+        (day,),
+    ).fetchall()
+    items = []
+    for row in rows:
+        try:
+            label = datetime.fromisoformat(str(row["appointment_at"])).strftime("%H:%M")
+        except Exception:
+            label = str(row["appointment_at"])
+        items.append(
+            {
+                "id": row["id"],
+                "time": label,
+                "appointment_at": row["appointment_at"] or "",
+                "customer_name": f"{row['_firstname'] or ''} {row['_name'] or ''}".strip() or "Kundin",
+                "title": row["title"] or "",
+                "staff_name": row["staff_name"] or DEFAULT_STAFF,
+                "status": row["status"] or "geplant",
+            }
+        )
+    return {"ok": True, "date": day, "count": len(items), "items": items}
+
+
+@app.route("/api/mail/status")
+@login_required
+def api_mail_status():
+    status = mail_status_summary()
+    return {"ok": True, "mail": status}
 
 
 @app.route("/api/push/public-key")
