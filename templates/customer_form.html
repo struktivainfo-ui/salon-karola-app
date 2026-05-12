@@ -90,14 +90,14 @@
             </div>
             <div class="service-summary-card compact-summary-card">
               <div class="service-summary-label">Auswahl</div>
-              <div class="service-summary-value">Noch nichts ausgew?hlt</div>
+              <div class="service-summary-value">Noch nichts ausgewÃ¤hlt</div>
             </div>
           </div>
           <div class="form-group premium-form-group"><label>Termin</label><input type="datetime-local" name="appointment_at" required></div>
           <div class="form-group premium-form-group"><label>Status</label>
             <select name="status">
               <option value="geplant">geplant</option>
-              <option value="best?tigt">best?tigt</option>
+              <option value="bestÃ¤tigt">bestÃ¤tigt</option>
               <option value="erledigt">erledigt</option>
               <option value="nicht erschienen">nicht erschienen</option>
             </select>
@@ -172,7 +172,7 @@
                 <div class="form-group premium-form-group"><label>Status</label>
                   <select name="status">
                     <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
-                    <option value="best?tigt" {% if appt['status'] == 'best?tigt' %}selected{% endif %}>best?tigt</option>
+                    <option value="bestÃ¤tigt" {% if appt['status'] == 'bestÃ¤tigt' %}selected{% endif %}>bestÃ¤tigt</option>
                     <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
                     <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
                   </select>
@@ -203,14 +203,14 @@
             <form method="post" action="{{ url_for('appointment_update_status', appointment_id=appt['id']) }}" class="inline-form premium-inline-form">
               <select name="status">
                 <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
-                <option value="best?tigt" {% if appt['status'] == 'best?tigt' %}selected{% endif %}>best?tigt</option>
+                <option value="bestÃ¤tigt" {% if appt['status'] == 'bestÃ¤tigt' %}selected{% endif %}>bestÃ¤tigt</option>
                 <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
                 <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
               </select>
               <button class="premium-button secondary" type="submit">Status</button>
             </form>
             <form method="post" action="{{ url_for('appointment_delete', appointment_id=appt['id']) }}">
-              <button class="premium-button danger" type="submit">L?schen</button>
+        <button class="premium-button danger" type="submit">Löschen</button>
             </form>
           </div>
         </div>
@@ -293,7 +293,7 @@ document.addEventListener("DOMContentLoaded", function () {
       selectedField.value = ids.join(",");
       summaryField.value = summary;
       titleField.value = summary || titleField.value || "Salon-Termin";
-      summaryValue.textContent = summary || summaryValue.textContent || "Noch nichts ausgew?hlt";
+      summaryValue.textContent = summary || summaryValue.textContent || "Noch nichts ausgewÃ¤hlt";
 
       if (!durationField.dataset.touched && activeMinutes > 0) {
         durationField.value = activeMinutes;

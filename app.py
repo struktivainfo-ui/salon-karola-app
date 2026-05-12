@@ -3472,9 +3472,9 @@ def login():
             if not user:
                 flash("Benutzer konnte nicht vorbereitet werden.")
             elif len(password) < 4:
-                flash("Bitte ein Passwort mit mindestens 4 Zeichen w?hlen.")
+                flash("Bitte ein Passwort mit mindestens 4 Zeichen wählen.")
             elif password != password_confirm:
-                flash("Die beiden Passw?rter stimmen nicht ?berein.")
+                flash("Die beiden Passwörter stimmen nicht überein.")
             else:
                 db.execute(
                     "UPDATE staff_users SET password = ? WHERE id = ?",
@@ -3609,7 +3609,7 @@ def passkey_auth_options():
         return {"ok": False, "error": "Benutzer nicht gefunden."}, 404
     credentials = passkey_credentials_for_user(db, user["id"])
     if not credentials:
-        return {"ok": False, "error": f"F?r {selected_staff} ist auf diesem Konto noch kein Fingerabdruck/Passkey eingerichtet."}, 400
+        return {"ok": False, "error": f"Für {selected_staff} ist auf diesem Konto noch kein Fingerabdruck/Passkey eingerichtet."}, 400
     options = generate_authentication_options(
         rp_id=current_passkey_rp_id(),
         allow_credentials=[PublicKeyCredentialDescriptor(id=_b64url_decode(row["credential_id"])) for row in credentials],
@@ -3638,7 +3638,7 @@ def passkey_auth_verify():
     if not row:
         return {"ok": False, "error": "Passkey nicht gefunden."}, 404
     if resolve_staff_name_for_user(row) != selected_staff:
-        return {"ok": False, "error": "Passkey geh?rt nicht zum gew?hlten Namen."}, 400
+        return {"ok": False, "error": "Passkey gehört nicht zum gewählten Namen."}, 400
     try:
         if hasattr(AuthenticationCredential, "parse_obj"):
             credential = AuthenticationCredential.parse_obj(payload)
@@ -6326,7 +6326,7 @@ def download_backup(filename):
     try:
         file_path.relative_to(backup_root)
     except ValueError:
-        flash("Ung?ltiger Backup-Pfad.")
+        flash("Ungültiger Backup-Pfad.")
         return redirect(url_for("database_tools"))
     if not file_path.exists() or not file_path.is_file():
         flash("Backup-Datei wurde nicht gefunden.")

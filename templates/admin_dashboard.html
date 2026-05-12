@@ -5,7 +5,7 @@
   <section class="premium-page-head">
     <div>
       <div class="premium-page-kicker">Salon Karola App</div>
-      <h1 class="premium-page-title">?bersicht</h1>
+      <h1 class="premium-page-title">Ãbersicht</h1>
       <div class="premium-page-subtitle">Alles Wichtige auf einen Blick.</div>
     </div>
     <div class="premium-top-actions">
@@ -50,7 +50,7 @@
       </div>
       <div class="premium-mini-grid">
         <div class="premium-mini-card">
-          <div class="premium-mini-label">N?chster Termin</div>
+          <div class="premium-mini-label">NÃ¤chster Termin</div>
           <div class="premium-mini-value">{% if upcoming %}{{ upcoming[0]['appointment_at']|dt }}{% else %}Heute frei{% endif %}</div>
           <div class="premium-mini-sub">{% if upcoming %}{{ upcoming[0]['_firstname'] }} {{ upcoming[0]['_name'] }} ? {{ upcoming[0]['staff_name'] or 'Ute' }}{% else %}Kein Termin geplant{% endif %}</div>
         </div>
@@ -121,7 +121,7 @@
     <div class="premium-panel-head">
       <div>
         <div class="premium-panel-kicker">Planung</div>
-        <h2 class="premium-panel-title">N?chste Termine</h2>
+        <h2 class="premium-panel-title">NÃ¤chste Termine</h2>
       </div>
       <div class="premium-inline-actions">
         <a class="premium-inline-link" href="{{ url_for('appointments_hub') }}">Termine</a>
