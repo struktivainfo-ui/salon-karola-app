@@ -57,7 +57,7 @@
       <nav class="nav-links" id="mainNavLinks" hidden>
         {% if is_staff_world %}
         <a class="{% if current_endpoint in ['salon_home', 'calendar_view', 'staff_today'] %}active{% endif %}" href="{{ url_for('staff_today') }}" data-nav-link="heute">Heute</a>
-        <a class="{% if current_endpoint in ['appointments_hub', 'staff_new_appointment'] %}active{% endif %}" href="{{ url_for('staff_new_appointment') }}" data-nav-link="neuer-termin">Termin</a>
+        <a class="{% if current_endpoint in ['appointments_hub', 'staff_new_appointment', 'staff_appointments_center'] %}active{% endif %}" href="{{ url_for('staff_appointments_center') }}" data-nav-link="neuer-termin">Termin</a>
         <a class="{% if current_endpoint in ['customer_search_page', 'customer_detail', 'customer_new'] %}active{% endif %}" href="{{ url_for('staff_customers') }}" data-nav-link="kunden">Kunden</a>
         <details class="nav-admin-group" id="navMoreGroup">
           <summary class="nav-admin-summary {% if current_endpoint in ['customer_birthdays_page', 'customer_inactive_page', 'salon_reminders'] %}active{% endif %}">Mehr</summary>
@@ -110,7 +110,7 @@
   <nav class="mobile-app-dock" aria-label="Schnellnavigation">
     {% if is_staff_world %}
     <a class="mobile-app-link {% if current_endpoint in ['salon_home', 'calendar_view', 'staff_today'] %}active{% endif %}" href="{{ url_for('staff_today') }}">Heute</a>
-    <a class="mobile-app-link {% if current_endpoint in ['appointments_hub', 'staff_new_appointment'] %}active{% endif %}" href="{{ url_for('staff_new_appointment') }}">Termin</a>
+    <a class="mobile-app-link {% if current_endpoint in ['appointments_hub', 'staff_new_appointment', 'staff_appointments_center'] %}active{% endif %}" href="{{ url_for('staff_appointments_center') }}">Termin</a>
     <a class="mobile-app-link {% if current_endpoint in ['customer_new', 'customer_detail', 'customer_search_page'] %}active{% endif %}" href="{{ url_for('staff_customers') }}">Kunden</a>
     <a class="mobile-app-link {% if current_endpoint in ['salon_reminders', 'customer_birthdays_page'] %}active{% endif %}" href="{{ url_for('staff_more') }}">Mehr</a>
     {% else %}

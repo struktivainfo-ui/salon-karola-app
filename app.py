@@ -3425,6 +3425,54 @@ def staff_new_appointment():
     return appointments_hub()
 
 
+@app.route("/staff/appointments")
+@staff_or_admin_required
+def staff_appointments_center():
+    set_ui_world("staff")
+    db = get_db()
+    selected_date = parse_iso_date(request.args.get("date"))
+    own_staff = default_staff_for_simple_mode(db)
+    staff_options = [name for name in get_staff_options(db) if name != "Sven"]
+    mine_param = (request.args.get("mine") or "").strip().lower()
+    mine_mode = mine_param in {"1", "true", "yes", "on"}
+
+    staff = (request.args.get("staff") or own_staff).strip()
+    if staff not in staff_options and staff != "Alle":
+        staff = own_staff
+    if not is_admin_session():
+        if mine_mode:
+            staff = own_staff
+        elif staff == "Sven":
+            staff = own_staff
+
+    staff_label = own_staff if mine_mode else staff
+    if not staff_label:
+        staff_label = own_staff
+    if staff_label == "Alle" and not is_admin_session():
+        staff_label = own_staff
+
+    today_items = appointments_for_day(selected_date, staff_label, limit=50, db=db)
+    tomorrow_items = appointments_for_day(selected_date + timedelta(days=1), staff_label, limit=50, db=db)
+    upcoming_items = upcoming_appointments(limit=10, staff_name=staff_label if staff_label != "Alle" else "Alle", db=db)
+
+    return render_template(
+        "staff_appointments_center.html",
+        current_endpoint="staff_appointments_center",
+        app_version=APP_VERSION,
+        selected_date=selected_date.isoformat(),
+        selected_date_label=selected_date.strftime("%d.%m.%Y"),
+        today_date=datetime.now().date().isoformat(),
+        tomorrow_date=(datetime.now().date() + timedelta(days=1)).isoformat(),
+        staff=staff,
+        mine_mode=mine_mode,
+        own_staff=own_staff,
+        bookable_staff=staff_members_for_simple_mode(db) or get_staff_members(db),
+        today_items=today_items,
+        tomorrow_items=tomorrow_items,
+        upcoming_items=upcoming_items,
+    )
+
+
 @app.route("/staff/customers")
 @staff_or_admin_required
 def staff_customers():
@@ -4618,6 +4666,17 @@ def calendar_view():
         split_day_views = {name: _build_day_view(selected_date, name) for name in ordered_members}
     simple_day_items = appointments_for_day(selected_date, staff, db=db) if view == "day" else []
 
+    chip_dates = []
+    for offset in range(0, 6):
+        chip_day = selected_date + timedelta(days=offset)
+        chip_dates.append(
+            {
+                "date": chip_day.isoformat(),
+                "label": chip_day.strftime("%a %d"),
+                "is_today": chip_day == datetime.now().date(),
+            }
+        )
+
     template_name = "admin_calendar.html" if is_admin_world_session() else "staff_today.html"
     return render_template(
         template_name,
@@ -4639,6 +4698,7 @@ def calendar_view():
         current_endpoint="calendar_view",
         app_version=APP_VERSION,
         bookable_staff=simple_staff_members if (simple_staff_members := staff_members_for_simple_mode(db)) else get_staff_members(db),
+        staff_day_chip_dates=chip_dates,
     )
 
 

@@ -1,17 +1,16 @@
 {% extends 'staff_base.html' %}
 {% block title %}Kunden suchen - Salon Karola{% endblock %}
 {% block content %}
-<section class="simple-shell">
-  <section class="simple-panel simple-app-header">
+<section class="simple-shell staff-premium-shell">
+  <section class="simple-panel staff-premium-header staff-sticky-search-wrap">
     <div class="simple-panel-head">
       <div>
         <div class="simple-kicker">Kunden</div>
-        <h1 class="simple-section-title">Kunde suchen</h1>
-        <p class="simple-subtitle">Name oder Telefonnummer suchen.</p>
+        <h1 class="simple-section-title">Name oder Telefon suchen</h1>
       </div>
     </div>
     <form method="get" class="simple-search-form" autocomplete="off">
-      <input type="search" name="q" id="customerQuickSearchInput" value="{{ q }}" placeholder="Name oder Telefonnummer suchen">
+      <input type="search" name="q" id="customerQuickSearchInput" value="{{ q }}" placeholder="Name oder Telefon suchen">
       <button type="submit" class="simple-search-submit">Suchen</button>
     </form>
     <div class="simple-live-results" id="customerQuickResults"></div>
@@ -22,11 +21,21 @@
     {% set phone = customer_phone(customer) %}
     {% set wa_link = whatsapp_link(customer) %}
     <article class="simple-customer-card">
-      <a class="simple-customer-main" href="{{ url_for('staff_customer_detail', customer_id=customer['_id']) }}">
+      <button
+        type="button"
+        class="simple-customer-main js-customer-sheet"
+        data-name="{{ customer_full_name(customer) }}"
+        data-phone="{{ phone or '' }}"
+        data-email="{{ customer['_mail'] or '' }}"
+        data-detail="{{ url_for('staff_customer_detail', customer_id=customer['_id']) }}"
+        data-call="{{ phone|phone_href if phone else '' }}"
+        data-whatsapp="{{ wa_link or '' }}"
+        data-appointment="{{ url_for('staff_new_appointment', customer_id=customer['_id']) }}"
+      >
         <strong>{{ customer_full_name(customer) }}</strong>
         <span>{{ phone or 'Keine Nummer gespeichert' }}</span>
         <small>{{ customer['_mail'] or 'Keine E-Mail gespeichert' }}</small>
-      </a>
+      </button>
       <div class="simple-card-actions">
         {% if phone %}
         <a class="simple-action-button" href="{{ phone|phone_href }}">Anrufen</a>
@@ -43,9 +52,7 @@
     </article>
     {% else %}
     {% if not q %}
-    <div class="simple-empty">
-      Gib einen Namen oder eine Telefonnummer ein.
-    </div>
+    <div class="simple-empty">Gib einen Namen oder eine Telefonnummer ein.</div>
     {% else %}
     <div class="simple-empty">
       Kein Kunde gefunden.
@@ -58,11 +65,88 @@
   </section>
 </section>
 
+<div class="staff-sheet-overlay" id="customerSheetOverlay" hidden></div>
+<section class="staff-sheet" id="customerSheet" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="customerSheetTitle">
+  <header class="staff-sheet-head">
+    <div>
+      <div class="simple-kicker">Kundeninfo</div>
+      <h2 class="simple-section-title" id="customerSheetTitle">Kunde</h2>
+    </div>
+    <button type="button" class="simple-action-button" id="customerSheetClose">Schließen</button>
+  </header>
+  <div class="staff-sheet-body">
+    <div class="simple-detail-grid">
+      <div><strong>Telefon</strong><span id="customerSheetPhone">Nicht hinterlegt</span></div>
+      <div><strong>E-Mail</strong><span id="customerSheetMail">Nicht hinterlegt</span></div>
+    </div>
+    <div class="simple-action-row">
+      <a class="simple-action-button" id="customerSheetCall" href="#" hidden>Anrufen</a>
+      <a class="simple-action-button" id="customerSheetWhatsApp" href="#" target="_blank" rel="noopener" hidden>WhatsApp</a>
+      <a class="simple-action-button" id="customerSheetAppointment" href="#">Termin</a>
+      <a class="simple-action-button primary" id="customerSheetDetail" href="#">Öffnen</a>
+    </div>
+  </div>
+</section>
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   const input = document.getElementById("customerQuickSearchInput");
   const results = document.getElementById("customerQuickResults");
+  const overlay = document.getElementById("customerSheetOverlay");
+  const sheet = document.getElementById("customerSheet");
+  const closeSheetButton = document.getElementById("customerSheetClose");
   if (!input || !results) return;
+
+  const sheetFields = {
+    title: document.getElementById("customerSheetTitle"),
+    phone: document.getElementById("customerSheetPhone"),
+    mail: document.getElementById("customerSheetMail"),
+    call: document.getElementById("customerSheetCall"),
+    whatsapp: document.getElementById("customerSheetWhatsApp"),
+    appointment: document.getElementById("customerSheetAppointment"),
+    detail: document.getElementById("customerSheetDetail"),
+  };
+
+  function wireSheetButtons() {
+    if (!sheet || !overlay || !closeSheetButton) return;
+    document.querySelectorAll(".js-customer-sheet").forEach((button) => {
+      if (button.dataset.bound === "1") return;
+      button.dataset.bound = "1";
+      button.addEventListener("click", function () {
+        sheetFields.title.textContent = this.dataset.name || "Kunde";
+        sheetFields.phone.textContent = this.dataset.phone || "Nicht hinterlegt";
+        sheetFields.mail.textContent = this.dataset.email || "Nicht hinterlegt";
+        sheetFields.appointment.href = this.dataset.appointment || "{{ url_for('staff_new_appointment') }}";
+        sheetFields.detail.href = this.dataset.detail || "{{ url_for('staff_customers') }}";
+
+        if (this.dataset.call) {
+          sheetFields.call.href = this.dataset.call;
+          sheetFields.call.hidden = false;
+        } else {
+          sheetFields.call.hidden = true;
+        }
+        if (this.dataset.whatsapp) {
+          sheetFields.whatsapp.href = this.dataset.whatsapp;
+          sheetFields.whatsapp.hidden = false;
+        } else {
+          sheetFields.whatsapp.hidden = true;
+        }
+
+        sheet.hidden = false;
+        sheet.setAttribute("aria-hidden", "false");
+        overlay.hidden = false;
+        document.body.classList.add("staff-sheet-open");
+      });
+    });
+  }
+
+  function closeSheet() {
+    if (!sheet || !overlay) return;
+    sheet.hidden = true;
+    sheet.setAttribute("aria-hidden", "true");
+    overlay.hidden = true;
+    document.body.classList.remove("staff-sheet-open");
+  }
 
   function actionLink(url, label, disabledText) {
     return url
@@ -84,17 +168,28 @@ document.addEventListener("DOMContentLoaded", function () {
       const items = payload.items || [];
       results.innerHTML = items.map((item) => `
       <article class="simple-live-result">
-        <a class="simple-customer-main" href="${item.detail_url}">
-          <strong>${item.name}</strong>
+        <button
+          type="button"
+          class="simple-customer-main js-customer-sheet"
+          data-name="${item.name || ''}"
+          data-phone="${item.phone || ''}"
+          data-email=""
+          data-detail="${item.detail_url || ''}"
+          data-call="${item.call_url || ''}"
+          data-whatsapp="${item.whatsapp_url || ''}"
+          data-appointment="${item.new_appointment_url || ''}"
+        >
+          <strong>${item.name || "Kunde"}</strong>
           <span>${item.phone || "Keine Nummer gespeichert"}</span>
-        </a>
+        </button>
         <div class="simple-card-actions">
           ${actionLink(item.call_url, "Anrufen", "Telefon fehlt")}
           ${actionLink(item.whatsapp_url, "WhatsApp", "WhatsApp fehlt")}
-          <a class="simple-action-button" href="${item.new_appointment_url}">Termin</a>
+          <a class="simple-action-button" href="${item.new_appointment_url || '#'}">Termin</a>
         </div>
       </article>
-    `).join("");
+      `).join("");
+      wireSheetButtons();
     } catch (error) {
       console.error("Live-Suche fehlgeschlagen", error);
       results.innerHTML = '<div class="simple-empty">Suche gerade nicht verfügbar. Bitte erneut versuchen.</div>';
@@ -103,6 +198,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
   input.addEventListener("input", refreshSuggestions);
   if (input.value.trim()) refreshSuggestions();
+  wireSheetButtons();
+  if (closeSheetButton) closeSheetButton.addEventListener("click", closeSheet);
+  if (overlay) overlay.addEventListener("click", closeSheet);
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") closeSheet();
+  });
 });
 </script>
 {% endblock %}

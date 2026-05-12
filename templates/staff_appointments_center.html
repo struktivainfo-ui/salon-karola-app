@@ -1,0 +1,72 @@
+{% extends 'staff_base.html' %}
+{% block title %}Termin-Center - Salon Karola{% endblock %}
+{% block content %}
+<section class="simple-shell staff-premium-shell">
+  <section class="simple-panel staff-premium-header">
+    <div class="simple-kicker">Termin</div>
+    <h1 class="simple-section-title">Termin-Center</h1>
+    <p class="simple-subtitle">Schnell planen ohne lange Kalenderansicht.</p>
+    <div class="staff-quick-actions">
+      <a class="simple-floating-action" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else own_staff) }}">+ Neuer Termin</a>
+      <a class="simple-action-button" href="{{ url_for('staff_today') }}">Heute ansehen</a>
+      <a class="simple-action-button" href="{{ url_for('staff_customers') }}">Kunde suchen</a>
+    </div>
+  </section>
+
+  <section class="simple-panel">
+    <div class="simple-filter-row simple-filter-row-wrap">
+      {% if mine_mode %}
+      <a class="simple-filter-chip active" href="{{ url_for('staff_appointments_center', mine=1, date=selected_date) }}">Meine</a>
+      {% else %}
+      <a class="simple-filter-chip" href="{{ url_for('staff_appointments_center', mine=1, date=selected_date) }}">Meine</a>
+      {% endif %}
+      <a class="simple-filter-chip {% if staff == 'Alle' and not mine_mode %}active{% endif %}" href="{{ url_for('staff_appointments_center', staff='Alle', date=selected_date) }}">Alle</a>
+      {% for member in bookable_staff %}
+      {% if member != 'Sven' %}
+      <a class="simple-filter-chip {% if staff == member and not mine_mode %}active{% endif %}" href="{{ url_for('staff_appointments_center', staff=member, date=selected_date) }}">{{ member }}</a>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Heute</div>
+        <h2 class="simple-section-title">{{ today_items|length }} Termine</h2>
+      </div>
+      <a class="simple-action-button" href="{{ url_for('staff_new_appointment', appointment_at=today_date ~ 'T09:00', staff=staff if staff != 'Alle' else own_staff) }}">+ Termin</a>
+    </div>
+    <div class="simple-compact-list">
+      {% for item in today_items %}
+      <article class="simple-list-card">
+        <strong>{{ item.time_label }} · {{ item.customer_name }}</strong>
+        <span>{{ item.service_label }}</span>
+      </article>
+      {% else %}
+      <div class="simple-empty">Heute sind keine Termine geplant.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Morgen</div>
+        <h2 class="simple-section-title">{{ tomorrow_items|length }} Termine</h2>
+      </div>
+      <a class="simple-action-button" href="{{ url_for('calendar_view', view='day', date=tomorrow_date, mine=1 if mine_mode else 0, staff=staff if not mine_mode else own_staff) }}">Ansehen</a>
+    </div>
+    <div class="simple-compact-list">
+      {% for item in tomorrow_items %}
+      <article class="simple-list-card">
+        <strong>{{ item.time_label }} · {{ item.customer_name }}</strong>
+        <span>{{ item.service_label }}</span>
+      </article>
+      {% else %}
+      <div class="simple-empty">Für morgen sind noch keine Termine eingetragen.</div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+{% endblock %}

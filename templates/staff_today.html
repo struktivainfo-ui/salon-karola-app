@@ -1,33 +1,30 @@
 {% extends 'staff_base.html' %}
-{% block title %}Tagesansicht - Salon Karola{% endblock %}
+{% block title %}Heute - Salon Karola{% endblock %}
 {% block content %}
-<section class="simple-shell">
-  <section class="staff-desktop-hint">
-    <p>Diese Ansicht ist fuer die Nutzung am Handy optimiert.</p>
-  </section>
-  <section class="simple-panel simple-app-header">
-    <div class="simple-panel-head simple-panel-head-stack">
-      <div class="simple-page-title-row">
-        <div>
-          <div class="simple-kicker">Salon Karola · {{ logged_in_staff or default_staff }}</div>
-          <h1 class="simple-section-title">{% if selected_date == today_date %}Heute{% else %}Tagesuebersicht{% endif %}</h1>
-          <p class="simple-subtitle">{{ selected_date_label or selected_date }}</p>
-        </div>
-        <a class="simple-floating-action" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">+ Termin</a>
+<section class="simple-shell staff-premium-shell">
+  <section class="simple-panel staff-premium-header">
+    <div class="staff-premium-title-row">
+      <div>
+        <div class="simple-kicker">Salon Karola · {{ logged_in_staff or default_staff }}</div>
+        <h1 class="simple-section-title">Heute</h1>
+        <p class="simple-subtitle">{{ selected_date_label or selected_date }} · {{ simple_day_items|length }} Termine</p>
       </div>
-      <div class="simple-filter-row">
-        {% if mine_mode %}
-        <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=today_date, mine=1) }}">Heute</a>
-        <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=next_date, mine=1) }}">Morgen</a>
-        {% else %}
-        <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=today_date, staff=staff) }}">Heute</a>
-        <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=next_date, staff=staff) }}">Morgen</a>
-        {% endif %}
-      </div>
+      <a class="simple-floating-action" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else own_staff) }}">+ Termin</a>
     </div>
+    <div class="staff-quick-actions">
+      <a class="simple-action-button" href="{{ url_for('staff_appointments_center') }}">Termin-Center</a>
+      <a class="simple-action-button" href="{{ url_for('staff_customers') }}">Kunde suchen</a>
+      <a class="simple-action-button" href="{{ url_for('staff_more') }}">Mehr</a>
+    </div>
+  </section>
 
+  <section class="simple-panel">
     <div class="simple-filter-row simple-filter-row-wrap">
-      <a class="simple-filter-chip {% if mine_mode %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, mine=1) }}">Meine</a>
+      {% if mine_mode %}
+      <a class="simple-filter-chip active" href="{{ url_for('calendar_view', view='day', date=selected_date, mine=1) }}">Meine</a>
+      {% else %}
+      <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=selected_date, mine=1) }}">Meine</a>
+      {% endif %}
       <a class="simple-filter-chip {% if staff == 'Alle' and not mine_mode %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff='Alle') }}">Alle</a>
       {% for member in bookable_staff %}
       {% if member != 'Sven' %}
@@ -35,28 +32,47 @@
       {% endif %}
       {% endfor %}
     </div>
+    <div class="staff-day-chip-row">
+      {% for chip in staff_day_chip_dates or [] %}
+      <a class="staff-day-chip {% if chip.date == selected_date %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=chip.date, mine=1 if mine_mode else 0, staff=staff if not mine_mode else own_staff) }}">{{ chip.label }}</a>
+      {% endfor %}
+    </div>
   </section>
 
-  <section class="simple-card-list">
+  <section class="simple-card-list staff-timeline-list">
     {% for item in simple_day_items %}
-    <article class="simple-appointment-card">
-      <div class="simple-appointment-top">
-        <div>
-          <div class="simple-appointment-time">{{ item.time_label }}</div>
-          <h2>{{ item.customer_name }}</h2>
+    <article class="simple-appointment-card staff-timeline-card">
+      <button
+        type="button"
+        class="staff-card-open js-appointment-sheet"
+        data-time="{{ item.time_label }}"
+        data-customer="{{ item.customer_name }}"
+        data-service="{{ item.service_label }}"
+        data-staff="{{ item.staff_name }}"
+        data-status="{{ item.status or 'geplant' }}"
+        data-notes="{{ item.notes_short or '' }}"
+        data-call="{{ item.call_url or '' }}"
+        data-whatsapp="{{ item.whatsapp_url or '' }}"
+        data-edit="{{ item.edit_url }}"
+      >
+        <div class="simple-appointment-top">
+          <div>
+            <div class="simple-appointment-time">{{ item.time_label }}</div>
+            <h2>{{ item.customer_name }}</h2>
+          </div>
+          <div class="simple-card-badges">
+            <span class="simple-status-pill">{{ item.staff_name }}</span>
+            <span class="simple-status-pill simple-status-muted">{{ item.status or 'geplant' }}</span>
+          </div>
         </div>
-        <div class="simple-card-badges">
-          <span class="simple-status-pill">{{ item.staff_name }}</span>
-          <span class="simple-status-pill simple-status-muted">{{ item.status or 'geplant' }}</span>
-        </div>
-      </div>
-      <div class="simple-appointment-meta">{{ item.service_label }}</div>
-      {% if item.notes_short %}
-      <div class="simple-appointment-meta">{{ item.notes_short }}</div>
-      {% endif %}
-      <div class="simple-action-row">
+        <div class="simple-appointment-meta">{{ item.service_label }}</div>
+        {% if item.notes_short %}
+        <div class="simple-appointment-meta">{{ item.notes_short }}</div>
+        {% endif %}
+      </button>
+      <div class="simple-action-row compact-action-row">
         {% if item.call_url %}
-        <a class="simple-action-button" href="{{ item.call_url }}">Anrufen</a>
+        <a class="simple-action-button" href="{{ item.call_url }}">Telefon</a>
         {% else %}
         <span class="simple-action-button disabled">Telefon fehlt</span>
         {% endif %}
@@ -70,11 +86,114 @@
     </article>
     {% else %}
     <div class="simple-empty simple-empty-state">
-      <strong>Heute sind noch keine Termine eingetragen.</strong>
-      <span>Wenn ein Termin dazu kommt, ist er hier sofort sichtbar.</span>
-      <a class="simple-save-button" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else simple_default_staff) }}">Termin erstellen</a>
+      <strong>Heute sind keine Termine eingetragen.</strong>
+      <span>Lege den ersten Termin direkt an.</span>
+      <a class="simple-save-button" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else own_staff) }}">Ersten Termin erstellen</a>
     </div>
     {% endfor %}
   </section>
 </section>
+
+<div class="staff-sheet-overlay" id="appointmentSheetOverlay" hidden></div>
+<section class="staff-sheet" id="appointmentSheet" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="appointmentSheetTitle">
+  <header class="staff-sheet-head">
+    <div>
+      <div class="simple-kicker" id="appointmentSheetTime">--:--</div>
+      <h2 class="simple-section-title" id="appointmentSheetTitle">Termin</h2>
+    </div>
+    <button type="button" class="simple-action-button" id="appointmentSheetClose">Schließen</button>
+  </header>
+  <div class="staff-sheet-body">
+    <div class="simple-detail-grid">
+      <div><strong>Service</strong><span id="appointmentSheetService">-</span></div>
+      <div><strong>Mitarbeiterin</strong><span id="appointmentSheetStaff">-</span></div>
+      <div><strong>Status</strong><span id="appointmentSheetStatus">-</span></div>
+      <div class="full"><strong>Notiz</strong><span id="appointmentSheetNotes">Keine Notiz</span></div>
+    </div>
+    <div class="simple-action-row">
+      <a class="simple-action-button" id="appointmentSheetCall" href="#" hidden>Telefon</a>
+      <a class="simple-action-button" id="appointmentSheetWhatsApp" href="#" target="_blank" rel="noopener" hidden>WhatsApp</a>
+      <a class="simple-action-button primary" id="appointmentSheetEdit" href="#">Bearbeiten</a>
+    </div>
+  </div>
+</section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const triggers = Array.from(document.querySelectorAll(".js-appointment-sheet"));
+  const sheet = document.getElementById("appointmentSheet");
+  const overlay = document.getElementById("appointmentSheetOverlay");
+  const closeButton = document.getElementById("appointmentSheetClose");
+  if (!triggers.length || !sheet || !overlay || !closeButton) return;
+
+  const fields = {
+    time: document.getElementById("appointmentSheetTime"),
+    title: document.getElementById("appointmentSheetTitle"),
+    service: document.getElementById("appointmentSheetService"),
+    staff: document.getElementById("appointmentSheetStaff"),
+    status: document.getElementById("appointmentSheetStatus"),
+    notes: document.getElementById("appointmentSheetNotes"),
+    call: document.getElementById("appointmentSheetCall"),
+    whatsapp: document.getElementById("appointmentSheetWhatsApp"),
+    edit: document.getElementById("appointmentSheetEdit"),
+  };
+
+  function closeSheet() {
+    sheet.hidden = true;
+    sheet.setAttribute("aria-hidden", "true");
+    overlay.hidden = true;
+    document.body.classList.remove("staff-sheet-open");
+  }
+
+  function openSheet(data) {
+    fields.time.textContent = data.time || "--:--";
+    fields.title.textContent = data.customer || "Termin";
+    fields.service.textContent = data.service || "-";
+    fields.staff.textContent = data.staff || "-";
+    fields.status.textContent = data.status || "geplant";
+    fields.notes.textContent = data.notes || "Keine Notiz";
+    fields.edit.href = data.edit || "{{ url_for('staff_today') }}";
+
+    if (data.call) {
+      fields.call.href = data.call;
+      fields.call.hidden = false;
+    } else {
+      fields.call.hidden = true;
+    }
+    if (data.whatsapp) {
+      fields.whatsapp.href = data.whatsapp;
+      fields.whatsapp.hidden = false;
+    } else {
+      fields.whatsapp.hidden = true;
+    }
+
+    sheet.hidden = false;
+    sheet.setAttribute("aria-hidden", "false");
+    overlay.hidden = false;
+    document.body.classList.add("staff-sheet-open");
+  }
+
+  triggers.forEach((trigger) => {
+    trigger.addEventListener("click", function () {
+      openSheet({
+        time: this.dataset.time,
+        customer: this.dataset.customer,
+        service: this.dataset.service,
+        staff: this.dataset.staff,
+        status: this.dataset.status,
+        notes: this.dataset.notes,
+        call: this.dataset.call,
+        whatsapp: this.dataset.whatsapp,
+        edit: this.dataset.edit,
+      });
+    });
+  });
+
+  closeButton.addEventListener("click", closeSheet);
+  overlay.addEventListener("click", closeSheet);
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") closeSheet();
+  });
+});
+</script>
 {% endblock %}

@@ -70,7 +70,12 @@
       </section>
 
       <section class="simple-step" data-step="3">
-        <h2>Datum, Uhrzeit und Mitarbeiterin</h2>
+        <h2>Zeit</h2>
+        <div class="staff-day-chip-row">
+          <button type="button" class="staff-day-chip js-set-date" data-offset="0">Heute</button>
+          <button type="button" class="staff-day-chip js-set-date" data-offset="1">Morgen</button>
+          <button type="button" class="staff-day-chip js-set-date" data-offset="2">+2 Tage</button>
+        </div>
         <div class="simple-form-grid simple-time-grid">
           <label class="full"><span>Termin</span><input type="datetime-local" name="appointment_at" id="simpleAppointmentAt" value="{{ prefill_at }}" required></label>
         </div>
@@ -195,15 +200,15 @@ document.addEventListener("DOMContentLoaded", function () {
       selectedCustomer.textContent = "";
       return;
     }
-    selectedCustomer.innerHTML = `<strong>Ausgewaehlt:</strong> <span>${selectedCustomerText()}</span>`;
+    selectedCustomer.innerHTML = `<strong>Ausgewählt:</strong> <span>${selectedCustomerText()}</span>`;
   }
 
   function updateSummary() {
-    const appointmentAt = wizard.querySelector('[name="appointment_at"]').value || "Noch nicht gewaehlt";
+    const appointmentAt = wizard.querySelector('[name="appointment_at"]').value || "Noch nicht gewählt";
     summaryBox.innerHTML = `
       <div><strong>Kunde</strong><span>${selectedCustomerText()}</span></div>
-      <div><strong>Service</strong><span>${serviceSummaryField.value || "Noch nicht gewaehlt"}</span></div>
-      <div><strong>Mitarbeiterin</strong><span>${staffField.value || "Noch nicht gewaehlt"}</span></div>
+      <div><strong>Service</strong><span>${serviceSummaryField.value || "Noch nicht gewählt"}</span></div>
+      <div><strong>Mitarbeiterin</strong><span>${staffField.value || "Noch nicht gewählt"}</span></div>
       <div><strong>Zeit</strong><span>${appointmentAt.replace("T", " ")}</span></div>
       <div><strong>Dauer</strong><span>${durationField.value || 30} Min.</span></div>
       <div><strong>Einwirkzeit</strong><span>${processingField.value || 0} Min.</span></div>
@@ -222,7 +227,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function validateCurrentStep() {
     if (stepIndex === 0) {
       if (activeMode() === "existing" && !customerIdField.value) {
-        showError("Bitte zuerst einen Kunden auswaehlen.");
+        showError("Bitte zuerst einen Kunden auswählen.");
         return false;
       }
       if (activeMode() === "manual") {
@@ -235,11 +240,11 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
     if (stepIndex === 1 && !selectedServicesField.value) {
-      showError("Bitte einen Service auswaehlen.");
+      showError("Bitte einen Service auswählen.");
       return false;
     }
     if (stepIndex === 2 && !wizard.querySelector('[name="appointment_at"]').value) {
-      showError("Bitte Datum und Uhrzeit auswaehlen.");
+      showError("Bitte Datum und Uhrzeit auswählen.");
       return false;
     }
     return true;
@@ -318,10 +323,25 @@ document.addEventListener("DOMContentLoaded", function () {
   updateStaff(staffField.value || "{{ simple_default_staff }}");
   updateMode();
   if (customerIdField.value) {
-    customerSearch.value = "Ausgewaehlter Kunde";
+    customerSearch.value = "Ausgewählter Kunde";
   }
   renderSelectedCustomerCard();
   renderStep();
+
+  const appointmentInput = document.getElementById("simpleAppointmentAt");
+  const dateButtons = Array.from(document.querySelectorAll(".js-set-date"));
+  dateButtons.forEach((button) => {
+    button.addEventListener("click", function () {
+      if (!appointmentInput) return;
+      const offset = Number(this.dataset.offset || 0);
+      const now = new Date();
+      const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, Math.max(now.getHours() + 1, 9), 0, 0, 0);
+      const local = new Date(target.getTime() - target.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      appointmentInput.value = local;
+      showError("");
+      updateSummary();
+    });
+  });
 
   wizard.addEventListener("submit", function () {
     if (!submitButton) return;
