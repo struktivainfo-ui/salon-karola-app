@@ -127,7 +127,7 @@ def env_bool(name, default=False):
     return str(raw).strip().lower() in {"1", "true", "yes", "on"}
 
 
-SAFE_MODE = env_bool("SAFE_MODE", True)
+SAFE_MODE = env_bool("SAFE_MODE", False)
 ENABLE_PUSH = env_bool("ENABLE_PUSH", not SAFE_MODE)
 ENABLE_SCHEDULER = env_bool("ENABLE_SCHEDULER", not SAFE_MODE)
 ENABLE_SERVICE_WORKER = env_bool("ENABLE_SERVICE_WORKER", not SAFE_MODE)
@@ -452,7 +452,7 @@ def default_route_after_login(staff_name):
             return url_for("test_admin_dashboard")
         return url_for("test_staff_today")
     if is_admin_staff_name(staff_name):
-        return url_for("admin_start")
+        return url_for("admin_home")
     return url_for("staff_today")
 
 
@@ -2766,7 +2766,7 @@ def manifest():
     manifest_path = Path(app.static_folder) / "manifest.webmanifest"
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        payload["start_url"] = "/safe-start" if SAFE_MODE else "/login"
+        payload["start_url"] = "/"
         payload["scope"] = "/"
         response = jsonify(payload)
         response.mimetype = "application/manifest+json"
@@ -3332,8 +3332,8 @@ def logout():
 def index():
     if SAFE_MODE:
         return redirect(url_for("safe_start"))
-    if is_admin_world_session():
-        return redirect(url_for("admin_start"))
+    if is_admin_session():
+        return redirect(url_for("admin_home"))
     return redirect(url_for("staff_today"))
 
 

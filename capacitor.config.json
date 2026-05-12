@@ -3,7 +3,7 @@
   "appName": "Salon Karola App",
   "webDir": "www",
   "server": {
-    "url": "https://salon-karola-app.onrender.com/safe-start",
+    "url": "https://salon-karola-app.onrender.com/",
     "cleartext": false
   },
   "android": {
