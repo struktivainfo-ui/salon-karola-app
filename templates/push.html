@@ -18,11 +18,12 @@
     <article class="premium-panel">
       <div class="premium-panel-head">
         <div>
-          <div class="premium-panel-kicker">Dieses Gerät</div>
-          <h2 class="premium-panel-title">Einrichten</h2>
+          <div class="premium-panel-kicker">Serverstatus</div>
+          <h2 class="premium-panel-title">Push-Kontrollzentrum</h2>
         </div>
       </div>
       <div class="premium-form premium-space-top">
+        <div class="premium-note" id="pushServerStatus">Lade Push-Status …</div>
         <div class="form-group premium-form-group">
           <label for="deviceStaffSelect">Zuordnen zu</label>
           <select id="deviceStaffSelect">
@@ -33,18 +34,10 @@
           <label for="deviceNameInput">Gerätename</label>
           <input type="text" id="deviceNameInput" placeholder="z. B. Handy Sven" maxlength="80">
         </div>
-        <div class="form-group premium-form-group">
-          <label for="pushTargetSelect">Push senden an</label>
-          <select id="pushTargetSelect">
-            {% for member in staff_members %}<option value="{{ member }}">{{ member }}</option>{% endfor %}
-            <option value="Alle">Alle</option>
-          </select>
-        </div>
         <div class="premium-button-row">
-          <button type="button" class="premium-button" id="enablePushBtn">Push aktivieren</button>
-          <button type="button" class="premium-button secondary" id="testPushBtn">Push testen</button>
+          <button type="button" class="premium-button" id="enablePushBtn">Push auf diesem Gerät aktivieren</button>
+          <button type="button" class="premium-button secondary" id="testPushBtn">Test-Push an dieses Gerät</button>
         </div>
-        <div class="premium-note">Push wird direkt diesem Gerät und der ausgewählten Person zugeordnet.</div>
         <div class="premium-note" id="pushStatusMini">Push ist noch nicht aktiviert.</div>
       </div>
     </article>
@@ -52,7 +45,28 @@
     <article class="premium-panel">
       <div class="premium-panel-head">
         <div>
-          <div class="premium-panel-kicker">&Uuml;bersicht</div>
+          <div class="premium-panel-kicker">Tests</div>
+          <h2 class="premium-panel-title">Push senden</h2>
+        </div>
+      </div>
+      <div class="premium-button-row compact premium-space-top">
+        <button type="button" class="premium-button secondary js-push-target-test" data-target="Ute">Test-Push an Ute</button>
+        <button type="button" class="premium-button secondary js-push-target-test" data-target="Jessi">Test-Push an Jessi</button>
+        <button type="button" class="premium-button secondary js-push-target-test" data-target="Sven">Test-Push an Sven</button>
+        <button type="button" class="premium-button secondary js-push-target-test" data-target="Alle">Test-Push an Alle</button>
+      </div>
+      <div class="premium-button-row compact premium-space-top">
+        <button type="button" class="premium-button secondary" id="cleanupPushBtn">Ungültige Geräte bereinigen</button>
+      </div>
+      <div class="premium-note" id="pushLastErrorBox">Letzte Fehler: keine</div>
+    </article>
+  </section>
+
+  <section class="premium-grid-2 premium-space-top">
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Übersicht</div>
           <h2 class="premium-panel-title">Geräte</h2>
         </div>
       </div>
@@ -75,29 +89,54 @@
 (function () {
   const list = document.getElementById('pushDevicesList');
   const reloadBtn = document.getElementById('reloadDevicesBtn');
+  const cleanupBtn = document.getElementById('cleanupPushBtn');
+  const serverStatus = document.getElementById('pushServerStatus');
+  const lastErrorBox = document.getElementById('pushLastErrorBox');
   const countEls = {
     {% for member in staff_members %}'{{ member }}': document.getElementById('count-{{ member|lower }}'),{% endfor %}
   };
   const activeCount = document.getElementById('activeCount');
   const totalCount = document.getElementById('totalCount');
-  async function loadOverview() {
 
-    try {
-      const res = await fetch('/api/push/overview', { cache: 'no-store' });
-      const data = await res.json();
-      const countsByStaff = data.counts_by_staff || {};
-      Object.keys(countEls).forEach((name) => { if (countEls[name]) countEls[name].textContent = countsByStaff[name] || 0; });
-      activeCount.textContent = data.active_devices || 0;
-      totalCount.textContent = data.total_devices || 0;
-    } catch (e) {}
+  async function fetchJson(url, options) {
+    if (typeof window.safeFetch === "function") {
+      const r = await window.safeFetch(url, Object.assign({ timeoutMs: 12000, credentials: "same-origin", cache: "no-store" }, options || {}));
+      if (!r.ok) throw new Error(r.error || "Fehler");
+      return r.data || {};
+    }
+    const res = await fetch(url, options || {});
+    const data = await res.json();
+    if (!res.ok || data.ok === false) throw new Error(data.error || "Fehler");
+    return data || {};
+  }
+
+  function renderServerStatus(data) {
+    if (!serverStatus) return;
+    const enabled = data.enabled ? "aktiv" : "inaktiv";
+    const webpush = data.webpush_enabled ? "ja" : "nein";
+    const pywebpush = data.pywebpush_available ? "ja" : "nein";
+    const sw = data.service_worker_enabled ? "ja" : "nein";
+    serverStatus.textContent = `ENABLE_PUSH: ${enabled} · VAPID bereit: ${webpush} · pywebpush: ${pywebpush} · Service Worker: ${sw}`;
+    if (lastErrorBox) {
+      const err = data.last_error ? `${data.last_error}${data.last_error_at ? " (" + data.last_error_at + ")" : ""}` : "keine";
+      lastErrorBox.textContent = `Letzte Fehler: ${err}`;
+    }
+  }
+
+  async function loadOverview() {
+    const data = await fetchJson('/api/push/overview');
+    const countsByStaff = data.counts_by_staff || {};
+    Object.keys(countEls).forEach((name) => { if (countEls[name]) countEls[name].textContent = countsByStaff[name] || 0; });
+    if (activeCount) activeCount.textContent = data.active_devices || 0;
+    if (totalCount) totalCount.textContent = data.total_devices || 0;
+    renderServerStatus(data);
   }
 
   async function loadDevices() {
     if (!list) return;
-    list.innerHTML = '<div class="premium-list-empty">Lade Geräte...</div>';
+    list.innerHTML = '<div class="premium-list-empty">Lade Geräte …</div>';
     try {
-      const res = await fetch('/api/push/devices', { cache: 'no-store' });
-      const data = await res.json();
+      const data = await fetchJson('/api/push/devices');
       const items = data.items || [];
       if (!items.length) {
         list.innerHTML = '<div class="premium-list-empty">Noch keine Geräte registriert.</div>';
@@ -117,6 +156,19 @@
     }
   }
 
+  async function sendTargetTest(target) {
+    try {
+      const data = await fetchJson('/api/push/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ staff_name: target }),
+      });
+      alert(`Test-Push an ${target} gesendet (${data.sent || 0}).`);
+    } catch (e) {
+      alert(`Test-Push an ${target} fehlgeschlagen: ${String(e.message || e)}`);
+    }
+  }
+
   if (reloadBtn) {
     reloadBtn.addEventListener('click', async () => {
       await loadOverview();
@@ -124,6 +176,27 @@
     });
   }
 
+  document.querySelectorAll('.js-push-target-test').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const target = button.dataset.target || 'Ute';
+      await sendTargetTest(target);
+      await loadOverview();
+      await loadDevices();
+    });
+  });
+
+  if (cleanupBtn) {
+    cleanupBtn.addEventListener('click', async () => {
+      try {
+        const data = await fetchJson('/api/push/devices/cleanup', { method: 'POST' });
+        alert(`Bereinigung abgeschlossen. Entfernt: ${data.removed || 0}`);
+      } catch (e) {
+        alert(`Bereinigung fehlgeschlagen: ${String(e.message || e)}`);
+      }
+      await loadOverview();
+      await loadDevices();
+    });
+  }
 
   window.refreshPushOverview = async function () {
     await loadOverview();

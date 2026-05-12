@@ -2,8 +2,9 @@ const CACHE_NAME = "salon-karola-__APP_VERSION__";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
   "/static/style.css",
-  "/static/icon-192.png",
-  "/static/icon-512.png",
+  "/static/icons/icon-192.png",
+  "/static/icons/icon-512.png",
+  "/static/icons/apple-touch-icon.png",
   "/static/push-icon.png",
   "/static/push-badge.png",
 ];
@@ -116,7 +117,7 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   event.waitUntil((async () => {
     try {
-      let data = { title: "Salon Karola", body: "Neue Nachricht", url: "/calendar" };
+      let data = { title: "Salon Karola", body: "Neue Benachrichtigung", url: "/calendar" };
       try {
         if (event.data) data = Object.assign(data, event.data.json());
       } catch (error) {}

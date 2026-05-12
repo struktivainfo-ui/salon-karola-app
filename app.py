@@ -2931,6 +2931,9 @@ def diagnose():
         "pywebpush_available": bool(webpush),
         "vapid_public_available": False,
         "vapid_private_available": False,
+        "push_subscription_count": 0,
+        "push_last_error": "",
+        "push_last_error_at": "",
     }
     try:
         db = get_db()
@@ -2950,6 +2953,17 @@ def diagnose():
         diagnostics["push_configured"] = bool(ENABLE_PUSH and push_delivery_ready())
     except Exception:
         diagnostics["push_configured"] = False
+    try:
+        row_push = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
+        diagnostics["push_subscription_count"] = int(row_push["cnt"] or 0) if row_push else 0
+        row_push_error = db.execute(
+            "SELECT last_error, updated_at FROM push_subscriptions WHERE COALESCE(last_error, '') <> '' ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 1"
+        ).fetchone()
+        if row_push_error:
+            diagnostics["push_last_error"] = row_push_error["last_error"] or ""
+            diagnostics["push_last_error_at"] = row_push_error["updated_at"] or ""
+    except Exception as exc:
+        diagnostics["push_error"] = str(exc)
     try:
         manifest_payload = json.loads(manifest().get_data(as_text=True))
         diagnostics["manifest_reachable"] = True
@@ -3006,6 +3020,37 @@ def diagnose():
       }} catch (e) {{
         lines.push("localStorage verfügbar: nein");
         lines.push("localStorage Fehler: " + String(e));
+      }}
+      try {{
+        lines.push("Notification verfügbar: " + (("Notification" in window) ? "ja" : "nein"));
+        lines.push("PushManager verfügbar: " + (("PushManager" in window) ? "ja" : "nein"));
+        lines.push("ServiceWorker verfügbar: " + (("serviceWorker" in navigator) ? "ja" : "nein"));
+        lines.push("Notification.permission: " + (("Notification" in window) ? Notification.permission : "n/a"));
+      }} catch (e) {{
+        lines.push("Client Push-Check Fehler: " + String(e));
+      }}
+      try {{
+        if ("serviceWorker" in navigator) {{
+          navigator.serviceWorker.getRegistration().then(function(reg) {{
+            lines.push("ServiceWorker registriert: " + (reg ? "ja" : "nein"));
+            if (reg && reg.pushManager) {{
+              reg.pushManager.getSubscription().then(function(sub) {{
+                lines.push("Push-Subscription vorhanden: " + (sub ? "ja" : "nein"));
+                document.getElementById("diagClient").textContent = lines.join("\\n");
+              }}).catch(function(err) {{
+                lines.push("Push-Subscription Fehler: " + String(err));
+                document.getElementById("diagClient").textContent = lines.join("\\n");
+              }});
+            }} else {{
+              document.getElementById("diagClient").textContent = lines.join("\\n");
+            }}
+          }}).catch(function(err) {{
+            lines.push("ServiceWorker-Registrierung Fehler: " + String(err));
+            document.getElementById("diagClient").textContent = lines.join("\\n");
+          }});
+        }}
+      }} catch (e) {{
+        lines.push("ServiceWorker Diagnosefehler: " + String(e));
       }}
       try {{
         document.getElementById("diagClient").textContent = lines.join("\\n");
@@ -4750,40 +4795,102 @@ def appointments_feed():
 @login_required
 def push_public_key():
     if not ENABLE_PUSH:
-        return {"ok": True, "public_key": "", "enabled": False, "native_enabled": False, "delivery_enabled": False, "disabled": True}
+        return {
+            "ok": True,
+            "public_key": "",
+            "publicKey": "",
+            "enabled": False,
+            "native_enabled": False,
+            "delivery_enabled": False,
+            "disabled": True,
+            "error": "Push ist serverseitig deaktiviert.",
+        }
+    public_key = vapid_public_key()
+    webpush_enabled = vapid_ready()
     return {
         "ok": True,
-        "public_key": vapid_public_key(),
-        "enabled": vapid_ready(),
+        "public_key": public_key,
+        "publicKey": public_key,
+        "enabled": webpush_enabled,
         "native_enabled": fcm_ready(),
         "delivery_enabled": push_delivery_ready(),
         "service_worker_required": True,
         "service_worker_enabled": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
         "format": "base64url",
         "generated": bool(_get_app_setting("push:vapid_generated_at", "")),
+        "pywebpush_available": bool(webpush),
+        "error": "" if webpush_enabled else "VAPID oder pywebpush nicht bereit.",
     }
 
 
 @app.route("/api/push/status")
 @login_required
 def push_status():
+    db = get_db()
+    staff_members = get_staff_members(db)
+    counts_by_staff = {}
+    for member in staff_members:
+        row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?", (member,)).fetchone()
+        counts_by_staff[member] = int(row["cnt"] or 0) if row else 0
+    total_row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
+    total_devices = int(total_row["cnt"] or 0) if total_row else 0
+    last_error_row = db.execute(
+        "SELECT last_error, updated_at FROM push_subscriptions WHERE COALESCE(last_error, '') <> '' ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 1"
+    ).fetchone()
+    last_error = (last_error_row["last_error"] if last_error_row else "") or ""
+    last_error_at = (last_error_row["updated_at"] if last_error_row else "") or ""
+
     if not ENABLE_PUSH:
-        return {"ok": True, "enabled": False, "permission": None, "device_count": 0, "staff_name": _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF), "disabled": True}
+        return {
+            "ok": True,
+            "enabled": False,
+            "device_count": 0,
+            "staff_name": _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF),
+            "disabled": True,
+            "enable_push": False,
+            "enable_service_worker": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
+            "webpush_enabled": False,
+            "native_enabled": False,
+            "pywebpush_available": bool(webpush),
+            "service_worker_required": True,
+            "service_worker_enabled": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
+            "counts_by_staff": counts_by_staff,
+            "total_devices": total_devices,
+            "last_error": last_error,
+            "last_error_at": last_error_at,
+            "error": "Push ist serverseitig deaktiviert.",
+        }
     staff_name = _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF)
     if staff_name == "Alle":
         staff_name = DEFAULT_STAFF
     enabled = push_delivery_ready()
-    permission = None
     count = 0
     try:
-        row = get_db().execute(
+        row = db.execute(
             "SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?",
             (staff_name,),
         ).fetchone()
         count = int(row["cnt"] or 0) if row else 0
     except Exception:
         count = 0
-    return {"ok": True, "enabled": enabled, "staff_name": staff_name, "subscriptions": count}
+    return {
+        "ok": True,
+        "enabled": enabled,
+        "staff_name": staff_name,
+        "subscriptions": count,
+        "device_count": count,
+        "enable_push": bool(ENABLE_PUSH and not SAFE_MODE),
+        "enable_service_worker": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
+        "webpush_enabled": vapid_ready(),
+        "native_enabled": fcm_ready(),
+        "pywebpush_available": bool(webpush),
+        "service_worker_required": True,
+        "service_worker_enabled": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
+        "counts_by_staff": counts_by_staff,
+        "total_devices": total_devices,
+        "last_error": last_error,
+        "last_error_at": last_error_at,
+    }
 
 
 @app.route("/api/push/overview")
@@ -4806,6 +4913,10 @@ def push_overview():
         "enabled": push_delivery_ready(),
         "webpush_enabled": vapid_ready(),
         "native_enabled": fcm_ready(),
+        "vapid_ready": vapid_ready(),
+        "pywebpush_available": bool(webpush),
+        "service_worker_required": True,
+        "service_worker_enabled": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
         "generated_keys": bool(_get_app_setting("push:vapid_generated_at", "")),
         "total_devices": total_devices,
         "active_devices": total_active,
@@ -4840,12 +4951,27 @@ def push_test_device(subscription_id):
     label = _push_device_label(row)
     result = send_push_to_subscription_row(
         row,
-        f"Test-Push fuer {label}",
+        f"Test-Push für {label}",
         f"Dieses Gerät ist für {row['staff_name'] or 'Ute'} aktiv.",
         "/calendar",
     )
     _touch_push_subscription(subscription_id, last_test_at=datetime.now().isoformat(timespec="seconds"))
     return {"ok": True, "result": result, "device_name": label}
+
+
+@app.route("/api/push/devices/cleanup", methods=["POST"])
+@admin_required
+def push_cleanup_devices():
+    if not ENABLE_PUSH:
+        return {"ok": False, "error": "Push ist deaktiviert."}, 503
+    db = get_db()
+    before_row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
+    before = int(before_row["cnt"] or 0) if before_row else 0
+    db.execute("DELETE FROM push_subscriptions WHERE COALESCE(last_error, '') <> '' OR COALESCE(fail_count, 0) >= 3")
+    db.commit()
+    after_row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
+    after = int(after_row["cnt"] or 0) if after_row else 0
+    return {"ok": True, "removed": max(before - after, 0), "remaining": after}
 
 
 @app.route("/api/push/device/<int:subscription_id>", methods=["DELETE"])
@@ -4884,7 +5010,7 @@ def push_subscribe():
     staff_name = _normalize_staff_name(requested_staff, default=session.get("staff_name") or DEFAULT_STAFF)
     device_name = (payload.get("device_name") or "").strip()[:80]
     if not endpoint or not auth_key or not p256dh_key:
-        return {"ok": False, "error": "Unvollstaendige Push-Subscription empfangen."}, 400
+        return {"ok": False, "error": "Unvollständige Push-Subscription empfangen."}, 400
 
     now = datetime.now().isoformat(timespec="seconds")
     db = get_db()
@@ -4918,7 +5044,14 @@ def push_subscribe():
     )
     db.commit()
     row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?", (staff_name,)).fetchone()
-    return {"ok": True, "staff_name": staff_name, "device_name": device_name, "device_count": int(row["cnt"] or 0) if row else 0, "provider": "webpush"}
+    return {
+        "ok": True,
+        "staff_name": staff_name,
+        "device_name": device_name,
+        "device_count": int(row["cnt"] or 0) if row else 0,
+        "provider": "webpush",
+        "message": "Push aktiviert.",
+    }
 
 
 @app.route("/api/push/native-subscribe", methods=["POST"])
@@ -5008,11 +5141,38 @@ def push_ping():
         device_count = len(devices)
         result = webpush_send_to_staff(
             staff_name,
-            f"Salon Karola Test-Push fuer {staff_name}",
+            f"Salon Karola Test-Push für {staff_name}",
             f"Test-Push von {actor_name} an {staff_name}.",
             "/calendar",
         )
     return {"ok": True, "result": result, "enabled": push_delivery_ready(), "webpush_enabled": vapid_ready(), "native_enabled": fcm_ready(), "devices": devices, "device_count": device_count}
+
+
+@app.route("/api/push/test", methods=["POST"])
+@login_required
+def push_test():
+    payload = request.get_json(silent=True) or {}
+    staff_name = _normalize_staff_name(payload.get("staff_name") or request.args.get("staff_name"), default=DEFAULT_STAFF)
+    if not ENABLE_PUSH:
+        return {"ok": False, "error": "Push ist deaktiviert."}, 503
+    if staff_name == "Alle":
+        result = webpush_send_to_all_staff(
+            "Salon Karola Test-Push",
+            f"Test-Push von {_normalize_staff_name(session.get('staff_name'), default=DEFAULT_STAFF)} an alle registrierten Geräte.",
+            "/calendar",
+        )
+    else:
+        result = webpush_send_to_staff(
+            staff_name,
+            f"Salon Karola Test-Push für {staff_name}",
+            f"Test-Push an {staff_name}.",
+            "/calendar",
+        )
+    sent = int(result.get("sent", 0) or 0)
+    errors = result.get("errors", []) or []
+    if sent > 0:
+        return {"ok": True, "sent": sent, "errors": errors}
+    return {"ok": False, "error": "Push konnte nicht zugestellt werden.", "details": errors, "sent": sent}, 502
 
 
 @app.route("/push")
@@ -5290,7 +5450,7 @@ def format_phone_href(value):
 def inject_globals():
     ui_world = current_ui_world()
     endpoint_name = request.endpoint or ""
-    push_manual_page = endpoint_name in {"push_center", "test_push"}
+    push_manual_page = endpoint_name in {"push_center", "test_push", "salon_reminders", "staff_more"}
     sw_manual_page = endpoint_name in {"test_service_worker", "test_push"}
     return {
         "admin_name": session.get("admin_name"),

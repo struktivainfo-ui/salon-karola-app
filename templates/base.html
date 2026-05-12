@@ -903,12 +903,18 @@ ${body}`);
 
       async function triggerPushTest(showMessage = true) {
         const staff = currentPushTarget();
-        const res = await fetch(`/api/push/ping?staff_name=${encodeURIComponent(staff)}`, { cache: 'no-store', credentials: 'same-origin' });
+        const res = await fetch('/api/push/test', {
+          method: 'POST',
+          cache: 'no-store',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staff_name: staff }),
+        });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) rememberApiError("/api/push/ping", `HTTP ${res.status}`);
-        const sent = (data.result && data.result.sent) || 0;
+        if (!res.ok) rememberApiError("/api/push/test", `HTTP ${res.status}`);
+        const sent = Number(data.sent || ((data.result && data.result.sent) || 0));
         const deviceCount = Number(data.device_count || 0);
-        const errors = (data.result && data.result.errors) || [];
+        const errors = data.details || (data.result && data.result.errors) || [];
         if (typeof window.refreshPushOverview === 'function') await window.refreshPushOverview();
         if (sent > 0) {
           setPushUi(`Push-Test für ${staff} gesendet (${sent}).`, 'active');
