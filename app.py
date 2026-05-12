@@ -2859,11 +2859,15 @@ def manifest():
         payload["scope"] = "/"
         payload["name"] = "Salon Karola App"
         payload["short_name"] = "Salon Karola"
+        payload["description"] = "Termin- und Kunden-App für Salon Karola"
+        payload["orientation"] = "portrait"
         payload["background_color"] = "#0f172a"
         payload["theme_color"] = "#0f172a"
         payload["icons"] = [
-            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+            {"src": "/static/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ]
         response = jsonify(payload)
         response.mimetype = "application/manifest+json"
@@ -3005,9 +3009,14 @@ def diagnose():
             "ENABLE_FIREBASE": ENABLE_FIREBASE,
         },
         "user_agent": request.headers.get("User-Agent", ""),
-        "manifest_url": "/manifest.webmanifest",
+        "manifest_url": "/manifest.json",
         "manifest_reachable": False,
+        "manifest_content_type": "",
+        "manifest_name": "",
+        "manifest_short_name": "",
         "manifest_start_url": "n/a",
+        "manifest_icons_count": 0,
+        "manifest_icons": [],
         "icon_checks": {},
         "utf8_test": "ä ö ü Ä Ö Ü ß",
         "pywebpush_available": bool(webpush),
@@ -3047,15 +3056,28 @@ def diagnose():
     except Exception as exc:
         diagnostics["push_error"] = str(exc)
     try:
-        manifest_payload = json.loads(manifest().get_data(as_text=True))
+        manifest_response = manifest()
+        diagnostics["manifest_content_type"] = manifest_response.headers.get("Content-Type", "")
+        manifest_payload = json.loads(manifest_response.get_data(as_text=True))
         diagnostics["manifest_reachable"] = True
+        diagnostics["manifest_name"] = manifest_payload.get("name", "")
+        diagnostics["manifest_short_name"] = manifest_payload.get("short_name", "")
         diagnostics["manifest_start_url"] = manifest_payload.get("start_url", "n/a")
+        diagnostics["manifest_icons"] = [icon.get("src", "") for icon in manifest_payload.get("icons", []) if isinstance(icon, dict)]
+        diagnostics["manifest_icons_count"] = len(diagnostics["manifest_icons"])
     except Exception as exc:
         diagnostics["manifest_reachable"] = False
         diagnostics["manifest_error"] = str(exc)
     try:
-        for icon_path in ["/static/icons/icon-192.png", "/static/icons/icon-512.png", "/static/icons/apple-touch-icon.png"]:
-            diagnostics["icon_checks"][icon_path] = (BASE_DIR / icon_path.lstrip("/")).exists()
+        for icon_path in ["/static/icons/icon-192.png", "/static/icons/icon-512.png", "/static/icons/apple-touch-icon.png", "/static/icons/maskable-192.png", "/static/icons/maskable-512.png"]:
+            full_path = BASE_DIR / icon_path.lstrip("/")
+            exists = full_path.exists()
+            diagnostics["icon_checks"][icon_path] = {
+                "reachable": exists,
+                "http_status": 200 if exists else 404,
+                "content_type": "image/png" if exists else "",
+                "bytes": (full_path.stat().st_size if exists else 0),
+            }
     except Exception as exc:
         diagnostics["icon_error"] = str(exc)
     try:
@@ -3087,7 +3109,9 @@ def diagnose():
     <div class="row">
       <a class="btn" href="/safe-start">Sicherer Start</a>
       <a class="btn" href="/login">Zur Anmeldung</a>
+      <a class="btn" href="/admin/icon-check">Icon-Check</a>
       <a class="btn" href="#" onclick="location.reload();return false;">Erneut laden</a>
+      <a class="btn" href="#" id="diagResetCache">App-Cache zurücksetzen</a>
     </div>
     <pre id="diagServer">{payload}</pre>
     <pre id="diagClient"></pre>
@@ -3135,6 +3159,29 @@ def diagnose():
         lines.push("ServiceWorker Diagnosefehler: " + String(e));
       }}
       try {{
+        var resetBtn = document.getElementById("diagResetCache");
+        if (resetBtn) {{
+          resetBtn.addEventListener("click", function (event) {{
+            event.preventDefault();
+            (async function () {{
+              try {{
+                if ("serviceWorker" in navigator) {{
+                  var regs = await navigator.serviceWorker.getRegistrations();
+                  await Promise.all(regs.map(function (reg) {{ return reg.unregister().catch(function () {{ return false; }}); }}));
+                }}
+                if ("caches" in window) {{
+                  var keys = await caches.keys();
+                  await Promise.all(keys.map(function (key) {{ return caches.delete(key).catch(function () {{ return false; }}); }}));
+                }}
+                alert("Service Worker und Cache wurden zurückgesetzt. Bitte Seite neu laden.");
+              }} catch (err) {{
+                alert("Cache-Reset fehlgeschlagen: " + String(err));
+              }}
+            }})();
+          }});
+        }}
+      }} catch (e) {{}}
+      try {{
         document.getElementById("diagClient").textContent = lines.join("\\n");
       }} catch (e) {{}}
     }})();
@@ -3142,6 +3189,68 @@ def diagnose():
 </body>
 </html>"""
     return Response(html, mimetype="text/html")
+
+
+@app.route("/admin/icon-check")
+@admin_required
+def admin_icon_check():
+    icon_paths = [
+        "/static/icons/icon-192.png",
+        "/static/icons/icon-512.png",
+        "/static/icons/apple-touch-icon.png",
+        "/static/icons/maskable-192.png",
+        "/static/icons/maskable-512.png",
+    ]
+    cards = []
+    for icon_path in icon_paths:
+        full_path = BASE_DIR / icon_path.lstrip("/")
+        exists = full_path.exists()
+        cards.append(
+            {
+                "path": icon_path,
+                "exists": exists,
+                "status": 200 if exists else 404,
+                "content_type": "image/png" if exists else "",
+                "bytes": full_path.stat().st_size if exists else 0,
+            }
+        )
+
+    cards_html = []
+    for row in cards:
+        cards_html.append(
+            f"""
+            <article class="card">
+              <h3>{row["path"]}</h3>
+              <img src="{row["path"]}?v={APP_VERSION}" alt="{row["path"]}" style="width:96px;height:96px;border-radius:16px;border:1px solid #ddd;background:#0f172a;" />
+              <p>Status: {"OK" if row["exists"] else "Fehler"} | HTTP: {row["status"]} | Typ: {row["content_type"] or "-"} | Größe: {row["bytes"]} Bytes</p>
+            </article>
+            """
+        )
+
+    page = f"""<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Icon Check - Salon Karola</title>
+  <style>
+    body{{font-family:Arial,sans-serif;background:#f7f3ee;color:#1f1f1f;padding:16px;}}
+    .wrap{{max-width:980px;margin:0 auto;}}
+    .row{{display:flex;gap:12px;flex-wrap:wrap;}}
+    .card{{background:#fff;border-radius:12px;padding:12px;min-width:250px;flex:1 1 250px;border:1px solid #e8dece;}}
+    .btn{{display:inline-block;padding:10px 12px;border:1px solid #222;border-radius:8px;text-decoration:none;color:#111;background:#fff;font-weight:600;}}
+  </style>
+</head>
+<body>
+  <section class="wrap">
+    <p><a class="btn" href="/admin">Zurück zum Admin</a> <a class="btn" href="/diagnose">Zur Diagnose</a></p>
+    <h1>Icon Check</h1>
+    <p>Manifest: <a href="/manifest.json?v={APP_VERSION}" target="_blank" rel="noopener">/manifest.json</a></p>
+    <div class="row">{''.join(cards_html)}</div>
+  </section>
+</body>
+</html>"""
+    return Response(page, mimetype="text/html")
 
 
 @app.route("/test-login")

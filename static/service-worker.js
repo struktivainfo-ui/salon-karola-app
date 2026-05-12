@@ -1,9 +1,12 @@
-const CACHE_NAME = "salon-karola-__APP_VERSION__";
+const CACHE_NAME = "salon-karola-icons-v2-__APP_VERSION__";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
+  "/manifest.json",
   "/static/style.css",
   "/static/icons/icon-192.png",
   "/static/icons/icon-512.png",
+  "/static/icons/maskable-192.png",
+  "/static/icons/maskable-512.png",
   "/static/icons/apple-touch-icon.png",
   "/static/push-icon.png",
   "/static/push-badge.png",
@@ -80,7 +83,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (!url.pathname.startsWith("/static/") && url.pathname !== "/manifest.webmanifest") {
+  if (!url.pathname.startsWith("/static/") && url.pathname !== "/manifest.webmanifest" && url.pathname !== "/manifest.json") {
     return;
   }
 
