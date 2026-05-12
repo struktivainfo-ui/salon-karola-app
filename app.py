@@ -1696,6 +1696,20 @@ def _json_file_if_exists(path):
 
 
 def firebase_service_account_info():
+    env_project_id = (os.getenv("FIREBASE_PROJECT_ID") or "").strip()
+    env_client_email = (os.getenv("FIREBASE_CLIENT_EMAIL") or "").strip()
+    env_private_key = (os.getenv("FIREBASE_PRIVATE_KEY") or "").strip()
+    if env_project_id and env_client_email and env_private_key:
+        return {
+            "type": "service_account",
+            "project_id": env_project_id,
+            "private_key_id": (os.getenv("FIREBASE_PRIVATE_KEY_ID") or "").strip(),
+            "private_key": env_private_key.replace("\\n", "\n"),
+            "client_email": env_client_email,
+            "client_id": (os.getenv("FIREBASE_CLIENT_ID") or "").strip(),
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+
     raw_json = (os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON") or "").strip()
     if raw_json:
         try:
@@ -3042,6 +3056,12 @@ def diagnose():
         "push_subscription_count": 0,
         "push_last_error": "",
         "push_last_error_at": "",
+        "firebase_enabled": ENABLE_FIREBASE,
+        "firebase_ready": False,
+        "firebase_project_id": "",
+        "fcm_token_count": 0,
+        "fcm_last_error": "",
+        "fcm_last_error_at": "",
         "mail_status": {},
         "mail_last_error": "",
         "mail_last_error_at": "",
@@ -3065,6 +3085,11 @@ def diagnose():
     except Exception:
         diagnostics["push_configured"] = False
     try:
+        diagnostics["firebase_ready"] = bool(fcm_ready())
+        diagnostics["firebase_project_id"] = firebase_project_id()
+    except Exception as exc:
+        diagnostics["firebase_error"] = str(exc)
+    try:
         diagnostics["mail_status"] = mail_status_summary()
         row_mail_error = db.execute(
             "SELECT error_message, sent_at FROM email_log WHERE COALESCE(status, '') = 'error' AND COALESCE(error_message, '') <> '' ORDER BY sent_at DESC LIMIT 1"
@@ -3077,12 +3102,20 @@ def diagnose():
     try:
         row_push = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
         diagnostics["push_subscription_count"] = int(row_push["cnt"] or 0) if row_push else 0
+        row_fcm = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE provider = 'fcm'").fetchone()
+        diagnostics["fcm_token_count"] = int(row_fcm["cnt"] or 0) if row_fcm else 0
         row_push_error = db.execute(
             "SELECT last_error, updated_at FROM push_subscriptions WHERE COALESCE(last_error, '') <> '' ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 1"
         ).fetchone()
         if row_push_error:
             diagnostics["push_last_error"] = row_push_error["last_error"] or ""
             diagnostics["push_last_error_at"] = row_push_error["updated_at"] or ""
+        row_fcm_error = db.execute(
+            "SELECT last_error, updated_at FROM push_subscriptions WHERE provider = 'fcm' AND COALESCE(last_error, '') <> '' ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 1"
+        ).fetchone()
+        if row_fcm_error:
+            diagnostics["fcm_last_error"] = row_fcm_error["last_error"] or ""
+            diagnostics["fcm_last_error_at"] = row_fcm_error["updated_at"] or ""
     except Exception as exc:
         diagnostics["push_error"] = str(exc)
     try:
@@ -3162,6 +3195,9 @@ def diagnose():
         lines.push("PushManager verfügbar: " + (("PushManager" in window) ? "ja" : "nein"));
         lines.push("ServiceWorker verfügbar: " + (("serviceWorker" in navigator) ? "ja" : "nein"));
         lines.push("Notification.permission: " + (("Notification" in window) ? Notification.permission : "n/a"));
+        lines.push("Android WebView erkannt: " + (((navigator.userAgent || "").includes("wv") || !!window.Capacitor) ? "ja" : "nein"));
+        lines.push("AndroidPush Bridge vorhanden: " + (window.AndroidPush ? "ja" : "nein"));
+        lines.push("Web Push verfÃ¼gbar: " + ((("PushManager" in window) && ("serviceWorker" in navigator)) ? "ja" : "nein"));
       }} catch (e) {{
         lines.push("Client Push-Check Fehler: " + String(e));
       }}
@@ -5409,6 +5445,101 @@ def push_unsubscribe():
         db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
         db.commit()
     return {"ok": True}
+
+
+@app.route("/api/fcm/register", methods=["POST"])
+@login_required
+def fcm_register():
+    if not ENABLE_PUSH:
+        return {"ok": False, "error": "Push ist deaktiviert."}, 503
+    payload = request.get_json(silent=True) or {}
+    token = (payload.get("token") or "").strip()
+    if not token:
+        return {"ok": False, "error": "FCM-Token fehlt."}, 400
+    requested_staff = payload.get("staff_name") or session.get("staff_name")
+    staff_name = _normalize_staff_name(requested_staff, default=session.get("staff_name") or DEFAULT_STAFF)
+    device_name = (payload.get("device_label") or payload.get("device_name") or "").strip()[:80]
+    platform = (payload.get("platform") or "android").strip()[:40] or "android"
+    role = "admin" if staff_name == "Sven" else "staff"
+    endpoint = f"fcm:{token}"
+    now = datetime.now().isoformat(timespec="seconds")
+    user_agent = request.headers.get("User-Agent", "")[:500]
+    db = get_db()
+    db.execute(
+        """
+        INSERT INTO push_subscriptions(endpoint, subscription_json, provider, staff_name, device_name, user_agent, created_at, updated_at, last_seen_at, last_error, fail_count)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(endpoint) DO UPDATE SET
+            subscription_json = excluded.subscription_json,
+            provider = excluded.provider,
+            staff_name = excluded.staff_name,
+            device_name = excluded.device_name,
+            user_agent = excluded.user_agent,
+            updated_at = excluded.updated_at,
+            last_seen_at = excluded.last_seen_at,
+            last_error = '',
+            fail_count = 0
+        """,
+        (endpoint, json.dumps({"token": token, "platform": platform, "role": role, "source": "fcm-api"}), "fcm", staff_name, device_name, user_agent, now, now, now, "", 0),
+    )
+    db.commit()
+    return {"ok": True, "staff_name": staff_name, "role": role, "provider": "fcm", "platform": platform}
+
+
+@app.route("/api/fcm/unregister", methods=["POST"])
+@login_required
+def fcm_unregister():
+    payload = request.get_json(silent=True) or {}
+    token = (payload.get("token") or "").strip()
+    if not token:
+        return {"ok": False, "error": "FCM-Token fehlt."}, 400
+    endpoint = f"fcm:{token}"
+    db = get_db()
+    db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
+    db.commit()
+    return {"ok": True}
+
+
+@app.route("/api/fcm/status")
+@admin_required
+def fcm_status():
+    db = get_db()
+    counts = {}
+    for staff_name in get_staff_members(db):
+        row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE provider = 'fcm' AND staff_name = ?", (staff_name,)).fetchone()
+        counts[staff_name] = int(row["cnt"] or 0) if row else 0
+    total_row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE provider = 'fcm'").fetchone()
+    last_error_row = db.execute(
+        "SELECT last_error, updated_at FROM push_subscriptions WHERE provider = 'fcm' AND COALESCE(last_error, '') <> '' ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 1"
+    ).fetchone()
+    return {
+        "ok": True,
+        "enable_firebase": bool(ENABLE_FIREBASE),
+        "firebase_ready": bool(fcm_ready()),
+        "project_id": firebase_project_id(),
+        "total_devices": int(total_row["cnt"] or 0) if total_row else 0,
+        "counts_by_staff": counts,
+        "last_error": (last_error_row["last_error"] if last_error_row else "") or "",
+        "last_error_at": (last_error_row["updated_at"] if last_error_row else "") or "",
+    }
+
+
+@app.route("/api/fcm/test", methods=["POST"])
+@admin_required
+def fcm_test():
+    if not ENABLE_PUSH:
+        return {"ok": False, "error": "Push ist deaktiviert."}, 503
+    payload = request.get_json(silent=True) or {}
+    staff_name = _normalize_staff_name(payload.get("staff_name") or "Alle", default=DEFAULT_STAFF)
+    title = (payload.get("title") or "Salon Karola Test-Push").strip()
+    body = (payload.get("body") or "Dies ist ein Test der Android-FCM-Zustellung.").strip()
+    url = (payload.get("url") or "/calendar").strip() or "/calendar"
+    result = webpush_send_to_all_staff(title, body, url) if staff_name == "Alle" else webpush_send_to_staff(staff_name, title, body, url)
+    sent = int(result.get("sent", 0) or 0)
+    errors = result.get("errors", []) or []
+    if sent > 0:
+        return {"ok": True, "sent": sent, "errors": errors}
+    return {"ok": False, "error": "FCM-Test konnte nicht zugestellt werden.", "details": errors, "sent": sent}, 502
 
 
 @app.route("/api/push/ping")

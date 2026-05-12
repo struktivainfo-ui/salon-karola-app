@@ -776,6 +776,11 @@ ${body}`);
       }
 
       async function registerBrowserPush(showMessage = true) {
+        if (isNativeApp) {
+          setPushUi('Diese Android-App verwendet native Push-Benachrichtigungen über Firebase.');
+          if (showMessage) alert('Diese Android-App verwendet native Push-Benachrichtigungen über Firebase.');
+          return false;
+        }
         if (!pushFeatureEnabled) {
           setPushUi("Push ist im sicheren Modus deaktiviert.");
           return false;
@@ -857,6 +862,36 @@ ${body}`);
         if (isNativeApp) return registerNativePush(showMessage);
         return registerBrowserPush(showMessage);
       }
+
+      window.AndroidPush = {
+        requestPermission: async function () {
+          if (!isNativeApp) return { ok: false, native: false, message: "Nicht in Android-WebView." };
+          try {
+            const ok = await registerNativePush(false);
+            return { ok: !!ok, native: true, status: ok ? "active" : "denied" };
+          } catch (error) {
+            return { ok: false, native: true, message: String(error && error.message ? error.message : error) };
+          }
+        },
+        getToken: async function () {
+          if (!isNativeApp || !nativePushPlugin) return { ok: false, native: false, token: "" };
+          try {
+            const token = await nativePushPlugin.getDeliveredNotifications().catch(() => null);
+            return { ok: true, native: true, token: "", delivered: token ? token.notifications?.length || 0 : 0 };
+          } catch (error) {
+            return { ok: false, native: true, token: "", message: String(error && error.message ? error.message : error) };
+          }
+        },
+        getStatus: async function () {
+          if (!isNativeApp || !nativePushPlugin) return { ok: true, native: false, status: "web_or_unsupported" };
+          try {
+            const permissions = await nativePushPlugin.checkPermissions();
+            return { ok: true, native: true, status: permissions.receive || "unknown" };
+          } catch (error) {
+            return { ok: false, native: true, status: "error", message: String(error && error.message ? error.message : error) };
+          }
+        }
+      };
 
       async function syncExistingPushSubscriptionSilently() {
         if (!pushFeatureEnabled) return false;

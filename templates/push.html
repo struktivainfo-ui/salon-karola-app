@@ -6,7 +6,7 @@
     <div>
       <div class="premium-page-kicker">Verwaltung</div>
       <h1 class="premium-page-title">Push</h1>
-      <div class="premium-page-subtitle">Geräte und Zustellung an einem Ort.</div>
+      <div class="premium-page-subtitle">Android-App verwendet Firebase Cloud Messaging. Web-Push ist optional nur für Browser/PWA.</div>
     </div>
     <div class="premium-top-actions">
       <a class="premium-top-action primary" href="{{ url_for('calendar_view') }}">Kalender</a>
@@ -23,7 +23,7 @@
         </div>
       </div>
       <div class="premium-form premium-space-top">
-        <div class="premium-note" id="pushServerStatus">Lade Push-Status …</div>
+        <div class="premium-note" id="pushServerStatus">Lade Push-Status ...</div>
         <div class="form-group premium-form-group">
           <label for="deviceStaffSelect">Zuordnen zu</label>
           <select id="deviceStaffSelect">
@@ -114,9 +114,10 @@
     if (!serverStatus) return;
     const enabled = data.enabled ? "aktiv" : "inaktiv";
     const webpush = data.webpush_enabled ? "ja" : "nein";
+    const nativeFcm = data.native_enabled ? "ja" : "nein";
     const pywebpush = data.pywebpush_available ? "ja" : "nein";
     const sw = data.service_worker_enabled ? "ja" : "nein";
-    serverStatus.textContent = `ENABLE_PUSH: ${enabled} · VAPID bereit: ${webpush} · pywebpush: ${pywebpush} · Service Worker: ${sw}`;
+    serverStatus.textContent = `ENABLE_PUSH: ${enabled} · Android-FCM bereit: ${nativeFcm} · Web-Push (PWA): ${webpush} · pywebpush: ${pywebpush} · Service Worker: ${sw}`;
     if (lastErrorBox) {
       const err = data.last_error ? `${data.last_error}${data.last_error_at ? " (" + data.last_error_at + ")" : ""}` : "keine";
       lastErrorBox.textContent = `Letzte Fehler: ${err}`;
@@ -134,7 +135,7 @@
 
   async function loadDevices() {
     if (!list) return;
-    list.innerHTML = '<div class="premium-list-empty">Lade Geräte …</div>';
+    list.innerHTML = '<div class="premium-list-empty">Lade Geräte ...</div>';
     try {
       const data = await fetchJson('/api/push/devices');
       const items = data.items || [];
