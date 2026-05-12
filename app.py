@@ -4018,11 +4018,11 @@ def appointment_new(customer_id):
     appointment_at = (request.form.get("appointment_at") or "").strip()
     actor_name = _normalize_staff_name(request.form.get("actor_name") or payload["staff_name"], default=payload["staff_name"], db=db)
     if not appointment_at or not _parse_dt_safe(appointment_at):
-        flash("Bitte ein gueltiges Datum und eine Uhrzeit fuer den Termin angeben.")
+        flash("Bitte ein gültiges Datum und eine Uhrzeit für den Termin angeben.")
         return redirect(url_for("customer_detail", customer_id=customer_id))
     customer_row = db.execute("SELECT _id FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
     if not customer_row:
-        flash("Der ausgewaehlte Kontakt wurde nicht gefunden.")
+        flash("Der ausgewählte Kontakt wurde nicht gefunden.")
         return redirect(url_for("customer_search_page"))
     if appointment_duplicate_exists(customer_id, appointment_at, payload["title"], payload["staff_name"], db=db):
         flash("Dieser Termin wurde bereits gespeichert.")
@@ -4075,7 +4075,7 @@ def appointment_edit(appointment_id):
 
     appointment_at = request.form.get("appointment_at", "").strip()
     if not appointment_at or not _parse_dt_safe(appointment_at):
-        flash("Bitte ein gueltiges Datum und eine Uhrzeit fuer den Termin angeben.")
+        flash("Bitte ein gültiges Datum und eine Uhrzeit für den Termin angeben.")
         return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
 
     payload = appointment_payload_from_form(request.form, db=db)
@@ -4162,7 +4162,7 @@ def staff_appointment_edit(appointment_id):
     if request.method == "POST":
         appointment_at = (request.form.get("appointment_at") or "").strip()
         if not appointment_at or not _parse_dt_safe(appointment_at):
-            flash("Bitte ein gueltiges Datum und eine Uhrzeit auswaehlen.")
+            flash("Bitte ein gültiges Datum und eine Uhrzeit auswählen.")
             return redirect(url_for("staff_appointment_edit", appointment_id=appointment_id))
 
         allowed_status = {"geplant", "erledigt", "abgesagt", "verschoben", "no_show"}
@@ -4437,10 +4437,10 @@ def appointments_hub():
         manual_placeholder_customer_id = None
 
         if not appointment_at:
-            flash("Bitte Datum und Uhrzeit fuer den Termin angeben.")
+            flash("Bitte Datum und Uhrzeit für den Termin angeben.")
             return redirect(url_for("appointments_hub"))
         if not _parse_dt_safe(appointment_at):
-            flash("Das Termin-Datum ist ungueltig. Bitte Datum und Uhrzeit neu waehlen.")
+            flash("Das Termin-Datum ist ungültig. Bitte Datum und Uhrzeit neu wählen.")
             return redirect(url_for("appointments_hub"))
 
         customer_id = None
@@ -4450,11 +4450,11 @@ def appointments_hub():
             notify_customer_id = customer_id
             customer_row = db.execute("SELECT _id FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
             if not customer_row:
-                flash("Der ausgewaehlte Kontakt wurde nicht gefunden.")
+                flash("Der ausgewählte Kontakt wurde nicht gefunden.")
                 return redirect(url_for("appointments_hub"))
         else:
             if not (manual_firstname or manual_lastname):
-                flash("Bitte einen Kontakt aus der Datenbank waehlen oder Name fuer den manuellen Termin eintragen.")
+                flash("Bitte einen Kontakt aus der Datenbank wählen oder einen Namen für den manuellen Termin eintragen.")
                 return redirect(url_for("appointments_hub"))
             manual_placeholder_customer_id = ensure_manual_placeholder_customer(db)
             customer_id = manual_placeholder_customer_id
