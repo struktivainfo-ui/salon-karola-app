@@ -1014,6 +1014,20 @@ def mail_ready():
     return smtp_ready()
 
 
+def mail_status_summary():
+    mode = email_delivery_mode()
+    return {
+        "provider": mode,
+        "mail_ready": mail_ready(),
+        "resend_ready": resend_ready(),
+        "smtp_ready": smtp_ready(),
+        "resend_from_set": bool((os.getenv("RESEND_FROM") or "").strip()),
+        "resend_api_key_set": bool((os.getenv("RESEND_API_KEY") or "").strip()),
+        "smtp_host_set": bool((os.getenv("SMTP_HOST") or "").strip()),
+        "smtp_sender_set": bool((os.getenv("SMTP_SENDER") or "").strip()),
+    }
+
+
 def sms_delivery_mode():
     requested = (os.getenv("SMS_PROVIDER") or "auto").strip().lower()
     if requested in {"twilio", "none", "off", "disabled"}:
@@ -1135,6 +1149,10 @@ def send_email_via_smtp(to_email, subject, body):
 
 
 def send_email(to_email, subject, body):
+    if not (to_email or "").strip():
+        raise RuntimeError("Empfänger-E-Mail fehlt.")
+    if not mail_ready():
+        raise RuntimeError("E-Mail-Versand ist nicht konfiguriert.")
     mode = email_delivery_mode()
     if mode == "resend":
         return send_email_via_resend(to_email, subject, body)
@@ -1339,6 +1357,33 @@ Salon Karola''',
                 (template["subject"], template["body"], template_id),
             )
 
+    clean_templates = {
+        "birthdate": (
+            "Salon Karola wünscht alles Gute zum Geburtstag, {vorname}",
+            "Liebe/r {name},\n\n"
+            "das Team vom Salon Karola wünscht Ihnen alles Gute zum Geburtstag und einen wunderschönen Tag.\n\n"
+            "Als kleine Aufmerksamkeit schenken wir Ihnen 10 % Rabatt auf Ihre nächste Behandlung in unserem Salon.\n\n"
+            "Zeigen Sie diese E-Mail einfach bei Ihrem nächsten Besuch vor.\n\n"
+            "Herzliche Grüße\n"
+            "Ihr Team vom Salon Karola",
+        ),
+        "appointment": (
+            "Terminerinnerung Salon Karola",
+            "Hallo {name},\n\n"
+            "wir erinnern Sie an Ihren Termin am {termin}.\n\n"
+            "Falls Sie den Termin nicht wahrnehmen können, geben Sie uns bitte rechtzeitig Bescheid.\n\n"
+            "Telefon: 07051/6344\n\n"
+            "Herzliche Grüße\n"
+            "Ihr Team vom Salon Karola",
+        ),
+    }
+    for template_id, values in clean_templates.items():
+        row = conn.execute("SELECT subject, body FROM _MailTemplates WHERE id = ? LIMIT 1", (template_id,)).fetchone()
+        subject = (row[0] or "") if row else ""
+        body = (row[1] or "") if row else ""
+        if ("Ã" in subject or "Ã" in body or "Matthias" in subject or "Matthias" in body or not subject.strip() or not body.strip()):
+            conn.execute("UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?", (values[0], values[1], template_id))
+
 
 def render_template_text(template_id, customer, appointment=None):
     with sqlite3.connect(DB_PATH) as conn:
@@ -1368,6 +1413,27 @@ def render_template_text(template_id, customer, appointment=None):
         "appointment": (
             "Terminerinnerung für {name}",
             "Hallo {name},\n\nwir erinnern dich an deinen Termin am {termin}.\n\nBei Fragen erreichst du uns unter 07051/6344.\n\nHerzliche Grüße\nSalon Karola",
+        ),
+    }
+
+    defaults = {
+        "birthdate": (
+            "Salon Karola wünscht alles Gute zum Geburtstag, {vorname}",
+            "Liebe/r {name},\n\n"
+            "das Team vom Salon Karola wünscht Ihnen alles Gute zum Geburtstag und einen wunderschönen Tag.\n\n"
+            "Als kleine Aufmerksamkeit schenken wir Ihnen 10 % Rabatt auf Ihre nächste Behandlung in unserem Salon.\n\n"
+            "Zeigen Sie diese E-Mail einfach bei Ihrem nächsten Besuch vor.\n\n"
+            "Herzliche Grüße\n"
+            "Ihr Team vom Salon Karola",
+        ),
+        "appointment": (
+            "Terminerinnerung Salon Karola",
+            "Hallo {name},\n\n"
+            "wir erinnern Sie an Ihren Termin am {termin}.\n\n"
+            "Falls Sie den Termin nicht wahrnehmen können, geben Sie uns bitte rechtzeitig Bescheid.\n\n"
+            "Telefon: 07051/6344\n\n"
+            "Herzliche Grüße\n"
+            "Ihr Team vom Salon Karola",
         ),
     }
 
@@ -2032,6 +2098,17 @@ def build_day_timeline(selected_date, staff="Alle"):
 
 # ---------- Automated jobs ----------
 def run_birthday_job():
+    if not mail_ready():
+        return {
+            "ok": False,
+            "checked": 0,
+            "sent": 0,
+            "skipped": 0,
+            "errors": 0,
+            "message": "E-Mail-Versand ist nicht konfiguriert.",
+            "push_sent": 0,
+        }
+
     today = datetime.now().strftime("%m-%d")
     current_year = datetime.now().year
 
@@ -2049,6 +2126,7 @@ def run_birthday_job():
 
     checked = 0
     sent = 0
+    skipped = 0
     errors = 0
     push_sent = 0
 
@@ -2057,6 +2135,7 @@ def run_birthday_job():
         mail_key = f"birthday:{customer['_id']}:{current_year}"
         subject, body = render_template_text("birthdate", customer)
         if get_setting(mail_key) or email_already_sent_today("birthday", customer_id=customer["_id"], recipient=customer["_mail"], subject=subject):
+            skipped += 1
             continue
 
         try:
@@ -2070,100 +2149,92 @@ def run_birthday_job():
             log_email(customer["_id"], "birthday", subject, body, customer["_mail"], "error", str(exc))
             errors += 1
 
-    return {"checked": checked, "sent": sent, "errors": errors, "push_sent": push_sent}
+    return {
+        "ok": True,
+        "checked": checked,
+        "sent": sent,
+        "skipped": skipped,
+        "errors": errors,
+        "message": f"Geburtstagslauf: geprüft={checked}, gesendet={sent}, übersprungen={skipped}, Fehler={errors}",
+        "push_sent": push_sent,
+    }
 
 
 def run_appointment_job():
+    if not mail_ready():
+        return {
+            "ok": False,
+            "checked": 0,
+            "sent": 0,
+            "skipped": 0,
+            "errors": 0,
+            "message": "E-Mail-Versand ist nicht konfiguriert.",
+            "push_sent": 0,
+        }
+
     now = datetime.now()
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        mobile_sql = customer_mobile_reference("c") or "''"
-        phone_sql = customer_personal_phone_reference("c") or "''"
-        reminder_phone_sql = f"COALESCE(NULLIF(a.manual_phone, ''), NULLIF({mobile_sql}, ''), NULLIF({phone_sql}, ''))"
         appointments = conn.execute(
-            f"""
+            """
             SELECT a.*, c.*,
                    COALESCE(NULLIF(a.manual_firstname, ''), c._firstname) AS _firstname,
                    COALESCE(NULLIF(a.manual_lastname, ''), c._name) AS _name,
-                   COALESCE(NULLIF(a.manual_email, ''), c._mail) AS _mail,
-                   {reminder_phone_sql} AS reminder_phone
+                   COALESCE(NULLIF(a.manual_email, ''), c._mail) AS _mail
             FROM appointments a
             JOIN _Customers c ON c._id = a.customer_id
             WHERE a.reminder_sent_at IS NULL
-              AND (
-                    (COALESCE(NULLIF(a.manual_email, ''), c._mail) IS NOT NULL AND TRIM(COALESCE(NULLIF(a.manual_email, ''), c._mail)) <> '')
-                 OR ({reminder_phone_sql} IS NOT NULL AND TRIM({reminder_phone_sql}) <> '')
-              )
             ORDER BY a.appointment_at ASC
             """
         ).fetchall()
 
         checked = 0
         sent = 0
+        skipped = 0
         errors = 0
         push_sent = 0
 
         for appt in appointments:
             checked += 1
-            appt_time = datetime.fromisoformat(appt["appointment_at"])
+            try:
+                appt_time = datetime.fromisoformat(appt["appointment_at"])
+            except Exception:
+                skipped += 1
+                continue
+
+            normalized_status = (appt["status"] or "geplant").strip().lower()
+            if normalized_status in {"erledigt", "storniert", "nicht erschienen"}:
+                skipped += 1
+                continue
+            if appt_time <= now:
+                skipped += 1
+                continue
+
             reminder_at = appt_time - timedelta(hours=int(appt["reminder_hours"] or 24))
             if now < reminder_at:
+                skipped += 1
                 continue
 
             subject, body = render_template_text("appointment", appt, appt)
-            reminder_phone = normalized_phone_number(appt["reminder_phone"])
-            whatsapp_body = body if subject.lower() in body.lower() else f"{subject}\n\n{body}"
             reminder_email = (appt["_mail"] or "").strip()
-            email_sent_today = bool(
-                reminder_email and delivery_already_sent_today("appointment_email", customer_id=appt["customer_id"], recipient=reminder_email, subject=subject)
-            )
-            whatsapp_sent_today = bool(
-                reminder_phone and delivery_already_sent_today("appointment_whatsapp", customer_id=appt["customer_id"], recipient=reminder_phone, subject=subject)
-            )
-
-            if email_sent_today and (not reminder_phone or whatsapp_sent_today or not whatsapp_ready()):
-                conn.execute(
-                    "UPDATE appointments SET reminder_sent_at = ? WHERE id = ?",
-                    (datetime.now().isoformat(timespec="seconds"), appt["id"]),
-                )
-                conn.commit()
+            if not reminder_email:
+                skipped += 1
                 continue
 
-            delivered_any = False
-            had_error = False
+            already_sent = delivery_already_sent_today(
+                "appointment_email",
+                customer_id=appt["customer_id"],
+                recipient=reminder_email,
+                subject=subject,
+            )
+            if already_sent:
+                skipped += 1
+                continue
 
-            if reminder_email and not email_sent_today:
-                try:
-                    send_email(reminder_email, subject, body)
-                    log_email(appt["customer_id"], "appointment_email", subject, body, reminder_email, "sent")
-                    delivered_any = True
-                except Exception as exc:
-                    log_email(appt["customer_id"], "appointment_email", subject, body, reminder_email, "error", str(exc))
-                    had_error = True
-
-            if reminder_phone and not whatsapp_sent_today and not whatsapp_ready():
-                log_email(
-                    appt["customer_id"],
-                    "appointment_whatsapp",
-                    subject,
-                    whatsapp_body,
-                    reminder_phone,
-                    "error",
-                    "WhatsApp ist nicht konfiguriert.",
-                )
-                had_error = True
-
-            if reminder_phone and whatsapp_ready() and not whatsapp_sent_today:
-                try:
-                    send_whatsapp(reminder_phone, whatsapp_body)
-                    log_email(appt["customer_id"], "appointment_whatsapp", subject, whatsapp_body, reminder_phone, "sent")
-                    delivered_any = True
-                except Exception as exc:
-                    log_email(appt["customer_id"], "appointment_whatsapp", subject, whatsapp_body, reminder_phone, "error", str(exc))
-                    had_error = True
-
-            if delivered_any or email_sent_today or whatsapp_sent_today:
+            try:
+                send_email(reminder_email, subject, body)
+                log_email(appt["customer_id"], "appointment_email", subject, body, reminder_email, "sent")
                 conn.execute(
                     "UPDATE appointments SET reminder_sent_at = ? WHERE id = ?",
                     (datetime.now().isoformat(timespec="seconds"), appt["id"]),
@@ -2172,10 +2243,19 @@ def run_appointment_job():
                 push_result = _push_appointment_reminder(appt)
                 push_sent += int(push_result.get("sent") or 0)
                 sent += 1
-            elif had_error:
+            except Exception as exc:
+                log_email(appt["customer_id"], "appointment_email", subject, body, reminder_email, "error", str(exc))
                 errors += 1
 
-    return {"checked": checked, "sent": sent, "errors": errors, "push_sent": push_sent}
+    return {
+        "ok": True,
+        "checked": checked,
+        "sent": sent,
+        "skipped": skipped,
+        "errors": errors,
+        "message": f"Terminerinnerung: geprüft={checked}, gesendet={sent}, übersprungen={skipped}, Fehler={errors}",
+        "push_sent": push_sent,
+    }
 
 
 def scheduler_tick():
@@ -2185,8 +2265,10 @@ def scheduler_tick():
         birthday_result = run_birthday_job()
         appointment_result = run_appointment_job()
         summary = (
-            f"Geburtstage geprüft: {birthday_result['checked']}, Mails: {birthday_result['sent']}, Push: {birthday_result.get('push_sent', 0)}, Fehler: {birthday_result['errors']} | "
-            f"Termine geprüft: {appointment_result['checked']}, E-Mail/WhatsApp: {appointment_result['sent']}, Push: {appointment_result.get('push_sent', 0)}, Fehler: {appointment_result['errors']}"
+            f"Geburtstage geprüft: {birthday_result.get('checked', 0)}, Mails: {birthday_result.get('sent', 0)}, "
+            f"übersprungen: {birthday_result.get('skipped', 0)}, Fehler: {birthday_result.get('errors', 0)} | "
+            f"Termine geprüft: {appointment_result.get('checked', 0)}, Erinnerungen: {appointment_result.get('sent', 0)}, "
+            f"übersprungen: {appointment_result.get('skipped', 0)}, Fehler: {appointment_result.get('errors', 0)}"
         )
         if auto_backup:
             summary += f" | Auto-Backup: {auto_backup.name}"
@@ -3429,7 +3511,7 @@ def index():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    return redirect(url_for("index"))
+    return redirect(url_for("admin_automation"))
 
 
 @app.route("/admin/start")
@@ -3831,14 +3913,79 @@ def admin_customer_detail_alias(customer_id):
 @admin_required
 def admin_automation():
     set_ui_world("admin")
+    db = get_db()
+    mail_status = mail_status_summary()
+    email_sent_today_row = db.execute(
+        "SELECT COUNT(*) AS cnt FROM email_log WHERE date(sent_at) = date('now', 'localtime') AND status = 'sent'"
+    ).fetchone()
+    email_sent_today = int(email_sent_today_row["cnt"] or 0) if email_sent_today_row else 0
+    latest_mail = db.execute(
+        "SELECT recipient, email_type, status, sent_at, error_message FROM email_log ORDER BY sent_at DESC LIMIT 1"
+    ).fetchone()
+    recent_logs = db.execute(
+        "SELECT email_type, recipient, status, sent_at, error_message FROM email_log ORDER BY sent_at DESC LIMIT 20"
+    ).fetchall()
     return render_template(
         "admin_automation.html",
         automation=get_automation_status(),
+        mail_status=mail_status,
+        email_sent_today=email_sent_today,
+        latest_mail=latest_mail,
+        recent_logs=recent_logs,
         scheduler_enabled=ENABLE_SCHEDULER and not SAFE_MODE,
         safe_mode=SAFE_MODE,
         current_endpoint="admin_automation",
         app_version=APP_VERSION,
     )
+
+
+@app.route("/admin/automation/run-birthday", methods=["POST"])
+@admin_required
+def admin_run_birthday():
+    result = run_birthday_job()
+    flash(result.get("message") or f"Geburtstagsjob: geprüft={result.get('checked', 0)}, gesendet={result.get('sent', 0)}, Fehler={result.get('errors', 0)}")
+    return redirect(url_for("admin_automation"))
+
+
+@app.route("/admin/automation/run-appointments", methods=["POST"])
+@admin_required
+def admin_run_appointments():
+    result = run_appointment_job()
+    flash(result.get("message") or f"Terminerinnerung: geprüft={result.get('checked', 0)}, gesendet={result.get('sent', 0)}, Fehler={result.get('errors', 0)}")
+    return redirect(url_for("admin_automation"))
+
+
+@app.route("/admin/automation/run-all", methods=["POST"])
+@admin_required
+def admin_run_all_automation():
+    try:
+        result = scheduler_tick()
+        flash(result.get("summary") or "Automationen wurden ausgeführt.")
+    except Exception as exc:
+        flash(f"Automationen fehlgeschlagen: {exc}")
+    return redirect(url_for("admin_automation"))
+
+
+@app.route("/admin/automation/test-email", methods=["POST"])
+@admin_required
+def admin_test_email():
+    to_email = (request.form.get("to_email") or "").strip()
+    if not to_email:
+        flash("Bitte eine Test-E-Mail-Adresse eingeben.")
+        return redirect(url_for("admin_automation"))
+    if not mail_ready():
+        flash("E-Mail-Versand ist nicht konfiguriert.")
+        return redirect(url_for("admin_automation"))
+    subject = "Salon Karola Testmail"
+    body = "Diese Testmail bestätigt, dass der E-Mail-Versand funktioniert."
+    try:
+        send_email(to_email, subject, body)
+        log_email(None, "test_email", subject, body, to_email, "sent")
+        flash(f"Testmail wurde an {to_email} gesendet.")
+    except Exception as exc:
+        log_email(None, "test_email", subject, body, to_email, "error", str(exc))
+        flash(f"Testmail fehlgeschlagen: {exc}")
+    return redirect(url_for("admin_automation"))
 
 
 @app.route("/admin/settings")
@@ -5499,7 +5646,9 @@ def boot_app():
                 pass
     if ENABLE_SCHEDULER and not SAFE_MODE:
         try:
-            interval_minutes = int(os.getenv("AUTOMATION_INTERVAL_MINUTES", "5"))
+            interval_minutes = int(os.getenv("AUTOMATION_INTERVAL_MINUTES", "15"))
+            if interval_minutes < 5:
+                interval_minutes = 5
             set_setting("automation:scheduler_interval_minutes", str(interval_minutes))
             if not scheduler.running:
                 existing_jobs = {job.id for job in scheduler.get_jobs()}

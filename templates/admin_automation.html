@@ -6,20 +6,35 @@
     <div>
       <div class="premium-page-kicker">Admin</div>
       <h1 class="premium-page-title">Automationen</h1>
-      <div class="premium-page-subtitle">Status und sicherer manueller Lauf.</div>
+      <div class="premium-page-subtitle">Status, E-Mail-Konfiguration und manuelle Testläufe.</div>
     </div>
   </section>
 
   <section class="premium-stat-grid">
     <article class="premium-stat-card">
-      <div class="premium-stat-label">Safe Mode</div>
-      <div class="premium-stat-value">{{ 'aktiv' if safe_mode else 'aus' }}</div>
-      <div class="premium-stat-foot">Startmodus</div>
+      <div class="premium-stat-label">E-Mail Provider</div>
+      <div class="premium-stat-value">{{ (mail_status.provider or 'unbekannt')|upper }}</div>
+      <div class="premium-stat-foot">Aktiver Versandmodus</div>
+    </article>
+    <article class="premium-stat-card">
+      <div class="premium-stat-label">E-Mail bereit</div>
+      <div class="premium-stat-value">{{ 'ja' if mail_status.mail_ready else 'nein' }}</div>
+      <div class="premium-stat-foot">mail_ready</div>
     </article>
     <article class="premium-stat-card">
       <div class="premium-stat-label">Scheduler</div>
       <div class="premium-stat-value">{{ 'aktiv' if scheduler_enabled else 'aus' }}</div>
       <div class="premium-stat-foot">ENABLE_SCHEDULER</div>
+    </article>
+    <article class="premium-stat-card">
+      <div class="premium-stat-label">Heute gesendet</div>
+      <div class="premium-stat-value">{{ email_sent_today }}</div>
+      <div class="premium-stat-foot">E-Mails heute</div>
+    </article>
+    <article class="premium-stat-card">
+      <div class="premium-stat-label">Safe Mode</div>
+      <div class="premium-stat-value">{{ 'aktiv' if safe_mode else 'aus' }}</div>
+      <div class="premium-stat-foot">Startmodus</div>
     </article>
     <article class="premium-stat-card">
       <div class="premium-stat-label">Letzter Lauf</div>
@@ -31,15 +46,118 @@
   <section class="premium-panel premium-space-top">
     <div class="premium-panel-head">
       <div>
-        <div class="premium-panel-kicker">Aktionen</div>
-        <h2 class="premium-panel-title">Manuell steuern</h2>
+        <div class="premium-panel-kicker">Status</div>
+        <h2 class="premium-panel-title">Mail-Konfiguration</h2>
       </div>
     </div>
-    <div class="premium-action-grid">
-      <a class="premium-action-card" href="{{ url_for('run_automation_now') }}">Automationen jetzt ausfuehren</a>
+    <div class="premium-table-wrap">
+      <table class="premium-table">
+        <tbody>
+          <tr><th>RESEND_API_KEY gesetzt</th><td>{{ 'ja' if mail_status.resend_api_key_set else 'nein' }}</td></tr>
+          <tr><th>RESEND_FROM gesetzt</th><td>{{ 'ja' if mail_status.resend_from_set else 'nein' }}</td></tr>
+          <tr><th>SMTP_HOST gesetzt</th><td>{{ 'ja' if mail_status.smtp_host_set else 'nein' }}</td></tr>
+          <tr><th>SMTP_SENDER gesetzt</th><td>{{ 'ja' if mail_status.smtp_sender_set else 'nein' }}</td></tr>
+          <tr><th>Resend bereit</th><td>{{ 'ja' if mail_status.resend_ready else 'nein' }}</td></tr>
+          <tr><th>SMTP bereit</th><td>{{ 'ja' if mail_status.smtp_ready else 'nein' }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% if not mail_status.mail_ready %}
+    <p class="premium-help-text" style="margin-top:12px;color:#b42318;">
+      E-Mail-Versand ist nicht konfiguriert.
+    </p>
+    {% endif %}
+    {% if not scheduler_enabled %}
+    <p class="premium-help-text" style="margin-top:8px;">
+      Automatische Ausführung ist deaktiviert. Manuelle Tests sind möglich.
+    </p>
+    {% else %}
+    <p class="premium-help-text" style="margin-top:8px;">
+      Automatische Ausführung ist aktiv.
+    </p>
+    {% endif %}
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Manuelle Tests</div>
+        <h2 class="premium-panel-title">Jobs und Testmail ausführen</h2>
+      </div>
+    </div>
+    <div class="premium-action-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+      <form method="post" action="{{ url_for('admin_run_birthday') }}">
+        <button class="btn btn-outline" type="submit" style="width:100%;">Geburtstagsmails jetzt prüfen</button>
+      </form>
+      <form method="post" action="{{ url_for('admin_run_appointments') }}">
+        <button class="btn btn-outline" type="submit" style="width:100%;">Terminerinnerungen jetzt prüfen</button>
+      </form>
+      <form method="post" action="{{ url_for('admin_run_all_automation') }}">
+        <button class="btn btn-outline" type="submit" style="width:100%;">Alle Automationen jetzt ausführen</button>
+      </form>
+      <form method="post" action="{{ url_for('admin_test_email') }}">
+        <input class="input" type="email" name="to_email" placeholder="test@example.de" required style="width:100%;margin-bottom:8px;" />
+        <button class="btn btn-primary" type="submit" style="width:100%;">Testmail senden</button>
+      </form>
+      <a class="premium-action-card" href="{{ url_for('templates_view') }}">Vorlagen bearbeiten</a>
       <a class="premium-action-card" href="{{ url_for('database_tools') }}">Backup / Technik</a>
       <a class="premium-action-card" href="{{ url_for('admin_dashboard') }}">Zurück zum Dashboard</a>
+      <a class="premium-action-card" href="{{ url_for('run_automation_now') }}">Legacy: alten Lauf-Trigger öffnen</a>
     </div>
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Letzte E-Mail</div>
+        <h2 class="premium-panel-title">Zuletzt versendete oder fehlgeschlagene Mail</h2>
+      </div>
+    </div>
+    {% if latest_mail %}
+    <p class="premium-help-text">
+      {{ latest_mail.sent_at or '-' }} · {{ latest_mail.email_type or '-' }} · {{ latest_mail.recipient or '-' }} · Status: {{ latest_mail.status or '-' }}
+      {% if latest_mail.error_message %}<br>Fehler: {{ latest_mail.error_message }}{% endif %}
+    </p>
+    {% else %}
+    <p class="premium-help-text">Noch keine E-Mail-Aktivität vorhanden.</p>
+    {% endif %}
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">E-Mail Log</div>
+        <h2 class="premium-panel-title">Letzte 20 Einträge</h2>
+      </div>
+    </div>
+    {% if recent_logs %}
+    <div class="premium-table-wrap">
+      <table class="premium-table">
+        <thead>
+          <tr>
+            <th>Zeit</th>
+            <th>Typ</th>
+            <th>Empfänger</th>
+            <th>Status</th>
+            <th>Fehler</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in recent_logs %}
+          <tr>
+            <td>{{ row.sent_at or '-' }}</td>
+            <td>{{ row.email_type or '-' }}</td>
+            <td>{{ row.recipient or '-' }}</td>
+            <td>{{ row.status or '-' }}</td>
+            <td>{{ row.error_message or '-' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="premium-help-text">Keine Einträge im E-Mail-Log.</p>
+    {% endif %}
   </section>
 </section>
 {% endblock %}
