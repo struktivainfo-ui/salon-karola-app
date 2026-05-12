@@ -453,6 +453,14 @@ body.employee-mode {
   gap: 4px;
 }
 
+.employee-mode #customerQuickSearchInput {
+  font-size: 0.95rem;
+}
+
+.employee-mode #customerQuickResults {
+  margin-top: 8px;
+}
+
 @media (max-width: 430px) {
   .employee-mode .staff-quick-actions {
     grid-template-columns: 1fr 1fr;
