@@ -1,4 +1,4 @@
-const CACHE_NAME = "salon-karola-icons-v2-__APP_VERSION__";
+const CACHE_NAME = "salon-karola-icons-v3-__APP_VERSION__";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
   "/manifest.json",
@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
   "/static/icons/maskable-192.png",
   "/static/icons/maskable-512.png",
   "/static/icons/apple-touch-icon.png",
+  "/static/favicon.png",
   "/static/push-icon.png",
   "/static/push-badge.png",
 ];

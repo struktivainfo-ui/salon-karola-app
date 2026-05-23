@@ -3184,6 +3184,28 @@ def diagnose():
       <a class="btn" href="#" onclick="location.reload();return false;">Erneut laden</a>
       <a class="btn" href="#" id="diagResetCache">App-Cache zurücksetzen</a>
     </div>
+    <div class="row" style="margin-top:6px;">
+      <div style="display:grid;gap:4px;min-width:130px;">
+        <strong>Icon 192</strong>
+        <img src="/static/icons/icon-192.png?v={APP_VERSION}" alt="Icon 192" style="width:64px;height:64px;border-radius:12px;border:1px solid #666;background:#0f172a;" />
+      </div>
+      <div style="display:grid;gap:4px;min-width:130px;">
+        <strong>Icon 512</strong>
+        <img src="/static/icons/icon-512.png?v={APP_VERSION}" alt="Icon 512" style="width:64px;height:64px;border-radius:12px;border:1px solid #666;background:#0f172a;" />
+      </div>
+      <div style="display:grid;gap:4px;min-width:130px;">
+        <strong>Apple Touch</strong>
+        <img src="/static/icons/apple-touch-icon.png?v={APP_VERSION}" alt="Apple Touch Icon" style="width:64px;height:64px;border-radius:12px;border:1px solid #666;background:#0f172a;" />
+      </div>
+      <div style="display:grid;gap:4px;min-width:130px;">
+        <strong>Maskable 192</strong>
+        <img src="/static/icons/maskable-192.png?v={APP_VERSION}" alt="Maskable 192" style="width:64px;height:64px;border-radius:12px;border:1px solid #666;background:#0f172a;" />
+      </div>
+      <div style="display:grid;gap:4px;min-width:130px;">
+        <strong>Maskable 512</strong>
+        <img src="/static/icons/maskable-512.png?v={APP_VERSION}" alt="Maskable 512" style="width:64px;height:64px;border-radius:12px;border:1px solid #666;background:#0f172a;" />
+      </div>
+    </div>
     <pre id="diagServer">{payload}</pre>
     <pre id="diagClient"></pre>
   </section>
