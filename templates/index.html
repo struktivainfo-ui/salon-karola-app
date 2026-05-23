@@ -9,8 +9,8 @@
       <div class="premium-page-subtitle">Alles Wichtige auf einen Blick.</div>
     </div>
     <div class="premium-top-actions">
-      <a class="premium-top-action primary" href="{{ url_for('appointments_hub') }}">Termin anlegen</a>
-      <a class="premium-top-action" href="{{ url_for('calendar_view') }}">Kalender</a>
+      <a class="premium-top-action primary" href="{{ url_for('calendar_view', view='month', mode='book', staff='Alle') }}">Termin eintragen</a>
+      <a class="premium-top-action" href="{{ url_for('calendar_view', view='month', mode='view', staff='Alle') }}">Kalender</a>
       <a class="premium-top-action" href="{{ url_for('customer_search_page') }}">Kunden</a>
       <a class="premium-top-action" href="{{ url_for('whatsapp_hub') }}">WhatsApp</a>
     </div>
@@ -103,8 +103,8 @@
       </div>
     </div>
     <div class="premium-action-grid">
-      <a class="premium-action-card" href="{{ url_for('appointments_hub') }}">Termine</a>
-      <a class="premium-action-card" href="{{ url_for('calendar_view') }}">Kalender</a>
+      <a class="premium-action-card" href="{{ url_for('calendar_view', view='month', mode='book', staff='Alle') }}">Termin eintragen</a>
+      <a class="premium-action-card" href="{{ url_for('calendar_view', view='month', mode='view', staff='Alle') }}">Kalender</a>
       <a class="premium-action-card" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
       <a class="premium-action-card" href="{{ url_for('customer_new') }}">Kontakt</a>
       <a class="premium-action-card" href="{{ url_for('templates_view') }}">Vorlagen</a>

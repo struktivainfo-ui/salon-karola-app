@@ -7284,6 +7284,7 @@ input[type="submit"]:disabled {
 .sk-modal-box header h3{margin:0}
 .sk-modal-box header button{border:none;background:none;font-size:1.5rem;line-height:1}
 .sk-modal-body{padding:12px}
+.sk-modal-body{padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px))}
 .sk-modal *{pointer-events:auto}
 .sk-modal .row label{min-width:88px;font-weight:600}
 .sk-modal input,.sk-modal select,.sk-modal textarea{flex:1;min-width:0;padding:8px;border:1px solid #ddd;border-radius:8px}
@@ -7296,11 +7297,19 @@ input[type="submit"]:disabled {
 .sk-modal-actions{
   position:sticky;
   bottom:0;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
   background:#fff;
   padding:10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
   border-top:1px solid #eee;
   z-index:2015;
 }
+.sk-modal-actions .sk-btn{width:100%;min-height:44px}
+.sk-slot-grid{margin-top:10px}
+.sk-slot-grid h3{margin:0 0 8px 0;font-size:.95rem}
+.sk-slot-grid-inner{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.sk-slot-btn{border:1px dashed #d8cdbf;background:#fff;border-radius:10px;padding:8px 10px;text-align:left;font-weight:700}
 .bottom-nav,.staff-bottom-nav,.admin-bottom-nav{z-index:100}
 body.modal-open .bottom-nav,
 body.modal-open .staff-bottom-nav,

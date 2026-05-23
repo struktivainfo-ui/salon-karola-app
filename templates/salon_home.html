@@ -12,22 +12,22 @@
   </section>
 
   <section class="simple-home-grid">
-    <a class="simple-home-card" href="{{ url_for('calendar_view', view='day', staff=own_staff) }}">
+    <a class="simple-home-card" href="{{ url_for('calendar_view', view='month', staff=own_staff, mode='view') }}">
       <span class="simple-home-label">Heutige Termine</span>
       <strong>{{ own_appointments|length }}</strong>
       <small>{{ own_staff }}</small>
     </a>
-    <a class="simple-home-card" href="{{ url_for('appointments_hub', staff=own_staff) }}">
-      <span class="simple-home-label">Neuer Termin</span>
+    <a class="simple-home-card" href="{{ url_for('calendar_view', view='month', staff=own_staff, mode='book', mine=1) }}">
+      <span class="simple-home-label">Termin eintragen</span>
       <strong>+</strong>
-      <small>Schnell anlegen</small>
+      <small>Datum wählen</small>
     </a>
     <a class="simple-home-card" href="{{ url_for('customer_search_page') }}">
       <span class="simple-home-label">Kunde suchen</span>
       <strong>Kunden</strong>
       <small>Name oder Nummer</small>
     </a>
-    <a class="simple-home-card" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">
+    <a class="simple-home-card" href="{{ url_for('calendar_view', view='month', staff='Alle', mode='view') }}">
       <span class="simple-home-label">Tagesübersicht</span>
       <strong>{{ all_appointments|length }}</strong>
       <small>Alle Mitarbeiter</small>
@@ -40,7 +40,7 @@
         <div class="simple-kicker">Heute</div>
         <h2 class="simple-section-title">{{ own_staff }}</h2>
       </div>
-      <a class="simple-inline-link" href="{{ url_for('calendar_view', view='day', staff=own_staff) }}">Ansehen</a>
+      <a class="simple-inline-link" href="{{ url_for('calendar_view', view='day', staff=own_staff, mode='view') }}">Ansehen</a>
     </div>
     <div class="simple-compact-list">
       {% for item in own_appointments[:5] %}

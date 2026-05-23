@@ -8,9 +8,9 @@
       <h1>{{ month_label }}</h1>
     </div>
     <div class="sk-cal-actions">
-      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', date=month_prev, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">◀</a>
-      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', date=today_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Heute</a>
-      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', date=month_next, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">▶</a>
+      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', mode=calendar_mode, date=month_prev, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">◀</a>
+      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', mode=calendar_mode, date=today_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Heute</a>
+      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', mode=calendar_mode, date=month_next, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">▶</a>
     </div>
   </header>
 
@@ -18,7 +18,7 @@
     <div class="sk-wd">Mo</div><div class="sk-wd">Di</div><div class="sk-wd">Mi</div><div class="sk-wd">Do</div><div class="sk-wd">Fr</div><div class="sk-wd">Sa</div><div class="sk-wd">So</div>
     {% for week in month_weeks %}
       {% for cell in week %}
-      <a class="sk-day {% if not cell.in_month %}is-muted{% endif %} {% if cell.is_today %}is-today{% endif %}" href="{{ url_for('calendar_view', view='day', date=cell.date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">
+      <a class="sk-day {% if not cell.in_month %}is-muted{% endif %} {% if cell.is_today %}is-today{% endif %}" href="{{ url_for('calendar_view', view='day', mode=calendar_mode, date=cell.date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">
         <span class="sk-day-num">{{ cell.day }}</span>
         {% if cell.count_total > 0 %}
         <span class="sk-day-dotline">
@@ -39,15 +39,15 @@
       <p>{{ opening_label }}</p>
     </div>
     <div class="sk-day-actions">
-      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', date=selected_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Zum Monat</a>
+      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', mode=calendar_mode, date=selected_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Zum Monat</a>
       <button class="sk-btn sk-btn-primary" id="btnNewAppt">+ Termin</button>
     </div>
   </section>
 
   <div class="sk-filter-row">
-    <a class="sk-chip {% if staff_filter == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff='Alle', mine=0) }}">Alle</a>
-    <a class="sk-chip {% if staff_filter == 'Ute' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff='Ute', mine=1 if not is_admin_world else 0) }}">Ute</a>
-    <a class="sk-chip {% if staff_filter == 'Jessi' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff='Jessi', mine=1 if not is_admin_world else 0) }}">Jessi</a>
+    <a class="sk-chip {% if staff_filter == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', mode=calendar_mode, date=selected_date, staff='Alle', mine=0) }}">Alle</a>
+    <a class="sk-chip {% if staff_filter == 'Ute' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', mode=calendar_mode, date=selected_date, staff='Ute', mine=1 if not is_admin_world else 0) }}">Ute</a>
+    <a class="sk-chip {% if staff_filter == 'Jessi' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', mode=calendar_mode, date=selected_date, staff='Jessi', mine=1 if not is_admin_world else 0) }}">Jessi</a>
   </div>
 
   <section class="sk-columns">
@@ -56,7 +56,7 @@
       <header>Ute <span>{{ day_ute|length }}</span></header>
       <div class="sk-col-body">
         {% for item in day_ute %}
-        <button class="sk-appt-card js-open-detail" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">
+        <button class="sk-appt-card js-open-detail" data-id="{{ item.id }}" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">
           <strong>{{ item.time_label }} · {{ item.customer_name }}</strong>
           <span>{{ item.service_label }}</span>
         </button>
@@ -72,7 +72,7 @@
       <header>Jessi <span>{{ day_jessi|length }}</span></header>
       <div class="sk-col-body">
         {% for item in day_jessi %}
-        <button class="sk-appt-card js-open-detail" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">
+        <button class="sk-appt-card js-open-detail" data-id="{{ item.id }}" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">
           <strong>{{ item.time_label }} · {{ item.customer_name }}</strong>
           <span>{{ item.service_label }}</span>
         </button>
@@ -82,6 +82,19 @@
       </div>
     </article>
     {% endif %}
+  </section>
+  <section class="sk-slot-grid">
+    <h3>Freie Uhrzeit wählen</h3>
+    <div class="sk-slot-grid-inner">
+      {% for slot in time_slots[:18] %}
+      {% if staff_filter in ['Alle', 'Ute'] %}
+      <button type="button" class="sk-slot-btn js-new-slot" data-time="{{ slot }}" data-staff="Ute">{{ slot }} · Ute</button>
+      {% endif %}
+      {% if staff_filter in ['Alle', 'Jessi'] %}
+      <button type="button" class="sk-slot-btn js-new-slot" data-time="{{ slot }}" data-staff="Jessi">{{ slot }} · Jessi</button>
+      {% endif %}
+      {% endfor %}
+    </div>
   </section>
   {% endif %}
 </section>
@@ -126,7 +139,15 @@
       <div class="row">
         <a class="sk-btn" id="dCall" href="#" hidden>Telefon</a>
         <a class="sk-btn" id="dWa" href="#" target="_blank" rel="noopener" hidden>WhatsApp</a>
+        <button type="button" class="sk-btn" id="dMoveBtn">Verschieben</button>
         <a class="sk-btn sk-btn-primary" id="dEdit" href="#">Bearbeiten</a>
+      </div>
+      <div id="moveFields" hidden>
+        <div class="row"><label>Datum</label><input id="moveDate" type="date" value="{{ selected_date }}"></div>
+        <div class="row"><label>Uhrzeit</label><input id="moveTime" type="time"></div>
+        <div class="row"><label>Mitarbeiterin</label><select id="moveStaff"><option>Ute</option><option>Jessi</option></select></div>
+        <div class="row"><button type="button" class="sk-btn sk-btn-primary" id="moveSaveBtn">Verschieben speichern</button></div>
+        <p id="moveMsg" class="sk-msg"></p>
       </div>
     </div>
   </div>
@@ -136,7 +157,8 @@
 (() => {
   const selectedDate = {{ selected_date|tojson }};
   const currentView = {{ view|tojson }};
-  const monthBackUrl = {{ url_for('calendar_view', view='month', date=selected_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0)|tojson }};
+  const calendarMode = {{ calendar_mode|tojson }};
+  const monthBackUrl = {{ url_for('calendar_view', view='month', mode=calendar_mode, date=selected_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0)|tojson }};
   const modal = document.getElementById("apptModal");
   const detailModal = document.getElementById("detailModal");
   const openBtn = document.getElementById("btnNewAppt");
@@ -148,8 +170,17 @@
   const results = document.getElementById("customerResults");
   const toggleManual = document.getElementById("toggleManual");
   const manual = document.getElementById("manualFields");
+  const moveFields = document.getElementById("moveFields");
+  const moveBtn = document.getElementById("dMoveBtn");
+  const moveSaveBtn = document.getElementById("moveSaveBtn");
+  const moveMsg = document.getElementById("moveMsg");
+  const moveDate = document.getElementById("moveDate");
+  const moveTime = document.getElementById("moveTime");
+  const moveStaff = document.getElementById("moveStaff");
   const chips = Array.from(document.querySelectorAll(".svc-chip"));
+  const quickSlotButtons = Array.from(document.querySelectorAll(".js-new-slot"));
   let selectedCustomerId = "";
+  let activeDetailAppointmentId = "";
   let lockCount = 0;
   let customerSearchOpen = false;
   let isHandlingBack = false;
@@ -307,6 +338,17 @@
   if (openBtn) openBtn.addEventListener("click", openModal);
   if (closeBtn) closeBtn.addEventListener("click", closeModal);
   if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+  quickSlotButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const prefTime = (btn.dataset.time || "").trim();
+      const prefStaff = (btn.dataset.staff || "").trim();
+      openModal();
+      const t = document.getElementById("apptTime");
+      const s = document.getElementById("staffName");
+      if (t && prefTime) t.value = prefTime;
+      if (s && prefStaff) s.value = prefStaff;
+    });
+  });
   if (toggleManual) {
     toggleManual.addEventListener("click", () => {
       if (!manual) return;
@@ -372,6 +414,7 @@
     const services = chips.filter((c) => c.classList.contains("active")).map((c) => c.dataset.value);
     if (!time) { msg.textContent = "Bitte Uhrzeit wählen."; saveBtn.disabled = false; return; }
     if (!selectedCustomerId && !manualName) { msg.textContent = "Bitte Kunde wählen oder manuell eintragen."; saveBtn.disabled = false; return; }
+    if (!services.length) { msg.textContent = "Bitte mindestens eine Leistung auswählen."; saveBtn.disabled = false; return; }
     try {
       const res = await fetch("/api/appointments", {
         method: "POST",
@@ -403,6 +446,7 @@
   document.getElementById("closeDetailModal")?.addEventListener("click", closeDetail);
   document.querySelectorAll(".js-open-detail").forEach((btn) => {
     btn.addEventListener("click", () => {
+      activeDetailAppointmentId = (btn.dataset.id || "").trim();
       document.getElementById("dCustomer").textContent = btn.dataset.customer || "Termin";
       document.getElementById("dTime").textContent = `Uhrzeit: ${btn.dataset.time || "-"}`;
       document.getElementById("dService").textContent = `Leistung: ${btn.dataset.service || "-"}`;
@@ -415,9 +459,55 @@
       if (call) { call.hidden = !btn.dataset.call; call.href = btn.dataset.call || "#"; }
       if (wa) { wa.hidden = !btn.dataset.wa; wa.href = btn.dataset.wa || "#"; }
       if (edit) edit.href = btn.dataset.edit || "#";
+      if (moveFields) moveFields.hidden = true;
+      if (moveMsg) moveMsg.textContent = "";
+      if (moveDate) moveDate.value = selectedDate;
+      if (moveTime) moveTime.value = (btn.dataset.time || "").slice(0, 5);
+      if (moveStaff) moveStaff.value = (btn.dataset.staff || "Ute");
       openDetail();
     });
   });
+
+  if (moveBtn) {
+    moveBtn.addEventListener("click", () => {
+      if (!moveFields) return;
+      moveFields.hidden = !moveFields.hidden;
+      if (!moveFields.hidden && moveDate && !moveDate.value) moveDate.value = selectedDate;
+    });
+  }
+
+  if (moveSaveBtn) {
+    moveSaveBtn.addEventListener("click", async () => {
+      if (!activeDetailAppointmentId) {
+        if (moveMsg) moveMsg.textContent = "Termin-ID fehlt.";
+        return;
+      }
+      const dateValue = (moveDate?.value || "").trim();
+      const timeValue = (moveTime?.value || "").trim();
+      const staffValue = (moveStaff?.value || "").trim();
+      if (!dateValue || !timeValue || !staffValue) {
+        if (moveMsg) moveMsg.textContent = "Bitte Datum, Uhrzeit und Mitarbeiterin angeben.";
+        return;
+      }
+      moveSaveBtn.disabled = true;
+      if (moveMsg) moveMsg.textContent = "";
+      try {
+        const res = await fetch(`/api/appointments/${encodeURIComponent(activeDetailAppointmentId)}/move`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ date: dateValue, time: timeValue, staff_name: staffValue }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || "Verschieben fehlgeschlagen.");
+        if (moveMsg) moveMsg.textContent = "Termin verschoben.";
+        window.location.href = `{{ url_for('calendar_view') }}?view=day&date=${encodeURIComponent(dateValue)}&staff={{ staff_filter|urlencode }}{% if not is_admin_world and staff_filter != 'Alle' %}&mine=1{% endif %}`;
+      } catch (error) {
+        if (moveMsg) moveMsg.textContent = error.message || "Fehler beim Verschieben.";
+        moveSaveBtn.disabled = false;
+      }
+    });
+  }
 
   [modal, detailModal].forEach((layer) => {
     if (!layer) return;
@@ -478,6 +568,10 @@
     if (event.key !== "Escape") return;
     goBackOneLevel();
   });
+
+  if (calendarMode === "book" && currentView === "day" && modal && modal.hidden) {
+    openModal();
+  }
 })();
 </script>
 {% endblock %}

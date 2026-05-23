@@ -4446,6 +4446,66 @@ def api_create_appointment():
         return jsonify({"ok": False, "error": safe_user_error()}), 500
 
 
+@app.route("/api/appointments/<int:appointment_id>", methods=["PATCH"])
+@login_required
+def api_update_appointment(appointment_id):
+    return _api_move_appointment_internal(appointment_id, allow_partial=True)
+
+
+@app.route("/api/appointments/<int:appointment_id>/move", methods=["POST", "PATCH"])
+@login_required
+def api_move_appointment(appointment_id):
+    return _api_move_appointment_internal(appointment_id, allow_partial=False)
+
+
+def _api_move_appointment_internal(appointment_id, allow_partial=False):
+    try:
+        payload = request.get_json(silent=True) or {}
+        db = get_db()
+        row = db.execute("SELECT id, appointment_at, staff_name, status FROM appointments WHERE id = ? LIMIT 1", (appointment_id,)).fetchone()
+        if not row:
+            return jsonify({"ok": False, "error": "Termin nicht gefunden."}), 404
+
+        old_at = str(row["appointment_at"] or "")
+        old_date = old_at[:10] if len(old_at) >= 10 else ""
+        old_time = old_at[11:16] if len(old_at) >= 16 else ""
+        date_value = (payload.get("date") or old_date).strip()
+        time_value = (payload.get("time") or old_time).strip()
+        if not allow_partial and (not date_value or not time_value):
+            return jsonify({"ok": False, "error": "Bitte Datum und Uhrzeit angeben."}), 400
+        appointment_at = f"{date_value}T{time_value}" if date_value and time_value else old_at
+        if not _parse_dt_safe(appointment_at):
+            return jsonify({"ok": False, "error": "Ungültiges Datum oder Uhrzeit."}), 400
+
+        staff_name = _normalize_staff_name(payload.get("staff_name") or row["staff_name"], default=get_default_staff(db), db=db)
+        status = (payload.get("status") or row["status"] or "geplant").strip() or "geplant"
+        if status not in {"geplant", "bestaetigt", "erledigt", "nicht erschienen", "storniert"}:
+            status = "geplant"
+
+        db.execute(
+            """
+            UPDATE appointments
+            SET appointment_at = ?, staff_name = ?, status = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                appointment_at,
+                staff_name,
+                status,
+                datetime.now().isoformat(timespec="seconds"),
+                appointment_id,
+            ),
+        )
+        db.commit()
+        return jsonify({"ok": True, "id": appointment_id, "message": "Termin wurde aktualisiert."})
+    except Exception as exc:
+        try:
+            app.logger.exception("Termin verschieben fehlgeschlagen", exc_info=exc)
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": safe_user_error()}), 500
+
+
 @app.route("/customers/birthdays")
 @login_required
 def customer_birthdays_page():
@@ -5257,6 +5317,9 @@ def calendar_view():
     db = get_db()
     is_admin_world = is_admin_world_session()
     selected_date = parse_iso_date(request.args.get("date"))
+    calendar_mode = (request.args.get("mode") or "view").strip().lower()
+    if calendar_mode not in {"view", "book"}:
+        calendar_mode = "view"
     view = (request.args.get("view") or "month").strip().lower()
     if view not in {"month", "day"}:
         view = "month"
@@ -5342,6 +5405,18 @@ def calendar_view():
 
     hours = opening_hours_for_date(selected_date)
     opening_label = (f"Geöffnet: {hours[0]}–{hours[1]} Uhr" if hours else "Heute geschlossen")
+    time_slots = []
+    if hours:
+        try:
+            start_h, start_m = [int(x) for x in str(hours[0]).split(":")]
+            end_h, end_m = [int(x) for x in str(hours[1]).split(":")]
+            cursor = datetime.combine(selected_date, datetime.min.time()).replace(hour=start_h, minute=start_m)
+            end_at = datetime.combine(selected_date, datetime.min.time()).replace(hour=end_h, minute=end_m)
+            while cursor < end_at:
+                time_slots.append(cursor.strftime("%H:%M"))
+                cursor += timedelta(minutes=30)
+        except Exception:
+            time_slots = []
 
     return render_template(
         "calendar_compact.html",
@@ -5356,12 +5431,14 @@ def calendar_view():
         month_next=next_month.isoformat(),
         today_date=datetime.now().date().isoformat(),
         month_weeks=month_weeks,
+        calendar_mode=calendar_mode,
         staff_filter=staff_raw,
         visible_columns=visible_columns,
         own_staff=own_staff,
         opening_label=opening_label,
         day_ute=col_ute,
         day_jessi=col_jessi,
+        time_slots=time_slots,
         service_presets=SERVICE_PRESETS,
     )
 
