@@ -7198,6 +7198,11 @@ body.mobile-menu-open {
   touch-action: none;
 }
 
+html.body-locked,
+body.body-locked {
+  overflow: hidden;
+}
+
 .menu-overlay.active {
   z-index: 70;
   pointer-events: auto;

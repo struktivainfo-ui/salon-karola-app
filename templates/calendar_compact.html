@@ -133,6 +133,7 @@
 (() => {
   const selectedDate = {{ selected_date|tojson }};
   const modal = document.getElementById("apptModal");
+  const detailModal = document.getElementById("detailModal");
   const openBtn = document.getElementById("btnNewAppt");
   const closeBtn = document.getElementById("closeApptModal");
   const saveBtn = document.getElementById("saveApptBtn");
@@ -143,9 +144,43 @@
   const manual = document.getElementById("manualFields");
   const chips = Array.from(document.querySelectorAll(".svc-chip"));
   let selectedCustomerId = "";
+  let lockCount = 0;
 
-  function openModal() { if (modal) modal.hidden = false; }
-  function closeModal() { if (modal) modal.hidden = true; }
+  function lockBody() {
+    lockCount += 1;
+    document.body.classList.add("body-locked");
+    document.documentElement.classList.add("body-locked");
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+  }
+  function unlockBody() {
+    lockCount = Math.max(0, lockCount - 1);
+    if (lockCount > 0) return;
+    document.body.classList.remove("body-locked");
+    document.documentElement.classList.remove("body-locked");
+    document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
+  }
+  function openModal() {
+    if (!modal || !modal.hidden) return;
+    modal.hidden = false;
+    lockBody();
+  }
+  function closeModal() {
+    if (!modal || modal.hidden) return;
+    modal.hidden = true;
+    unlockBody();
+  }
+  function openDetail() {
+    if (!detailModal || !detailModal.hidden) return;
+    detailModal.hidden = false;
+    lockBody();
+  }
+  function closeDetail() {
+    if (!detailModal || detailModal.hidden) return;
+    detailModal.hidden = true;
+    unlockBody();
+  }
   if (openBtn) openBtn.addEventListener("click", openModal);
   if (closeBtn) closeBtn.addEventListener("click", closeModal);
   if (toggleManual) toggleManual.addEventListener("click", () => { manual.hidden = !manual.hidden; });
@@ -216,8 +251,6 @@
   }
   if (saveBtn) saveBtn.addEventListener("click", saveAppointment);
 
-  const detailModal = document.getElementById("detailModal");
-  function closeDetail() { if (detailModal) detailModal.hidden = true; }
   document.getElementById("closeDetailModal")?.addEventListener("click", closeDetail);
   document.querySelectorAll(".js-open-detail").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -233,8 +266,26 @@
       if (call) { call.hidden = !btn.dataset.call; call.href = btn.dataset.call || "#"; }
       if (wa) { wa.hidden = !btn.dataset.wa; wa.href = btn.dataset.wa || "#"; }
       if (edit) edit.href = btn.dataset.edit || "#";
-      if (detailModal) detailModal.hidden = false;
+      openDetail();
     });
+  });
+
+  [modal, detailModal].forEach((layer) => {
+    if (!layer) return;
+    layer.addEventListener("click", (event) => {
+      if (event.target !== layer) return;
+      if (layer === modal) closeModal();
+      if (layer === detailModal) closeDetail();
+    });
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (detailModal && !detailModal.hidden) {
+      closeDetail();
+      return;
+    }
+    if (modal && !modal.hidden) closeModal();
   });
 })();
 </script>

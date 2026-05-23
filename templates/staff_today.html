@@ -126,6 +126,23 @@ document.addEventListener("DOMContentLoaded", function () {
   const closeButton = document.getElementById("appointmentSheetClose");
   if (!triggers.length || !sheet || !overlay || !closeButton) return;
   let bodyScrollY = 0;
+  let isOpen = false;
+
+  function lockBody() {
+    bodyScrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${bodyScrollY}px`;
+    document.body.style.width = "100%";
+    document.body.classList.add("staff-sheet-open", "body-locked");
+  }
+
+  function unlockBody() {
+    document.body.classList.remove("staff-sheet-open", "body-locked");
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.width = "";
+    window.scrollTo(0, bodyScrollY);
+  }
 
   const fields = {
     time: document.getElementById("appointmentSheetTime"),
@@ -140,17 +157,12 @@ document.addEventListener("DOMContentLoaded", function () {
   };
 
   function closeSheet() {
-    const hadLock = document.body.classList.contains("staff-sheet-open");
+    if (!isOpen) return;
     sheet.hidden = true;
     sheet.setAttribute("aria-hidden", "true");
     overlay.hidden = true;
-    document.body.classList.remove("staff-sheet-open");
-    if (hadLock) {
-      document.body.style.position = "";
-      document.body.style.top = "";
-      document.body.style.width = "";
-      window.scrollTo(0, bodyScrollY);
-    }
+    isOpen = false;
+    unlockBody();
   }
 
   function openSheet(data) {
@@ -175,14 +187,11 @@ document.addEventListener("DOMContentLoaded", function () {
       fields.whatsapp.hidden = true;
     }
 
-    bodyScrollY = window.scrollY || window.pageYOffset || 0;
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${bodyScrollY}px`;
-    document.body.style.width = "100%";
     sheet.hidden = false;
     sheet.setAttribute("aria-hidden", "false");
     overlay.hidden = false;
-    document.body.classList.add("staff-sheet-open");
+    isOpen = true;
+    lockBody();
     closeButton.focus();
   }
 
