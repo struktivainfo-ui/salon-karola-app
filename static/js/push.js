@@ -53,7 +53,11 @@
       return;
     }
     if (isAndroidWebView()) {
-      write("Diese Android-App verwendet keine Web-Push-Benachrichtigungen. Für native Push-Benachrichtigungen ist Firebase/FCM erforderlich.");
+      write("Diese Android-App benötigt für native Push-Benachrichtigungen Firebase/FCM.");
+      return;
+    }
+    if (!window.isSecureContext) {
+      write("Push ist nur in sicherem Kontext (HTTPS) möglich.");
       return;
     }
 
@@ -116,7 +120,7 @@
       return;
     }
     if (isAndroidWebView()) {
-      write("In der Android-App wird Web-Push nicht verwendet. Teste stattdessen native Firebase/FCM-Benachrichtigungen.");
+      write("In der Android-App wird Web-Push nicht verwendet. Nutze stattdessen Firebase/FCM.");
       return;
     }
 

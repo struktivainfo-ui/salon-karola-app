@@ -16,3 +16,47 @@
   box-shadow: 0 12px 28px rgba(22, 31, 47, 0.1);
 }
 
+.admin-mode .app-main {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.admin-mode .premium-shell {
+  gap: 14px;
+}
+
+.admin-mode .premium-page-head {
+  align-items: flex-start;
+}
+
+.admin-mode .premium-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-mode .premium-form-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-mode .table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 1024px) {
+  .admin-mode .premium-grid-2,
+  .admin-mode .premium-form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 430px) {
+  .admin-mode .premium-page-head {
+    gap: 10px;
+  }
+
+  .admin-mode .premium-top-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

@@ -66,6 +66,18 @@
     <article class="premium-panel">
       <div class="premium-panel-head">
         <div>
+          <div class="premium-panel-kicker">Clientstatus</div>
+          <h2 class="premium-panel-title">Gerät & Browser</h2>
+        </div>
+      </div>
+      <div class="premium-note premium-space-top" id="pushClientStatus">Client wird geprüft ...</div>
+    </article>
+  </section>
+
+  <section class="premium-grid-2 premium-space-top">
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
           <div class="premium-panel-kicker">Übersicht</div>
           <h2 class="premium-panel-title">Geräte</h2>
         </div>
@@ -91,12 +103,57 @@
   const reloadBtn = document.getElementById('reloadDevicesBtn');
   const cleanupBtn = document.getElementById('cleanupPushBtn');
   const serverStatus = document.getElementById('pushServerStatus');
+  const clientStatus = document.getElementById('pushClientStatus');
+  const enablePushBtn = document.getElementById('enablePushBtn');
+  const testPushBtn = document.getElementById('testPushBtn');
   const lastErrorBox = document.getElementById('pushLastErrorBox');
   const countEls = {
     {% for member in staff_members %}'{{ member }}': document.getElementById('count-{{ member|lower }}'),{% endfor %}
   };
   const activeCount = document.getElementById('activeCount');
   const totalCount = document.getElementById('totalCount');
+
+  function detectClientState() {
+    const ua = String(navigator.userAgent || '');
+    const isWebView = /; wv\)/i.test(ua) || !!window.Capacitor;
+    const secure = !!window.isSecureContext;
+    const sw = 'serviceWorker' in navigator;
+    const pm = 'PushManager' in window;
+    const n = 'Notification' in window;
+    const bridge = !!window.AndroidPush;
+    return {
+      isWebView,
+      secure,
+      sw,
+      pm,
+      n,
+      bridge,
+      permission: n ? Notification.permission : 'n/a',
+      webPushReady: secure && sw && pm && n,
+    };
+  }
+
+  function renderClientStatus() {
+    if (!clientStatus) return;
+    const cs = detectClientState();
+    clientStatus.textContent =
+      `Android WebView: ${cs.isWebView ? 'ja' : 'nein'} · Secure Context: ${cs.secure ? 'ja' : 'nein'} · ServiceWorker: ${cs.sw ? 'ja' : 'nein'} · PushManager: ${cs.pm ? 'ja' : 'nein'} · Notification: ${cs.n ? 'ja' : 'nein'} · Permission: ${cs.permission} · AndroidPush Bridge: ${cs.bridge ? 'ja' : 'nein'}`;
+    if (enablePushBtn) {
+      enablePushBtn.disabled = false;
+      enablePushBtn.textContent = 'Push auf diesem Gerät aktivieren';
+      if (cs.isWebView) {
+        enablePushBtn.disabled = true;
+        enablePushBtn.textContent = 'Web-Push in Android-WebView deaktiviert';
+      } else if (!cs.webPushReady) {
+        enablePushBtn.disabled = true;
+        enablePushBtn.textContent = 'Web-Push nicht verfügbar';
+      }
+    }
+    if (testPushBtn && cs.isWebView) {
+      testPushBtn.disabled = true;
+      testPushBtn.textContent = 'FCM über Android erforderlich';
+    }
+  }
 
   async function fetchJson(url, options) {
     if (typeof window.safeFetch === "function") {
@@ -108,6 +165,17 @@
     const data = await res.json();
     if (!res.ok || data.ok === false) throw new Error(data.error || "Fehler");
     return data || {};
+  }
+
+  function toUint8Array(base64Url) {
+    const cleaned = String(base64Url || "").trim();
+    if (!cleaned) throw new Error("VAPID Public Key fehlt.");
+    const padding = "=".repeat((4 - (cleaned.length % 4)) % 4);
+    const base64 = (cleaned + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i += 1) arr[i] = raw.charCodeAt(i);
+    return arr;
   }
 
   function renderServerStatus(data) {
@@ -204,7 +272,84 @@
     await loadDevices();
   };
 
+  if (enablePushBtn) {
+    enablePushBtn.addEventListener('click', async () => {
+      const cs = detectClientState();
+      if (cs.isWebView) {
+        if (serverStatus) serverStatus.textContent = "Diese Android-App benötigt für native Push-Benachrichtigungen Firebase/FCM.";
+        return;
+      }
+      if (!cs.webPushReady) {
+        if (serverStatus) serverStatus.textContent = "Web-Push ist auf diesem Gerät/Browser nicht verfügbar.";
+        return;
+      }
+      const staffSelect = document.getElementById('deviceStaffSelect');
+      const nameInput = document.getElementById('deviceNameInput');
+      const staffName = staffSelect ? staffSelect.value : 'Sven';
+      const deviceName = nameInput ? nameInput.value : '';
+      const original = enablePushBtn.textContent;
+      enablePushBtn.disabled = true;
+      enablePushBtn.textContent = "Aktiviert ...";
+      try {
+        const cfg = await fetchJson('/api/push/public-key');
+        if (!cfg.enabled || !cfg.public_key) throw new Error(cfg.error || "Push ist serverseitig nicht bereit.");
+        const reg = await navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' });
+        let permission = Notification.permission;
+        if (permission === 'default') permission = await Notification.requestPermission();
+        if (permission !== 'granted') throw new Error("Benachrichtigungen wurden nicht erlaubt.");
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toUint8Array(cfg.public_key) });
+        }
+        const payload = typeof sub.toJSON === 'function' ? sub.toJSON() : JSON.parse(JSON.stringify(sub || {}));
+        await fetchJson('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: payload, staff_name: staffName, device_name: deviceName }),
+        });
+        if (serverStatus) serverStatus.textContent = "Push auf diesem Gerät aktiviert.";
+      } catch (e) {
+        if (serverStatus) serverStatus.textContent = `Push-Aktivierung fehlgeschlagen: ${String(e.message || e)}`;
+      } finally {
+        enablePushBtn.disabled = false;
+        enablePushBtn.textContent = original;
+        renderClientStatus();
+        await window.refreshPushOverview();
+      }
+    });
+  }
+
+  if (testPushBtn) {
+    testPushBtn.addEventListener('click', async () => {
+      const cs = detectClientState();
+      if (cs.isWebView) {
+        if (serverStatus) serverStatus.textContent = "In Android-WebView ist Web-Push deaktiviert. Nutze Firebase/FCM.";
+        return;
+      }
+      const original = testPushBtn.textContent;
+      testPushBtn.disabled = true;
+      testPushBtn.textContent = "Sende ...";
+      try {
+        const staffSelect = document.getElementById('deviceStaffSelect');
+        const staffName = staffSelect ? staffSelect.value : 'Sven';
+        const data = await fetchJson('/api/push/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staff_name: staffName }),
+        });
+        if (serverStatus) serverStatus.textContent = `Test-Push gesendet (${data.sent || 0}).`;
+      } catch (e) {
+        if (serverStatus) serverStatus.textContent = `Test-Push fehlgeschlagen: ${String(e.message || e)}`;
+      } finally {
+        testPushBtn.disabled = false;
+        testPushBtn.textContent = original;
+        await window.refreshPushOverview();
+      }
+    });
+  }
+
   window.addEventListener('load', async () => {
+    renderClientStatus();
     await window.refreshPushOverview();
   });
 })();

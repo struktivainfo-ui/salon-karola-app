@@ -3225,9 +3225,17 @@ def diagnose():
         lines.push("PushManager verfügbar: " + (("PushManager" in window) ? "ja" : "nein"));
         lines.push("ServiceWorker verfügbar: " + (("serviceWorker" in navigator) ? "ja" : "nein"));
         lines.push("Notification.permission: " + (("Notification" in window) ? Notification.permission : "n/a"));
+        lines.push("Viewport: " + window.innerWidth + "x" + window.innerHeight);
+        lines.push("Mobile erkannt: " + (window.innerWidth <= 768 ? "ja" : "nein"));
+        lines.push("Desktop erkannt: " + (window.innerWidth > 1024 ? "ja" : "nein"));
         lines.push("Android WebView erkannt: " + (((navigator.userAgent || "").includes("wv") || !!window.Capacitor) ? "ja" : "nein"));
         lines.push("AndroidPush Bridge vorhanden: " + (window.AndroidPush ? "ja" : "nein"));
         lines.push("Web Push verfügbar: " + ((("PushManager" in window) && ("serviceWorker" in navigator)) ? "ja" : "nein"));
+        lines.push("Admin Shell aktiv: " + (document.body.classList.contains("admin-mode") ? "ja" : "nein"));
+        lines.push("Staff Shell aktiv: " + (document.body.classList.contains("employee-mode") ? "ja" : "nein"));
+        lines.push("Bottom Nav vorhanden: " + (document.querySelector(".mobile-app-dock") ? "ja" : "nein"));
+        lines.push("Mobile Drawer vorhanden: " + (document.getElementById("mainNavLinks") ? "ja" : "nein"));
+        lines.push("Cache Storage verfügbar: " + (("caches" in window) ? "ja" : "nein"));
       }} catch (e) {{
         lines.push("Client Push-Check Fehler: " + String(e));
       }}
