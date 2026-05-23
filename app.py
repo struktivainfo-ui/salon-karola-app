@@ -2518,7 +2518,7 @@ def opportunistic_automation_runner():
         run_automation_if_due(force=False)
     except Exception as exc:
         try:
-            app.logger.warning("Automation runner ?bersprungen: %s", exc)
+            app.logger.warning("Automation runner übersprungen: %s", exc)
         except Exception:
             pass
     return None

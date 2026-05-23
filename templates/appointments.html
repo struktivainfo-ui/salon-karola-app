@@ -84,7 +84,7 @@
             </div>
             <div class="service-summary-card">
               <div class="service-summary-label">Leistungen</div>
-              <div class="service-summary-value">Noch nichts ausgewaehlt</div>
+              <div class="service-summary-value">Noch nichts ausgewählt</div>
             </div>
           </div>
 
@@ -214,7 +214,7 @@
         <div class="premium-list-meta">{{ appt['service_summary'] or appt['title'] }} - {{ appt['staff_name'] or default_staff }}</div>
       </a>
       {% else %}
-      <div class="premium-list-empty">Noch keine nÃ¤chsten Termine vorhanden.</div>
+      <div class="premium-list-empty">Noch keine nächsten Termine vorhanden.</div>
       {% endfor %}
     </div>
   </section>
@@ -385,7 +385,7 @@ document.addEventListener("DOMContentLoaded", function () {
       selectedField.value = ids.join(",");
       summaryField.value = summary;
       titleField.value = summary || "Salon-Termin";
-      summaryValue.textContent = summary || "Noch nichts ausgewaehlt";
+      summaryValue.textContent = summary || "Noch nichts ausgewählt";
       syncTimesFromFields();
     }
 
@@ -465,7 +465,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         if (pingStatus) {
           const expiresText = payload.expires_at ? new Date(payload.expires_at).toLocaleString("de-DE") : "";
-          pingStatus.textContent = expiresText ? `Gueltig bis ${expiresText}` : "QR-Ping bereit.";
+          pingStatus.textContent = expiresText ? `Gültig bis ${expiresText}` : "QR-Ping bereit.";
         }
         if (copyPingBtn) {
           copyPingBtn.onclick = async function () {

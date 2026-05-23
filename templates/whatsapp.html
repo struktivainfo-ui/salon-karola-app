@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
-{% block title %}WhatsApp ? Salon Karola App{% endblock %}
+{% block title %}WhatsApp · Salon Karola App{% endblock %}
 {% block content %}
 <section class="premium-shell">
   <section class="premium-page-head">
     <div>
       <div class="premium-page-kicker">Kommunikation</div>
       <h1 class="premium-page-title">WhatsApp</h1>
-      <div class="premium-page-subtitle">Kunden direkt ?ffnen und in einem Tap anschreiben.</div>
+      <div class="premium-page-subtitle">Kunden direkt öffnen und in einem Tap anschreiben.</div>
     </div>
     <div class="premium-top-actions">
       <a class="premium-top-action primary" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
@@ -22,7 +22,7 @@
       </div>
       <div class="premium-button-row inline-right">
         <button type="submit" class="premium-button">Suchen</button>
-        <a class="premium-button secondary" href="{{ url_for('whatsapp_hub') }}">ZurÃ¼cksetzen</a>
+        <a class="premium-button secondary" href="{{ url_for('whatsapp_hub') }}">Zurücksetzen</a>
       </div>
     </form>
   </section>
@@ -36,7 +36,7 @@
           <h3>{{ customer['_firstname'] }} {{ customer['_name'] }}</h3>
           <div class="premium-contact-meta">{{ customer_phone(customer) }}</div>
         </div>
-        <a class="premium-inline-link" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">Karte ?ffnen</a>
+        <a class="premium-inline-link" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">Karte öffnen</a>
       </div>
       <div class="premium-action-grid compact premium-space-top">
         <a class="premium-action-card" href="{{ whatsapp_link(customer) }}" target="_blank" rel="noopener">Nachricht</a>

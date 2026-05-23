@@ -5,7 +5,7 @@
   <section class="premium-page-head">
     <div>
       <div class="premium-page-kicker">Salon Karola App</div>
-      <h1 class="premium-page-title">Ãbersicht</h1>
+      <h1 class="premium-page-title">Übersicht</h1>
       <div class="premium-page-subtitle">Alles Wichtige auf einen Blick.</div>
     </div>
     <div class="premium-top-actions">
@@ -50,9 +50,9 @@
       </div>
       <div class="premium-mini-grid">
         <div class="premium-mini-card">
-          <div class="premium-mini-label">NÃ¤chster Termin</div>
+          <div class="premium-mini-label">Nächster Termin</div>
           <div class="premium-mini-value">{% if upcoming %}{{ upcoming[0]['appointment_at']|dt }}{% else %}Heute frei{% endif %}</div>
-          <div class="premium-mini-sub">{% if upcoming %}{{ upcoming[0]['_firstname'] }} {{ upcoming[0]['_name'] }} ? {{ upcoming[0]['staff_name'] or 'Ute' }}{% else %}Kein Termin geplant{% endif %}</div>
+          <div class="premium-mini-sub">{% if upcoming %}{{ upcoming[0]['_firstname'] }} {{ upcoming[0]['_name'] }} · {{ upcoming[0]['staff_name'] or 'Ute' }}{% else %}Kein Termin geplant{% endif %}</div>
         </div>
         <div class="premium-mini-card">
           <div class="premium-mini-label">Offene Punkte</div>
@@ -63,7 +63,7 @@
           <div class="premium-mini-label">Team</div>
           <div class="premium-mini-stack">
             {% for row in staff_counts %}
-            <div>{{ row['staff_name'] or 'Ute' }} ? {{ row['count'] or 0 }}</div>
+            <div>{{ row['staff_name'] or 'Ute' }} · {{ row['count'] or 0 }}</div>
             {% else %}
             <div>Noch keine Termine</div>
             {% endfor %}
@@ -86,7 +86,7 @@
             <strong>{{ item['_firstname'] }} {{ item['_name'] }}</strong>
             <span class="premium-badge">{{ item['appointment_at']|dt }}</span>
           </div>
-          <div class="premium-list-sub">{{ item['title'] or 'Salon-Termin' }} ? {{ item['staff_name'] or 'Ute' }}</div>
+          <div class="premium-list-sub">{{ item['title'] or 'Salon-Termin' }} · {{ item['staff_name'] or 'Ute' }}</div>
         </div>
         {% else %}
         <div class="premium-list-empty">Keine offenen Punkte.</div>
@@ -116,7 +116,7 @@
     <div class="premium-panel-head">
       <div>
         <div class="premium-panel-kicker">Planung</div>
-        <h2 class="premium-panel-title">NÃ¤chste Termine</h2>
+        <h2 class="premium-panel-title">Nächste Termine</h2>
       </div>
       <div class="premium-inline-actions">
         <a class="premium-inline-link" href="{{ url_for('appointments_hub') }}">Termine</a>

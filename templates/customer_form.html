@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{% if customer %}Kontakt{% else %}Neuer Kontakt{% endif %} ? Salon Karola App{% endblock %}
+{% block title %}{% if customer %}Kontakt{% else %}Neuer Kontakt{% endif %} · Salon Karola App{% endblock %}
 {% block content %}
 <section class="premium-shell">
   <section class="premium-page-head">
@@ -90,14 +90,14 @@
             </div>
             <div class="service-summary-card compact-summary-card">
               <div class="service-summary-label">Auswahl</div>
-              <div class="service-summary-value">Noch nichts ausgewÃ¤hlt</div>
+              <div class="service-summary-value">Noch nichts ausgewählt</div>
             </div>
           </div>
           <div class="form-group premium-form-group"><label>Termin</label><input type="datetime-local" name="appointment_at" required></div>
           <div class="form-group premium-form-group"><label>Status</label>
             <select name="status">
               <option value="geplant">geplant</option>
-              <option value="bestÃ¤tigt">bestÃ¤tigt</option>
+              <option value="bestätigt">bestätigt</option>
               <option value="erledigt">erledigt</option>
               <option value="nicht erschienen">nicht erschienen</option>
             </select>
@@ -172,7 +172,7 @@
                 <div class="form-group premium-form-group"><label>Status</label>
                   <select name="status">
                     <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
-                    <option value="bestÃ¤tigt" {% if appt['status'] == 'bestÃ¤tigt' %}selected{% endif %}>bestÃ¤tigt</option>
+                    <option value="bestätigt" {% if appt['status'] == 'bestätigt' %}selected{% endif %}>bestätigt</option>
                     <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
                     <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
                   </select>
@@ -195,7 +195,7 @@
               </div>
               <div class="form-group premium-form-group"><label>Notizen</label><textarea name="notes">{{ appt['notes'] or '' }}</textarea></div>
               <div class="premium-button-row customer-save-row">
-                <button class="premium-button secondary" type="submit">Aenderungen speichern</button>
+                <button class="premium-button secondary" type="submit">Änderungen speichern</button>
               </div>
             </form>
           </details>
@@ -203,7 +203,7 @@
             <form method="post" action="{{ url_for('appointment_update_status', appointment_id=appt['id']) }}" class="inline-form premium-inline-form">
               <select name="status">
                 <option value="geplant" {% if (appt['status'] or 'geplant') == 'geplant' %}selected{% endif %}>geplant</option>
-                <option value="bestÃ¤tigt" {% if appt['status'] == 'bestÃ¤tigt' %}selected{% endif %}>bestÃ¤tigt</option>
+                <option value="bestätigt" {% if appt['status'] == 'bestätigt' %}selected{% endif %}>bestätigt</option>
                 <option value="erledigt" {% if appt['status'] == 'erledigt' %}selected{% endif %}>erledigt</option>
                 <option value="nicht erschienen" {% if appt['status'] == 'nicht erschienen' %}selected{% endif %}>nicht erschienen</option>
               </select>
@@ -235,7 +235,7 @@
           <strong>{{ log['subject'] }}</strong>
           <span class="premium-badge">{{ log['sent_at']|dt }}</span>
         </div>
-        <div class="premium-list-sub">{{ log['status'] }} ? {{ log['recipient'] or '-' }}</div>
+        <div class="premium-list-sub">{{ log['status'] }} · {{ log['recipient'] or '-' }}</div>
         {% if log['error_message'] %}<div class="premium-list-meta">{{ log['error_message'] }}</div>{% endif %}
       </div>
       {% else %}
@@ -293,7 +293,7 @@ document.addEventListener("DOMContentLoaded", function () {
       selectedField.value = ids.join(",");
       summaryField.value = summary;
       titleField.value = summary || titleField.value || "Salon-Termin";
-      summaryValue.textContent = summary || summaryValue.textContent || "Noch nichts ausgewÃ¤hlt";
+      summaryValue.textContent = summary || summaryValue.textContent || "Noch nichts ausgewählt";
 
       if (!durationField.dataset.touched && activeMinutes > 0) {
         durationField.value = activeMinutes;

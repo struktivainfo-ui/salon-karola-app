@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
-{% block title %}Geburtstage ? Salon Karola App{% endblock %}
+{% block title %}Geburtstage · Salon Karola App{% endblock %}
 {% block content %}
 <section class="premium-shell">
   <section class="premium-page-head">
     <div>
       <div class="premium-page-kicker">Kunden</div>
       <h1 class="premium-page-title">Geburtstage</h1>
-      <div class="premium-page-subtitle">Die nÃ¤chsten GlÃ¼ckwÃ¼nsche im Blick.</div>
+      <div class="premium-page-subtitle">Die nächsten Glückwünsche im Blick.</div>
     </div>
     <div class="premium-top-actions">
       <a class="premium-top-action" href="{{ url_for('calendar_view') }}">Kalender</a>
@@ -19,7 +19,7 @@
       <div class="premium-list-item">
         <div class="premium-list-row"><strong>{{ item['_name'] }}{% if item['_firstname'] %}, {{ item['_firstname'] }}{% endif %}</strong><span class="premium-badge">{{ item['_birthdate']|birthday }}</span></div>
         <div class="premium-list-sub">{{ item['_mail'] or customer_phone(item) or 'Kein Kontaktkanal' }}</div>
-        <div class="premium-button-row compact"><a class="premium-button secondary" href="{{ url_for('customer_detail', customer_id=item['_id']) }}">?ffnen</a></div>
+        <div class="premium-button-row compact"><a class="premium-button secondary" href="{{ url_for('customer_detail', customer_id=item['_id']) }}">Öffnen</a></div>
       </div>
       {% else %}
       <div class="premium-list-empty">Keine Geburtstage vorhanden.</div>
