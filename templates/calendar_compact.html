@@ -135,6 +135,8 @@
 <script>
 (() => {
   const selectedDate = {{ selected_date|tojson }};
+  const currentView = {{ view|tojson }};
+  const monthBackUrl = {{ url_for('calendar_view', view='month', date=selected_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0)|tojson }};
   const modal = document.getElementById("apptModal");
   const detailModal = document.getElementById("detailModal");
   const openBtn = document.getElementById("btnNewAppt");
@@ -149,6 +151,47 @@
   const chips = Array.from(document.querySelectorAll(".svc-chip"));
   let selectedCustomerId = "";
   let lockCount = 0;
+  let customerSearchOpen = false;
+  let isHandlingBack = false;
+  let isSyncingHistory = false;
+
+  window.appViewStack = Array.isArray(window.appViewStack) ? window.appViewStack : [];
+
+  function currentAppView() {
+    return window.appViewStack.length ? window.appViewStack[window.appViewStack.length - 1] : "";
+  }
+
+  function pushAppView(viewName, options = {}) {
+    const pushHistory = options.pushHistory !== false;
+    if (!viewName) return;
+    if (currentAppView() === viewName) return;
+    window.appViewStack.push(viewName);
+    if (pushHistory && !isSyncingHistory) {
+      history.pushState({ appView: viewName }, "", location.href);
+    }
+  }
+
+  function popAppView(expected) {
+    if (!window.appViewStack.length) return "";
+    const top = currentAppView();
+    if (expected && top !== expected) return "";
+    return window.appViewStack.pop() || "";
+  }
+
+  function ensureBaseStack() {
+    if (window.appViewStack.length) return;
+    pushAppView("calendar_month", { pushHistory: false });
+    if (currentView === "day") pushAppView("calendar_day", { pushHistory: false });
+  }
+
+  ensureBaseStack();
+  if (currentView === "day") {
+    const state = history.state || {};
+    if (!state || !state.appView) {
+      history.replaceState({ appView: "calendar_day" }, "", location.href);
+      history.pushState({ appView: "calendar_day_guard" }, "", location.href);
+    }
+  }
 
   function lockBody() {
     lockCount += 1;
@@ -167,37 +210,84 @@
     document.body.style.overflow = "";
     document.documentElement.style.overflow = "";
   }
+
+  function closeCustomerSearch(options = {}) {
+    const fromBack = options.fromBack === true;
+    if (!results) return;
+    if (!customerSearchOpen && !results.innerHTML) return;
+    results.innerHTML = "";
+    customerSearchOpen = false;
+    popAppView("customer_search");
+    if (!fromBack && !isSyncingHistory) {
+      isSyncingHistory = true;
+      history.back();
+      setTimeout(() => { isSyncingHistory = false; }, 0);
+    }
+  }
+
+  function closeManualCustomer(options = {}) {
+    const fromBack = options.fromBack === true;
+    if (!manual || manual.hidden) return;
+    manual.hidden = true;
+    popAppView("manual_customer");
+    if (!fromBack && !isSyncingHistory) {
+      isSyncingHistory = true;
+      history.back();
+      setTimeout(() => { isSyncingHistory = false; }, 0);
+    }
+  }
+
   function openModal() {
     if (!modal || !modal.hidden) return;
-    closeDetail();
+    closeDetail({ fromBack: true });
     modal.hidden = false;
     modal.classList.add("is-open");
     lockBody();
+    pushAppView("appointment_create");
     const firstField = document.getElementById("staffName");
     if (firstField && typeof firstField.focus === "function") firstField.focus();
   }
-  function closeModal() {
+  function closeModal(options = {}) {
+    const fromBack = options.fromBack === true;
     if (!modal || modal.hidden) return;
+    closeCustomerSearch({ fromBack: true });
+    closeManualCustomer({ fromBack: true });
     modal.classList.remove("is-open");
     modal.hidden = true;
+    popAppView("appointment_create");
     unlockBody();
+    if (!fromBack && !isSyncingHistory) {
+      isSyncingHistory = true;
+      history.back();
+      setTimeout(() => { isSyncingHistory = false; }, 0);
+    }
   }
   function openDetail() {
     if (!detailModal || !detailModal.hidden) return;
-    closeModal();
+    closeModal({ fromBack: true });
     detailModal.hidden = false;
     detailModal.classList.add("is-open");
     lockBody();
+    pushAppView("appointment_details");
   }
-  function closeDetail() {
+  function closeDetail(options = {}) {
+    const fromBack = options.fromBack === true;
     if (!detailModal || detailModal.hidden) return;
     detailModal.classList.remove("is-open");
     detailModal.hidden = true;
+    popAppView("appointment_details");
     unlockBody();
+    if (!fromBack && !isSyncingHistory) {
+      isSyncingHistory = true;
+      history.back();
+      setTimeout(() => { isSyncingHistory = false; }, 0);
+    }
   }
   function closeAllOverlays() {
-    closeDetail();
-    closeModal();
+    closeDetail({ fromBack: true });
+    closeModal({ fromBack: true });
+    closeCustomerSearch({ fromBack: true });
+    closeManualCustomer({ fromBack: true });
     document.body.classList.remove("modal-open", "body-locked");
     document.documentElement.classList.remove("body-locked");
     document.body.style.overflow = "";
@@ -217,28 +307,53 @@
   if (openBtn) openBtn.addEventListener("click", openModal);
   if (closeBtn) closeBtn.addEventListener("click", closeModal);
   if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
-  if (toggleManual) toggleManual.addEventListener("click", () => { manual.hidden = !manual.hidden; });
+  if (toggleManual) {
+    toggleManual.addEventListener("click", () => {
+      if (!manual) return;
+      manual.hidden = !manual.hidden;
+      if (!manual.hidden) {
+        pushAppView("manual_customer");
+      } else {
+        popAppView("manual_customer");
+      }
+    });
+  }
 
   chips.forEach((chip) => chip.addEventListener("click", () => chip.classList.toggle("active")));
 
   async function searchCustomers(q) {
     if (!results) return;
-    if (!q || q.trim().length < 2) { results.innerHTML = ""; return; }
+    if (!q || q.trim().length < 2) {
+      closeCustomerSearch({ fromBack: true });
+      return;
+    }
     try {
       const res = await fetch(`/api/customers/search?q=${encodeURIComponent(q)}&limit=8`, { credentials: "same-origin" });
       const data = await res.json();
       const items = (data && data.items) || [];
       if (!items.length) {
+        if (!customerSearchOpen) {
+          customerSearchOpen = true;
+          pushAppView("customer_search");
+        }
         results.innerHTML = `<div class="sk-empty">Kein Kunde gefunden. Manuell eintragen möglich.</div>`;
         return;
+      }
+      if (!customerSearchOpen) {
+        customerSearchOpen = true;
+        pushAppView("customer_search");
       }
       results.innerHTML = items.map((it) => `<button type="button" class="sk-result-item" data-id="${it.id}" data-name="${(it.name || "").replace(/"/g, "&quot;")}">${it.name || ""} · ${it.phone || "-"}</button>`).join("");
       results.querySelectorAll(".sk-result-item").forEach((btn) => btn.addEventListener("click", () => {
         selectedCustomerId = btn.dataset.id || "";
         if (search) search.value = btn.dataset.name || "";
-        results.innerHTML = "";
+        closeCustomerSearch({ fromBack: true });
       }));
     } catch (error) {
+      if (!customerSearchOpen) {
+        customerSearchOpen = true;
+        pushAppView("customer_search");
+      }
       results.innerHTML = `<div class="sk-empty">Suche fehlgeschlagen.</div>`;
     }
   }
@@ -313,13 +428,55 @@
     });
   });
 
+  function goBackOneLevel() {
+    if (customerSearchOpen || (results && results.innerHTML.trim())) {
+      closeCustomerSearch({ fromBack: true });
+      return true;
+    }
+    if (manual && !manual.hidden) {
+      closeManualCustomer({ fromBack: true });
+      return true;
+    }
+    if (modal && !modal.hidden) {
+      closeModal({ fromBack: true });
+      return true;
+    }
+    if (detailModal && !detailModal.hidden) {
+      closeDetail({ fromBack: true });
+      return true;
+    }
+    if (document.body.classList.contains("mobile-menu-open") && typeof window.skCloseMenu === "function") {
+      window.skCloseMenu();
+      return true;
+    }
+    if (currentView === "day" && currentAppView() === "calendar_day") {
+      window.location.href = monthBackUrl;
+      return true;
+    }
+    return false;
+  }
+
+  window.goBackOneLevel = goBackOneLevel;
+  window.handleAndroidBackButton = function () {
+    return goBackOneLevel();
+  };
+
+  window.addEventListener("popstate", () => {
+    if (isHandlingBack) return;
+    isHandlingBack = true;
+    try {
+      const handled = goBackOneLevel();
+      if (!handled) {
+        popAppView();
+      }
+    } finally {
+      isHandlingBack = false;
+    }
+  });
+
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
-    if (detailModal && !detailModal.hidden) {
-      closeDetail();
-      return;
-    }
-    if (modal && !modal.hidden) closeModal();
+    goBackOneLevel();
   });
 })();
 </script>
