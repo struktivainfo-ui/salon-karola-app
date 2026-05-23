@@ -3,12 +3,16 @@ package com.salonkarola.app;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
+import android.widget.Toast;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+
+import androidx.activity.OnBackPressedCallback;
 
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
@@ -18,15 +22,65 @@ import java.net.URISyntaxException;
 
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "SalonKarolaMainActivity";
+    private long lastBackPressAt = 0L;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         try {
             configureWebViewSafety();
+            configureBackHandling();
         } catch (Exception error) {
             Log.e(TAG, "WebView-Sicherheitssetup fehlgeschlagen", error);
         }
+    }
+
+    private void configureBackHandling() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                final WebView webView = (bridge != null) ? bridge.getWebView() : null;
+                if (webView == null) {
+                    fallbackBackExit();
+                    return;
+                }
+                try {
+                    webView.evaluateJavascript(
+                            "(function(){try{return !!(window.handleAppBack && window.handleAppBack());}catch(e){return false;}})();",
+                            result -> {
+                                boolean handledInWeb = "true".equalsIgnoreCase(String.valueOf(result).replace("\"", "").trim());
+                                if (handledInWeb) {
+                                    return;
+                                }
+                                if (webView.canGoBack()) {
+                                    webView.goBack();
+                                    return;
+                                }
+                                fallbackBackExit();
+                            }
+                    );
+                } catch (Exception error) {
+                    Log.e(TAG, "Back-Handling via evaluateJavascript fehlgeschlagen", error);
+                    if (webView.canGoBack()) {
+                        webView.goBack();
+                    } else {
+                        fallbackBackExit();
+                    }
+                }
+            }
+        });
+    }
+
+    private void fallbackBackExit() {
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastBackPressAt < 2000L) {
+            finish();
+            return;
+        }
+        lastBackPressAt = now;
+        try {
+            Toast.makeText(this, "Nochmals zurück drücken zum Beenden", Toast.LENGTH_SHORT).show();
+        } catch (Exception ignored) {}
     }
 
     private void configureWebViewSafety() {

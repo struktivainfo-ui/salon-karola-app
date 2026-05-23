@@ -185,6 +185,7 @@
   let customerSearchOpen = false;
   let isHandlingBack = false;
   let isSyncingHistory = false;
+  let lastBackAction = "";
 
   window.appViewStack = Array.isArray(window.appViewStack) ? window.appViewStack : [];
 
@@ -268,6 +269,19 @@
     }
   }
 
+  function closeMoveDialog(options = {}) {
+    const fromBack = options.fromBack === true;
+    if (!moveFields || moveFields.hidden) return;
+    moveFields.hidden = true;
+    if (moveMsg) moveMsg.textContent = "";
+    popAppView("appointment_move");
+    if (!fromBack && !isSyncingHistory) {
+      isSyncingHistory = true;
+      history.back();
+      setTimeout(() => { isSyncingHistory = false; }, 0);
+    }
+  }
+
   function openModal() {
     if (!modal || !modal.hidden) return;
     closeDetail({ fromBack: true });
@@ -304,6 +318,7 @@
   function closeDetail(options = {}) {
     const fromBack = options.fromBack === true;
     if (!detailModal || detailModal.hidden) return;
+    closeMoveDialog({ fromBack: true });
     detailModal.classList.remove("is-open");
     detailModal.hidden = true;
     popAppView("appointment_details");
@@ -319,6 +334,7 @@
     closeModal({ fromBack: true });
     closeCustomerSearch({ fromBack: true });
     closeManualCustomer({ fromBack: true });
+    closeMoveDialog({ fromBack: true });
     document.body.classList.remove("modal-open", "body-locked");
     document.documentElement.classList.remove("body-locked");
     document.body.style.overflow = "";
@@ -326,13 +342,33 @@
     lockCount = 0;
   }
   window.closeAllOverlays = closeAllOverlays;
+  window.closeAppointmentModal = closeModal;
+  window.closeCustomerSearch = closeCustomerSearch;
+  window.closeMoveDialog = closeMoveDialog;
+  window.closeAppointmentDetails = closeDetail;
+  window.closeDrawer = function () {
+    if (typeof window.skCloseMenu === "function") window.skCloseMenu();
+  };
+  window.closeDayView = function () {
+    if (currentView === "day") {
+      window.location.href = monthBackUrl;
+      return true;
+    }
+    return false;
+  };
   window.getOverlayState = function () {
     return {
       modalOpen: !!(modal && !modal.hidden),
       detailOpen: !!(detailModal && !detailModal.hidden),
       bodyModalOpen: document.body.classList.contains("modal-open"),
       bodyLocked: document.body.classList.contains("body-locked"),
-      overlayCount: [modal, detailModal].filter((el) => el && !el.hidden).length
+      overlayCount: [modal, detailModal].filter((el) => el && !el.hidden).length,
+      currentAppView: currentAppView(),
+      customerSearchOpen: customerSearchOpen,
+      moveDialogOpen: !!(moveFields && !moveFields.hidden),
+      dayViewOpen: currentView === "day",
+      drawerOpen: document.body.classList.contains("mobile-menu-open"),
+      lastBackAction
     };
   };
   if (openBtn) openBtn.addEventListener("click", openModal);
@@ -472,6 +508,11 @@
     moveBtn.addEventListener("click", () => {
       if (!moveFields) return;
       moveFields.hidden = !moveFields.hidden;
+      if (!moveFields.hidden) {
+        pushAppView("appointment_move");
+      } else {
+        popAppView("appointment_move");
+      }
       if (!moveFields.hidden && moveDate && !moveDate.value) moveDate.value = selectedDate;
     });
   }
@@ -521,41 +562,66 @@
   function goBackOneLevel() {
     if (customerSearchOpen || (results && results.innerHTML.trim())) {
       closeCustomerSearch({ fromBack: true });
+      lastBackAction = "close_customer_search";
       return true;
     }
     if (manual && !manual.hidden) {
       closeManualCustomer({ fromBack: true });
+      lastBackAction = "close_manual_customer";
+      return true;
+    }
+    if (moveFields && !moveFields.hidden) {
+      closeMoveDialog({ fromBack: true });
+      lastBackAction = "close_move_dialog";
       return true;
     }
     if (modal && !modal.hidden) {
       closeModal({ fromBack: true });
+      lastBackAction = "close_appointment_modal";
       return true;
     }
     if (detailModal && !detailModal.hidden) {
       closeDetail({ fromBack: true });
+      lastBackAction = "close_appointment_details";
+      return true;
+    }
+    if ((modal && !modal.hidden) || (detailModal && !detailModal.hidden) || document.body.classList.contains("modal-open")) {
+      closeAllOverlays();
+      lastBackAction = "close_all_overlays";
       return true;
     }
     if (document.body.classList.contains("mobile-menu-open") && typeof window.skCloseMenu === "function") {
       window.skCloseMenu();
+      lastBackAction = "close_drawer";
       return true;
     }
     if (currentView === "day" && currentAppView() === "calendar_day") {
       window.location.href = monthBackUrl;
+      lastBackAction = "close_day_view_to_month";
       return true;
     }
+    if (window.appViewStack.length > 1) {
+      popAppView();
+      lastBackAction = "pop_internal_stack";
+      return true;
+    }
+    lastBackAction = "allow_system_back";
     return false;
   }
 
   window.goBackOneLevel = goBackOneLevel;
-  window.handleAndroidBackButton = function () {
+  window.handleAppBack = function () {
     return goBackOneLevel();
+  };
+  window.handleAndroidBackButton = function () {
+    return window.handleAppBack();
   };
 
   window.addEventListener("popstate", () => {
     if (isHandlingBack) return;
     isHandlingBack = true;
     try {
-      const handled = goBackOneLevel();
+      const handled = window.handleAppBack();
       if (!handled) {
         popAppView();
       }
