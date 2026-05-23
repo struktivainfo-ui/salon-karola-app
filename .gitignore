@@ -12,3 +12,19 @@ backups/
 .pytest_cache/
 .venv/
 venv/
+instance/
+*.log
+*.tmp
+*.bak
+*.orig
+
+# Android/Capacitor build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/
+
+# Local desktop and sync artifacts
+.DS_Store
+Thumbs.db
+desktop.ini

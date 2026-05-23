@@ -135,10 +135,11 @@ def env_bool(name, default=False):
 
 
 SAFE_MODE = env_bool("SAFE_MODE", False)
-ENABLE_PUSH = env_bool("ENABLE_PUSH", not SAFE_MODE)
-ENABLE_SCHEDULER = env_bool("ENABLE_SCHEDULER", not SAFE_MODE)
-ENABLE_SERVICE_WORKER = env_bool("ENABLE_SERVICE_WORKER", not SAFE_MODE)
-ENABLE_FIREBASE = env_bool("ENABLE_FIREBASE", not SAFE_MODE)
+# Optionale Systeme bleiben standardmäßig aus und werden nur bewusst aktiviert.
+ENABLE_PUSH = env_bool("ENABLE_PUSH", False)
+ENABLE_SCHEDULER = env_bool("ENABLE_SCHEDULER", False)
+ENABLE_SERVICE_WORKER = env_bool("ENABLE_SERVICE_WORKER", False)
+ENABLE_FIREBASE = env_bool("ENABLE_FIREBASE", False)
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 ADMIN_STAFF_NAMES = {"Sven"}
 PRIMARY_BOOKING_STAFF = ["Ute", "Jessi"]
@@ -162,6 +163,7 @@ AUTO_BACKUP_KEEP = int(os.getenv("AUTO_BACKUP_KEEP", "21"))
 
 scheduler = BackgroundScheduler(timezone=APP_TIMEZONE)
 AUTOMATION_MIN_INTERVAL_SECONDS = int(os.getenv("AUTOMATION_MIN_INTERVAL_SECONDS", "300"))
+_BOOT_DONE = False
 
 
 # ---------- Auth ----------
@@ -2495,6 +2497,16 @@ def run_automation_if_due(force=False):
 
 @app.before_request
 def opportunistic_automation_runner():
+    global _BOOT_DONE
+    if not _BOOT_DONE:
+        try:
+            boot_app()
+            _BOOT_DONE = True
+        except Exception as exc:
+            try:
+                app.logger.warning("Boot-Initialisierung fehlgeschlagen: %s", exc)
+            except Exception:
+                pass
     if SAFE_MODE or not ENABLE_SCHEDULER:
         return None
     if request.endpoint in {"static", "manifest", "service_worker"}:

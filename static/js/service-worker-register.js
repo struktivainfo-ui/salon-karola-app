@@ -10,7 +10,7 @@
 
   async function registerWorker() {
     if (!("serviceWorker" in navigator)) {
-      write("Fehler: Service Worker wird nicht unterstuetzt.");
+      write("Fehler: Service Worker wird nicht unterstützt.");
       return;
     }
     try {
@@ -43,9 +43,9 @@
       }
       var keys = await caches.keys();
       await Promise.all(keys.map(function (k) { return caches.delete(k).catch(function () { return false; }); }));
-      write("OK: " + keys.length + " Cache(s) geloescht.");
+      write("OK: " + keys.length + " Cache(s) gelöscht.");
     } catch (error) {
-      write("Fehler beim Cache-Loeschen: " + String(error));
+      write("Fehler beim Cache-Löschen: " + String(error));
     }
   }
 
