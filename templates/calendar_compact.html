@@ -103,13 +103,16 @@
       <div class="row">
         <label>Leistung</label>
         <div class="sk-service-chips" id="serviceChips">
-          {% for key,label in [('waschen','Waschen'),('schneiden','Schneiden'),('foehnen','Föhnen'),('sonstiges','Herren'),('dauerwelle','Dauerwelle'),('farbe','Farbe'),('straehnen','Strähnen'),('legen','Legen')] %}
+          {% for key,label in [('waschen','Waschen'),('schneiden','Schneiden'),('foehnen','Föhnen'),('sonstiges','Herren'),('dauerwelle','Dauerwelle'),('farbe','Farbe'),('straehnen','Strähnen'),('legen','Sonstiges')] %}
           <button type="button" class="svc-chip" data-value="{{ key }}">{{ label }}</button>
           {% endfor %}
         </div>
       </div>
       <div class="row"><label>Notiz</label><textarea id="apptNote" rows="2"></textarea></div>
-      <div class="row"><button type="button" class="sk-btn sk-btn-primary" id="saveApptBtn">Speichern</button></div>
+      <div class="row sk-modal-actions">
+        <button type="button" class="sk-btn" id="cancelApptBtn">Abbrechen</button>
+        <button type="button" class="sk-btn sk-btn-primary" id="saveApptBtn">Speichern</button>
+      </div>
       <p id="saveApptMsg" class="sk-msg"></p>
     </div>
   </div>
@@ -136,6 +139,7 @@
   const detailModal = document.getElementById("detailModal");
   const openBtn = document.getElementById("btnNewAppt");
   const closeBtn = document.getElementById("closeApptModal");
+  const cancelBtn = document.getElementById("cancelApptBtn");
   const saveBtn = document.getElementById("saveApptBtn");
   const msg = document.getElementById("saveApptMsg");
   const search = document.getElementById("customerSearch");
@@ -148,6 +152,7 @@
 
   function lockBody() {
     lockCount += 1;
+    document.body.classList.add("modal-open");
     document.body.classList.add("body-locked");
     document.documentElement.classList.add("body-locked");
     document.body.style.overflow = "hidden";
@@ -156,6 +161,7 @@
   function unlockBody() {
     lockCount = Math.max(0, lockCount - 1);
     if (lockCount > 0) return;
+    document.body.classList.remove("modal-open");
     document.body.classList.remove("body-locked");
     document.documentElement.classList.remove("body-locked");
     document.body.style.overflow = "";
@@ -163,26 +169,54 @@
   }
   function openModal() {
     if (!modal || !modal.hidden) return;
+    closeDetail();
     modal.hidden = false;
+    modal.classList.add("is-open");
     lockBody();
+    const firstField = document.getElementById("staffName");
+    if (firstField && typeof firstField.focus === "function") firstField.focus();
   }
   function closeModal() {
     if (!modal || modal.hidden) return;
+    modal.classList.remove("is-open");
     modal.hidden = true;
     unlockBody();
   }
   function openDetail() {
     if (!detailModal || !detailModal.hidden) return;
+    closeModal();
     detailModal.hidden = false;
+    detailModal.classList.add("is-open");
     lockBody();
   }
   function closeDetail() {
     if (!detailModal || detailModal.hidden) return;
+    detailModal.classList.remove("is-open");
     detailModal.hidden = true;
     unlockBody();
   }
+  function closeAllOverlays() {
+    closeDetail();
+    closeModal();
+    document.body.classList.remove("modal-open", "body-locked");
+    document.documentElement.classList.remove("body-locked");
+    document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
+    lockCount = 0;
+  }
+  window.closeAllOverlays = closeAllOverlays;
+  window.getOverlayState = function () {
+    return {
+      modalOpen: !!(modal && !modal.hidden),
+      detailOpen: !!(detailModal && !detailModal.hidden),
+      bodyModalOpen: document.body.classList.contains("modal-open"),
+      bodyLocked: document.body.classList.contains("body-locked"),
+      overlayCount: [modal, detailModal].filter((el) => el && !el.hidden).length
+    };
+  };
   if (openBtn) openBtn.addEventListener("click", openModal);
   if (closeBtn) closeBtn.addEventListener("click", closeModal);
+  if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
   if (toggleManual) toggleManual.addEventListener("click", () => { manual.hidden = !manual.hidden; });
 
   chips.forEach((chip) => chip.addEventListener("click", () => chip.classList.toggle("active")));

@@ -7258,18 +7258,52 @@ input[type="submit"]:disabled {
 .sk-appt-card strong{display:block;font-size:.92rem}
 .sk-appt-card span{font-size:.82rem;opacity:.85}
 .sk-empty{padding:8px;font-size:.85rem;opacity:.7}
-.sk-modal{position:fixed;inset:0;background:rgba(16,12,10,.56);display:flex;align-items:flex-end;justify-content:center;z-index:1500}
-.sk-modal-box{width:min(760px,100%);background:#fff;border-radius:18px 18px 0 0;max-height:88vh;overflow:auto}
+.sk-modal[hidden]{display:none !important}
+.sk-modal{
+  position:fixed;
+  inset:0;
+  background:rgba(16,12,10,.45);
+  display:none;
+  align-items:flex-end;
+  justify-content:center;
+  z-index:2000;
+  pointer-events:auto;
+}
+.sk-modal.is-open{display:flex}
+.sk-modal-box{
+  position:relative;
+  z-index:2010;
+  width:min(760px,100%);
+  background:#fff;
+  border-radius:18px 18px 0 0;
+  max-height:88vh;
+  overflow:auto;
+  pointer-events:auto;
+}
 .sk-modal-box header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #eee}
 .sk-modal-box header h3{margin:0}
 .sk-modal-box header button{border:none;background:none;font-size:1.5rem;line-height:1}
 .sk-modal-body{padding:12px}
+.sk-modal *{pointer-events:auto}
 .sk-modal .row label{min-width:88px;font-weight:600}
 .sk-modal input,.sk-modal select,.sk-modal textarea{flex:1;min-width:0;padding:8px;border:1px solid #ddd;border-radius:8px}
-.sk-results{display:flex;flex-direction:column;gap:6px}
+.sk-results{display:flex;flex-direction:column;gap:6px;position:relative;z-index:2020}
 .sk-result-item{border:1px solid #e3d7c8;background:#fff;border-radius:8px;padding:8px;text-align:left}
-.sk-service-chips{display:flex;flex-wrap:wrap;gap:6px}
-.svc-chip{border:1px solid #d8cdbf;background:#fff;border-radius:999px;padding:6px 10px}
+.sk-service-chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.svc-chip{border:1px solid #d8cdbf;background:#fff;border-radius:12px;padding:10px 8px;font-weight:700}
 .svc-chip.active{background:#1f1a17;color:#fff;border-color:#1f1a17}
 .sk-msg{font-size:.85rem;margin-top:6px}
+.sk-modal-actions{
+  position:sticky;
+  bottom:0;
+  background:#fff;
+  padding:10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+  border-top:1px solid #eee;
+  z-index:2015;
+}
+.bottom-nav,.staff-bottom-nav,.admin-bottom-nav{z-index:100}
+body.modal-open .bottom-nav,
+body.modal-open .staff-bottom-nav,
+body.modal-open .admin-bottom-nav,
+body.modal-open .simple-floating-action{display:none !important}
 @media (max-width:760px){.sk-columns{grid-template-columns:1fr}.sk-col-body{max-height:44vh}}
