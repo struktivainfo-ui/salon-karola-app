@@ -2069,10 +2069,12 @@ def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff
 
 
 def opening_hours_for_date(date_obj):
-    if date_obj.weekday() <= 4:
-        return ("09:00", "17:45")
+    # Fallback-Öffnungszeiten:
+    # Dienstag-Freitag 09:00-18:00, Samstag 08:00-13:00, Montag/Sonntag geschlossen.
+    if date_obj.weekday() in {1, 2, 3, 4}:
+        return ("09:00", "18:00")
     if date_obj.weekday() == 5:
-        return ("08:30", "12:45")
+        return ("08:00", "13:00")
     return None
 
 
@@ -2228,6 +2230,7 @@ def run_appointment_job():
         skipped = 0
         errors = 0
         push_sent = 0
+        seen_day_keys = set()
 
         for appt in appointments:
             checked += 1
@@ -2255,6 +2258,21 @@ def run_appointment_job():
             if not reminder_email:
                 skipped += 1
                 continue
+
+            appointment_day = (appt["appointment_at"] or "")[:10]
+            dedupe_key = None
+            if appt["customer_id"]:
+                dedupe_key = f"customer:{appt['customer_id']}:{appointment_day}"
+            else:
+                contact_key = (appt.get("manual_email") or appt.get("manual_phone") or "").strip().lower()
+                if contact_key:
+                    dedupe_key = f"manual:{contact_key}:{appointment_day}"
+            if dedupe_key:
+                if dedupe_key in seen_day_keys:
+                    log_email(appt["customer_id"], "appointment_email", subject, body, reminder_email, "skipped_duplicate", "Duplikat am selben Tag")
+                    skipped += 1
+                    continue
+                seen_day_keys.add(dedupe_key)
 
             already_sent = delivery_already_sent_today(
                 "appointment_email",
@@ -3767,13 +3785,33 @@ def switch_to_admin_app():
 @login_required
 def staff_today():
     set_ui_world("staff")
-    return redirect(url_for("calendar_view", view="day"))
+    return redirect(url_for("calendar_view", view="day", mine=1))
+
+
+@app.route("/staff/calendar")
+@staff_or_admin_required
+def staff_calendar():
+    set_ui_world("staff")
+    return redirect(url_for("calendar_view", view=request.args.get("view") or "month", date=request.args.get("date"), staff=request.args.get("staff"), mine=request.args.get("mine")))
+
+
+@app.route("/staff/day/<date_value>")
+@staff_or_admin_required
+def staff_day_view(date_value):
+    set_ui_world("staff")
+    return redirect(url_for("calendar_view", view="day", date=date_value, mine=1))
 
 
 @app.route("/staff/appointment/new", methods=["GET", "POST"])
 @staff_or_admin_required
 def staff_new_appointment():
     set_ui_world("staff")
+    if request.method == "GET":
+        at_raw = (request.args.get("appointment_at") or "").strip()
+        staff = (request.args.get("staff") or default_staff_for_simple_mode(get_db())).strip() or "Ute"
+        parsed = _parse_dt_safe(at_raw)
+        day = (parsed.date().isoformat() if parsed else datetime.now().date().isoformat())
+        return redirect(url_for("calendar_view", view="day", date=day, staff=staff, mine=1))
     return appointments_hub()
 
 
@@ -3781,48 +3819,7 @@ def staff_new_appointment():
 @staff_or_admin_required
 def staff_appointments_center():
     set_ui_world("staff")
-    db = get_db()
-    selected_date = parse_iso_date(request.args.get("date"))
-    own_staff = default_staff_for_simple_mode(db)
-    staff_options = [name for name in get_staff_options(db) if name != "Sven"]
-    mine_param = (request.args.get("mine") or "").strip().lower()
-    mine_mode = mine_param in {"1", "true", "yes", "on"}
-
-    staff = (request.args.get("staff") or own_staff).strip()
-    if staff not in staff_options and staff != "Alle":
-        staff = own_staff
-    if not is_admin_session():
-        if mine_mode:
-            staff = own_staff
-        elif staff == "Sven":
-            staff = own_staff
-
-    staff_label = own_staff if mine_mode else staff
-    if not staff_label:
-        staff_label = own_staff
-    if staff_label == "Alle" and not is_admin_session():
-        staff_label = own_staff
-
-    today_items = appointments_for_day(selected_date, staff_label, limit=50, db=db)
-    tomorrow_items = appointments_for_day(selected_date + timedelta(days=1), staff_label, limit=50, db=db)
-    upcoming_items = upcoming_appointments(limit=10, staff_name=staff_label if staff_label != "Alle" else "Alle", db=db)
-
-    return render_template(
-        "staff_appointments_center.html",
-        current_endpoint="staff_appointments_center",
-        app_version=APP_VERSION,
-        selected_date=selected_date.isoformat(),
-        selected_date_label=selected_date.strftime("%d.%m.%Y"),
-        today_date=datetime.now().date().isoformat(),
-        tomorrow_date=(datetime.now().date() + timedelta(days=1)).isoformat(),
-        staff=staff,
-        mine_mode=mine_mode,
-        own_staff=own_staff,
-        bookable_staff=staff_members_for_simple_mode(db) or get_staff_members(db),
-        today_items=today_items,
-        tomorrow_items=tomorrow_items,
-        upcoming_items=upcoming_items,
-    )
+    return redirect(url_for("calendar_view", view=request.args.get("view") or "month", date=request.args.get("date"), staff=request.args.get("staff"), mine=request.args.get("mine")))
 
 
 @app.route("/staff/customers")
@@ -4082,7 +4079,7 @@ def admin_dashboard():
 @admin_required
 def admin_calendar_alias():
     set_ui_world("admin")
-    return redirect(url_for("calendar_view", view=request.args.get("view") or "week", date=request.args.get("date"), staff=request.args.get("staff")))
+    return redirect(url_for("calendar_view", view=request.args.get("view") or "month", date=request.args.get("date"), staff=request.args.get("staff") or "Alle"))
 
 
 @app.route("/admin/customers")
@@ -4096,7 +4093,7 @@ def admin_customers_alias():
 @admin_required
 def admin_appointments_alias():
     set_ui_world("admin")
-    return appointments_hub()
+    return redirect(url_for("calendar_view", view=request.args.get("view") or "month", date=request.args.get("date"), staff=request.args.get("staff") or "Alle"))
 
 
 @app.route("/admin/push")
@@ -4280,6 +4277,173 @@ def customer_search_alias():
             }
         )
     return {"ok": True, "items": items}
+
+
+@app.route("/api/calendar/month")
+@login_required
+def api_calendar_month():
+    year_raw = (request.args.get("year") or "").strip()
+    month_raw = (request.args.get("month") or "").strip()
+    try:
+        year = int(year_raw)
+        month = int(month_raw)
+        if not (1 <= month <= 12):
+            raise ValueError
+    except Exception:
+        today = datetime.now().date()
+        year = today.year
+        month = today.month
+
+    month_start = datetime(year, month, 1).date()
+    month_end = (month_start + timedelta(days=32)).replace(day=1)
+    rows = get_db().execute(
+        """
+        SELECT substr(appointment_at, 1, 10) AS day_key,
+               COALESCE(staff_name, 'Ute') AS staff_name,
+               COUNT(*) AS cnt
+        FROM appointments
+        WHERE appointment_at >= ? AND appointment_at < ?
+        GROUP BY substr(appointment_at, 1, 10), COALESCE(staff_name, 'Ute')
+        ORDER BY day_key ASC
+        """,
+        (month_start.isoformat(), month_end.isoformat()),
+    ).fetchall()
+
+    days = {}
+    for row in rows:
+        day_key = (row["day_key"] or "").strip()
+        if not day_key:
+            continue
+        days.setdefault(day_key, {"date": day_key, "total": 0, "ute": 0, "jessi": 0})
+        cnt = int(row["cnt"] or 0)
+        days[day_key]["total"] += cnt
+        staff = (row["staff_name"] or "").strip().lower()
+        if staff == "ute":
+            days[day_key]["ute"] += cnt
+        elif staff == "jessi":
+            days[day_key]["jessi"] += cnt
+
+    return {"ok": True, "year": year, "month": month, "days": list(days.values())}
+
+
+@app.route("/api/calendar/day")
+@login_required
+def api_calendar_day():
+    selected_date = parse_iso_date(request.args.get("date"))
+    staff = (request.args.get("staff") or "all").strip().lower()
+    if staff not in {"all", "ute", "jessi"}:
+        staff = "all"
+
+    rows = appointments_for_day(selected_date, "Alle", limit=220, db=get_db())
+    ute_items = []
+    jessi_items = []
+    for item in rows:
+        staff_name = (item.get("staff_name") or "").strip().lower()
+        payload_item = {
+            "id": item["id"],
+            "time": item.get("time_label") or "--:--",
+            "appointment_at": item.get("appointment_label") or "",
+            "customer_name": item.get("customer_name") or "Termin",
+            "service": item.get("service_label") or "Termin",
+            "status": item.get("status") or "geplant",
+            "staff_name": item.get("staff_name") or "",
+            "notes": item.get("notes_short") or "",
+            "call_url": item.get("call_url") or "",
+            "whatsapp_url": item.get("whatsapp_url") or "",
+            "edit_url": item.get("edit_url") or "",
+        }
+        if staff_name == "ute":
+            ute_items.append(payload_item)
+        elif staff_name == "jessi":
+            jessi_items.append(payload_item)
+
+    hours = opening_hours_for_date(selected_date)
+    opening = {"open": bool(hours), "start": (hours[0] if hours else ""), "end": (hours[1] if hours else "")}
+    if staff == "ute":
+        return {"ok": True, "date": selected_date.isoformat(), "opening": opening, "ute": ute_items, "jessi": []}
+    if staff == "jessi":
+        return {"ok": True, "date": selected_date.isoformat(), "opening": opening, "ute": [], "jessi": jessi_items}
+    return {"ok": True, "date": selected_date.isoformat(), "opening": opening, "ute": ute_items, "jessi": jessi_items}
+
+
+@app.route("/api/appointments", methods=["POST"])
+@login_required
+def api_create_appointment():
+    try:
+        payload = request.get_json(silent=True) or {}
+        db = get_db()
+        selected_date = (payload.get("date") or "").strip()
+        selected_time = (payload.get("time") or "").strip()
+        appointment_at = f"{selected_date}T{selected_time}" if selected_date and selected_time else ""
+        if not _parse_dt_safe(appointment_at):
+            return jsonify({"ok": False, "error": "Bitte Datum und Uhrzeit angeben."}), 400
+
+        staff_name = _normalize_staff_name(payload.get("staff_name"), default=get_default_staff(db), db=db)
+        selected_services = normalize_service_selection(payload.get("services") or payload.get("service_codes") or [])
+        service_summary = service_summary_from_selection(selected_services) or (payload.get("service") or "Termin")
+        title = service_summary or "Termin"
+        notes = (payload.get("note") or payload.get("notes") or "").strip()
+        reminder_hours = _safe_int(payload.get("reminder_hours") or 24, default=24, minimum=0, maximum=720)
+
+        customer_id_raw = str(payload.get("customer_id") or "").strip()
+        manual_name = (payload.get("manual_name") or "").strip()
+        manual_phone = (payload.get("manual_phone") or "").strip()
+        manual_email = (payload.get("manual_email") or "").strip()
+        manual_firstname = ""
+        manual_lastname = ""
+        customer_id = None
+
+        if customer_id_raw.isdigit():
+            check_row = db.execute("SELECT _id FROM _Customers WHERE _id = ? LIMIT 1", (int(customer_id_raw),)).fetchone()
+            if check_row:
+                customer_id = int(customer_id_raw)
+
+        if customer_id is None:
+            if not manual_name:
+                return jsonify({"ok": False, "error": "Bitte Kunde auswählen oder manuell eintragen."}), 400
+            parts = [part for part in manual_name.split(" ") if part.strip()]
+            manual_firstname = parts[0] if parts else manual_name
+            manual_lastname = " ".join(parts[1:]) if len(parts) > 1 else "(manuell)"
+            customer_id = ensure_manual_placeholder_customer(db)
+
+        duration_minutes, processing_minutes = service_time_defaults(selected_services)
+        actor_name = session.get("staff_name") or session.get("admin_username") or staff_name
+
+        db.execute(
+            """
+            INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at, manual_firstname, manual_lastname, manual_phone, manual_email, service_codes, service_summary, duration_minutes, processing_minutes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                customer_id,
+                title,
+                appointment_at,
+                notes,
+                reminder_hours,
+                datetime.now().isoformat(timespec="seconds"),
+                "geplant",
+                staff_name,
+                actor_name,
+                datetime.now().isoformat(timespec="seconds"),
+                manual_firstname,
+                manual_lastname,
+                manual_phone,
+                manual_email,
+                ",".join(selected_services),
+                service_summary,
+                duration_minutes,
+                processing_minutes,
+            ),
+        )
+        appt_id = int(db.execute("SELECT last_insert_rowid() AS id").fetchone()["id"])
+        db.commit()
+        return jsonify({"ok": True, "id": appt_id, "message": "Termin gespeichert."})
+    except Exception as exc:
+        try:
+            app.logger.exception("Termin speichern fehlgeschlagen", exc_info=exc)
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": safe_user_error()}), 500
 
 
 @app.route("/customers/birthdays")
@@ -4874,6 +5038,15 @@ def _calendar_nav_date(selected_date, view, step):
 def appointments_hub():
     db = get_db()
 
+    if request.method == "GET" and (request.args.get("legacy") or "").strip() != "1":
+        at_raw = (request.args.get("appointment_at") or "").strip()
+        parsed = _parse_dt_safe(at_raw)
+        day = parsed.date().isoformat() if parsed else parse_iso_date(request.args.get("date")).isoformat()
+        staff = (request.args.get("staff") or ("Alle" if is_admin_world_session() else default_staff_for_simple_mode(db))).strip()
+        if staff not in {"Alle", "Ute", "Jessi"}:
+            staff = "Alle" if is_admin_world_session() else default_staff_for_simple_mode(db)
+        return redirect(url_for("calendar_view", view="day", date=day, staff=staff, mine=0 if is_admin_world_session() else 1))
+
     if request.method == "POST":
         customer_id_raw = (request.form.get("customer_id") or "").strip()
         appointment_at = (request.form.get("appointment_at") or "").strip()
@@ -5081,74 +5254,115 @@ def appointment_ping_create():
 @app.route("/calendar")
 @login_required
 def calendar_view():
-    default_view = "week" if is_admin_world_session() else "day"
-    view = (request.args.get("view") or default_view).strip().lower()
-    if view not in {"day", "week", "month"}:
-        view = "week"
-
-    selected_date = parse_iso_date(request.args.get("date"))
     db = get_db()
-    staff_options = get_staff_options(db)
+    is_admin_world = is_admin_world_session()
+    selected_date = parse_iso_date(request.args.get("date"))
+    view = (request.args.get("view") or "month").strip().lower()
+    if view not in {"month", "day"}:
+        view = "month"
+
     own_staff = default_staff_for_simple_mode(db)
-    mine_param = (request.args.get("mine") or "").strip().lower()
-    mine_mode = mine_param in {"1", "true", "yes", "on"}
-    if not is_admin_session() and not mine_param and not (request.args.get("staff") or "").strip():
-        mine_mode = True
+    staff_raw = (request.args.get("staff") or ("Alle" if is_admin_world else own_staff)).strip()
+    mine_mode = (request.args.get("mine") or "").strip().lower() in {"1", "true", "yes", "on"}
+    if not is_admin_world and (mine_mode or not staff_raw):
+        staff_raw = own_staff
+    if staff_raw == "Sven" and not is_admin_world:
+        staff_raw = own_staff
+    if staff_raw not in {"Alle", "Ute", "Jessi"}:
+        staff_raw = "Alle" if is_admin_world else own_staff
 
-    staff = (request.args.get("staff") or ("Alle" if is_admin_session() else own_staff)).strip()
-    if staff not in staff_options:
-        staff = "Alle" if is_admin_session() else own_staff
-    if not is_admin_session():
-        if mine_mode:
-            staff = own_staff
-        elif staff == "Sven":
-            staff = own_staff
+    month_anchor = selected_date.replace(day=1)
+    prev_month = (month_anchor - timedelta(days=1)).replace(day=1)
+    next_month = (month_anchor + timedelta(days=32)).replace(day=1)
 
-    day_view = _build_day_view(selected_date, staff) if view == "day" else None
-    week_view = _build_week_view(selected_date, staff) if view == "week" else None
-    month_view = _build_month_view(selected_date, staff) if view == "month" else None
-    split_day_views = None
-    if view == "day" and staff == "Alle":
-        members = get_staff_members(db)
-        preferred_members = [name for name in ["Ute", "Jessi"] if name in members]
-        remaining_members = [name for name in members if name not in preferred_members]
-        ordered_members = preferred_members + remaining_members
-        split_day_views = {name: _build_day_view(selected_date, name) for name in ordered_members}
-    simple_day_items = appointments_for_day(selected_date, staff, db=db) if view == "day" else []
+    # Monatliche Marker (pro Tag, inkl. Ute/Jessi).
+    month_start = month_anchor
+    month_end = (month_anchor + timedelta(days=32)).replace(day=1)
+    month_rows = db.execute(
+        """
+        SELECT substr(appointment_at, 1, 10) AS day_key,
+               COALESCE(staff_name, 'Ute') AS staff_name,
+               COUNT(*) AS cnt
+        FROM appointments
+        WHERE appointment_at >= ? AND appointment_at < ?
+        GROUP BY substr(appointment_at, 1, 10), COALESCE(staff_name, 'Ute')
+        """,
+        (month_start.isoformat(), month_end.isoformat()),
+    ).fetchall()
+    month_markers = {}
+    for row in month_rows:
+        day_key = (row["day_key"] or "").strip()
+        if not day_key:
+            continue
+        month_markers.setdefault(day_key, {"total": 0, "ute": 0, "jessi": 0})
+        count = int(row["cnt"] or 0)
+        month_markers[day_key]["total"] += count
+        staff_key = (row["staff_name"] or "").strip().lower()
+        if staff_key == "ute":
+            month_markers[day_key]["ute"] += count
+        elif staff_key == "jessi":
+            month_markers[day_key]["jessi"] += count
 
-    chip_dates = []
-    for offset in range(0, 6):
-        chip_day = selected_date + timedelta(days=offset)
-        chip_dates.append(
+    # Monatsraster (Mo-So, 6 Wochen).
+    start_cell = month_anchor - timedelta(days=month_anchor.weekday())
+    cells = []
+    for i in range(42):
+        cell_date = start_cell + timedelta(days=i)
+        key = cell_date.isoformat()
+        marker = month_markers.get(key, {"total": 0, "ute": 0, "jessi": 0})
+        cells.append(
             {
-                "date": chip_day.isoformat(),
-                "label": chip_day.strftime("%a %d"),
-                "is_today": chip_day == datetime.now().date(),
+                "date": key,
+                "day": cell_date.day,
+                "in_month": cell_date.month == month_anchor.month,
+                "is_today": cell_date == datetime.now().date(),
+                "count_total": marker["total"],
+                "count_ute": marker["ute"],
+                "count_jessi": marker["jessi"],
             }
         )
+    month_weeks = [cells[i:i + 7] for i in range(0, 42, 7)]
 
-    template_name = "admin_calendar.html" if is_admin_world_session() else "staff_today.html"
+    # Tagesansicht mit Ute/Jessi-Spalten.
+    day_items_all = appointments_for_day(selected_date, "Alle", limit=180, db=db)
+    col_ute = []
+    col_jessi = []
+    for item in day_items_all:
+        staff_name = (item.get("staff_name") or "").strip()
+        if staff_name == "Ute":
+            col_ute.append(item)
+        elif staff_name == "Jessi":
+            col_jessi.append(item)
+    if staff_raw == "Ute":
+        visible_columns = ["Ute"]
+    elif staff_raw == "Jessi":
+        visible_columns = ["Jessi"]
+    else:
+        visible_columns = ["Ute", "Jessi"]
+
+    hours = opening_hours_for_date(selected_date)
+    opening_label = (f"Geöffnet: {hours[0]}–{hours[1]} Uhr" if hours else "Heute geschlossen")
+
     return render_template(
-        template_name,
-        view=view,
-        staff=staff,
-        selected_date=selected_date.isoformat(),
-        selected_date_label=selected_date.strftime("%d.%m.%Y"),
-        today_date_obj=datetime.now().date(),
-        prev_date=_calendar_nav_date(selected_date, view, -1),
-        next_date=_calendar_nav_date(selected_date, view, 1),
-        today_date=datetime.now().date().isoformat(),
-        day_view=day_view,
-        week_view=week_view,
-        month_view=month_view,
-        split_day_views=split_day_views,
-        simple_day_items=simple_day_items,
-        mine_mode=mine_mode,
-        own_staff=own_staff,
+        "calendar_compact.html",
         current_endpoint="calendar_view",
         app_version=APP_VERSION,
-        bookable_staff=simple_staff_members if (simple_staff_members := staff_members_for_simple_mode(db)) else get_staff_members(db),
-        staff_day_chip_dates=chip_dates,
+        is_admin_world=is_admin_world,
+        view=view,
+        selected_date=selected_date.isoformat(),
+        selected_date_label=selected_date.strftime("%d.%m.%Y"),
+        month_label=format_month_label_de(month_anchor),
+        month_prev=prev_month.isoformat(),
+        month_next=next_month.isoformat(),
+        today_date=datetime.now().date().isoformat(),
+        month_weeks=month_weeks,
+        staff_filter=staff_raw,
+        visible_columns=visible_columns,
+        own_staff=own_staff,
+        opening_label=opening_label,
+        day_ute=col_ute,
+        day_jessi=col_jessi,
+        service_presets=SERVICE_PRESETS,
     )
 
 

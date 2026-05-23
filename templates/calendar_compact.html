@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+{% block title %}Kalender · Salon Karola{% endblock %}
+{% block content %}
+<section class="sk-cal-wrap">
+  <header class="sk-cal-head">
+    <div>
+      <div class="sk-kicker">{% if is_admin_world %}Admin-Kalender{% else %}Mitarbeiter-Kalender{% endif %}</div>
+      <h1>{{ month_label }}</h1>
+    </div>
+    <div class="sk-cal-actions">
+      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', date=month_prev, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">◀</a>
+      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', date=today_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Heute</a>
+      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', date=month_next, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">▶</a>
+    </div>
+  </header>
+
+  <section class="sk-month-grid">
+    <div class="sk-wd">Mo</div><div class="sk-wd">Di</div><div class="sk-wd">Mi</div><div class="sk-wd">Do</div><div class="sk-wd">Fr</div><div class="sk-wd">Sa</div><div class="sk-wd">So</div>
+    {% for week in month_weeks %}
+      {% for cell in week %}
+      <a class="sk-day {% if not cell.in_month %}is-muted{% endif %} {% if cell.is_today %}is-today{% endif %}" href="{{ url_for('calendar_view', view='day', date=cell.date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">
+        <span class="sk-day-num">{{ cell.day }}</span>
+        {% if cell.count_total > 0 %}
+        <span class="sk-day-dotline">
+          {% if cell.count_ute > 0 %}<span class="dot-ute" title="Ute: {{ cell.count_ute }}"></span>{% endif %}
+          {% if cell.count_jessi > 0 %}<span class="dot-jessi" title="Jessi: {{ cell.count_jessi }}"></span>{% endif %}
+          <span class="sk-day-count">{{ cell.count_total }}</span>
+        </span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    {% endfor %}
+  </section>
+
+  {% if view == 'day' %}
+  <section class="sk-day-head">
+    <div>
+      <h2>{{ selected_date_label }}</h2>
+      <p>{{ opening_label }}</p>
+    </div>
+    <div class="sk-day-actions">
+      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', date=selected_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Zum Monat</a>
+      <button class="sk-btn sk-btn-primary" id="btnNewAppt">+ Termin</button>
+    </div>
+  </section>
+
+  <div class="sk-filter-row">
+    <a class="sk-chip {% if staff_filter == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff='Alle', mine=0) }}">Alle</a>
+    <a class="sk-chip {% if staff_filter == 'Ute' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff='Ute', mine=1 if not is_admin_world else 0) }}">Ute</a>
+    <a class="sk-chip {% if staff_filter == 'Jessi' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff='Jessi', mine=1 if not is_admin_world else 0) }}">Jessi</a>
+  </div>
+
+  <section class="sk-columns">
+    {% if 'Ute' in visible_columns %}
+    <article class="sk-col col-ute">
+      <header>Ute <span>{{ day_ute|length }}</span></header>
+      <div class="sk-col-body">
+        {% for item in day_ute %}
+        <button class="sk-appt-card js-open-detail" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">
+          <strong>{{ item.time_label }} · {{ item.customer_name }}</strong>
+          <span>{{ item.service_label }}</span>
+        </button>
+        {% else %}
+        <div class="sk-empty">Keine Termine.</div>
+        {% endfor %}
+      </div>
+    </article>
+    {% endif %}
+
+    {% if 'Jessi' in visible_columns %}
+    <article class="sk-col col-jessi">
+      <header>Jessi <span>{{ day_jessi|length }}</span></header>
+      <div class="sk-col-body">
+        {% for item in day_jessi %}
+        <button class="sk-appt-card js-open-detail" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">
+          <strong>{{ item.time_label }} · {{ item.customer_name }}</strong>
+          <span>{{ item.service_label }}</span>
+        </button>
+        {% else %}
+        <div class="sk-empty">Keine Termine.</div>
+        {% endfor %}
+      </div>
+    </article>
+    {% endif %}
+  </section>
+  {% endif %}
+</section>
+
+<section id="apptModal" class="sk-modal" hidden>
+  <div class="sk-modal-box">
+    <header><h3>Termin erstellen</h3><button type="button" id="closeApptModal">×</button></header>
+    <div class="sk-modal-body">
+      <div class="row"><label>Mitarbeiterin</label><select id="staffName"><option>Ute</option><option>Jessi</option></select></div>
+      <div class="row"><label>Uhrzeit</label><input id="apptTime" type="time" value="09:00"></div>
+      <div class="row"><label>Kunde</label><input id="customerSearch" type="text" placeholder="Name oder Telefon"></div>
+      <div class="sk-results" id="customerResults"></div>
+      <div class="row"><button type="button" class="sk-btn" id="toggleManual">Manuell eintragen</button></div>
+      <div id="manualFields" hidden>
+        <div class="row"><label>Name</label><input id="manualName" type="text"></div>
+        <div class="row"><label>Telefon</label><input id="manualPhone" type="text"></div>
+        <div class="row"><label>E-Mail</label><input id="manualEmail" type="email"></div>
+      </div>
+      <div class="row">
+        <label>Leistung</label>
+        <div class="sk-service-chips" id="serviceChips">
+          {% for key,label in [('waschen','Waschen'),('schneiden','Schneiden'),('foehnen','Föhnen'),('sonstiges','Herren'),('dauerwelle','Dauerwelle'),('farbe','Farbe'),('straehnen','Strähnen'),('legen','Legen')] %}
+          <button type="button" class="svc-chip" data-value="{{ key }}">{{ label }}</button>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="row"><label>Notiz</label><textarea id="apptNote" rows="2"></textarea></div>
+      <div class="row"><button type="button" class="sk-btn sk-btn-primary" id="saveApptBtn">Speichern</button></div>
+      <p id="saveApptMsg" class="sk-msg"></p>
+    </div>
+  </div>
+</section>
+
+<section id="detailModal" class="sk-modal" hidden>
+  <div class="sk-modal-box">
+    <header><h3 id="dCustomer">Termin</h3><button type="button" id="closeDetailModal">×</button></header>
+    <div class="sk-modal-body">
+      <p id="dTime"></p><p id="dService"></p><p id="dStaff"></p><p id="dStatus"></p><p id="dNotes"></p>
+      <div class="row">
+        <a class="sk-btn" id="dCall" href="#" hidden>Telefon</a>
+        <a class="sk-btn" id="dWa" href="#" target="_blank" rel="noopener" hidden>WhatsApp</a>
+        <a class="sk-btn sk-btn-primary" id="dEdit" href="#">Bearbeiten</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(() => {
+  const selectedDate = {{ selected_date|tojson }};
+  const modal = document.getElementById("apptModal");
+  const openBtn = document.getElementById("btnNewAppt");
+  const closeBtn = document.getElementById("closeApptModal");
+  const saveBtn = document.getElementById("saveApptBtn");
+  const msg = document.getElementById("saveApptMsg");
+  const search = document.getElementById("customerSearch");
+  const results = document.getElementById("customerResults");
+  const toggleManual = document.getElementById("toggleManual");
+  const manual = document.getElementById("manualFields");
+  const chips = Array.from(document.querySelectorAll(".svc-chip"));
+  let selectedCustomerId = "";
+
+  function openModal() { if (modal) modal.hidden = false; }
+  function closeModal() { if (modal) modal.hidden = true; }
+  if (openBtn) openBtn.addEventListener("click", openModal);
+  if (closeBtn) closeBtn.addEventListener("click", closeModal);
+  if (toggleManual) toggleManual.addEventListener("click", () => { manual.hidden = !manual.hidden; });
+
+  chips.forEach((chip) => chip.addEventListener("click", () => chip.classList.toggle("active")));
+
+  async function searchCustomers(q) {
+    if (!results) return;
+    if (!q || q.trim().length < 2) { results.innerHTML = ""; return; }
+    try {
+      const res = await fetch(`/api/customers/search?q=${encodeURIComponent(q)}&limit=8`, { credentials: "same-origin" });
+      const data = await res.json();
+      const items = (data && data.items) || [];
+      if (!items.length) {
+        results.innerHTML = `<div class="sk-empty">Kein Kunde gefunden. Manuell eintragen möglich.</div>`;
+        return;
+      }
+      results.innerHTML = items.map((it) => `<button type="button" class="sk-result-item" data-id="${it.id}" data-name="${(it.name || "").replace(/"/g, "&quot;")}">${it.name || ""} · ${it.phone || "-"}</button>`).join("");
+      results.querySelectorAll(".sk-result-item").forEach((btn) => btn.addEventListener("click", () => {
+        selectedCustomerId = btn.dataset.id || "";
+        if (search) search.value = btn.dataset.name || "";
+        results.innerHTML = "";
+      }));
+    } catch (error) {
+      results.innerHTML = `<div class="sk-empty">Suche fehlgeschlagen.</div>`;
+    }
+  }
+  if (search) search.addEventListener("input", () => searchCustomers(search.value));
+
+  async function saveAppointment() {
+    if (!saveBtn) return;
+    saveBtn.disabled = true;
+    msg.textContent = "";
+    const staffName = document.getElementById("staffName")?.value || "Ute";
+    const time = document.getElementById("apptTime")?.value || "";
+    const manualName = document.getElementById("manualName")?.value?.trim() || "";
+    const manualPhone = document.getElementById("manualPhone")?.value?.trim() || "";
+    const manualEmail = document.getElementById("manualEmail")?.value?.trim() || "";
+    const note = document.getElementById("apptNote")?.value?.trim() || "";
+    const services = chips.filter((c) => c.classList.contains("active")).map((c) => c.dataset.value);
+    if (!time) { msg.textContent = "Bitte Uhrzeit wählen."; saveBtn.disabled = false; return; }
+    if (!selectedCustomerId && !manualName) { msg.textContent = "Bitte Kunde wählen oder manuell eintragen."; saveBtn.disabled = false; return; }
+    try {
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          date: selectedDate,
+          time,
+          staff_name: staffName,
+          customer_id: selectedCustomerId,
+          manual_name: manualName,
+          manual_phone: manualPhone,
+          manual_email: manualEmail,
+          services,
+          note
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Speichern fehlgeschlagen.");
+      msg.textContent = "Termin gespeichert.";
+      window.location.href = `{{ url_for('calendar_view') }}?view=day&date=${encodeURIComponent(selectedDate)}&staff={{ staff_filter|urlencode }}{% if not is_admin_world and staff_filter != 'Alle' %}&mine=1{% endif %}`;
+    } catch (error) {
+      msg.textContent = error.message || "Fehler beim Speichern.";
+      saveBtn.disabled = false;
+    }
+  }
+  if (saveBtn) saveBtn.addEventListener("click", saveAppointment);
+
+  const detailModal = document.getElementById("detailModal");
+  function closeDetail() { if (detailModal) detailModal.hidden = true; }
+  document.getElementById("closeDetailModal")?.addEventListener("click", closeDetail);
+  document.querySelectorAll(".js-open-detail").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.getElementById("dCustomer").textContent = btn.dataset.customer || "Termin";
+      document.getElementById("dTime").textContent = `Uhrzeit: ${btn.dataset.time || "-"}`;
+      document.getElementById("dService").textContent = `Leistung: ${btn.dataset.service || "-"}`;
+      document.getElementById("dStaff").textContent = `Mitarbeiterin: ${btn.dataset.staff || "-"}`;
+      document.getElementById("dStatus").textContent = `Status: ${btn.dataset.status || "-"}`;
+      document.getElementById("dNotes").textContent = `Notiz: ${btn.dataset.notes || "Keine"}`;
+      const call = document.getElementById("dCall");
+      const wa = document.getElementById("dWa");
+      const edit = document.getElementById("dEdit");
+      if (call) { call.hidden = !btn.dataset.call; call.href = btn.dataset.call || "#"; }
+      if (wa) { wa.hidden = !btn.dataset.wa; wa.href = btn.dataset.wa || "#"; }
+      if (edit) edit.href = btn.dataset.edit || "#";
+      if (detailModal) detailModal.hidden = false;
+    });
+  });
+})();
+</script>
+{% endblock %}
