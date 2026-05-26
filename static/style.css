@@ -6313,6 +6313,18 @@ textarea {
   line-height: 1.55;
 }
 
+.app-update-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.app-update-actions .premium-button {
+  min-height: 46px;
+  width: 100%;
+  pointer-events: auto;
+}
+
 .customer-profile-form {
   padding-bottom: 20px;
 }

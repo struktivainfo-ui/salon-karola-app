@@ -3293,21 +3293,36 @@ def diagnose():
         lines.push("ServiceWorker Diagnosefehler: " + String(e));
       }}
       try {{
+        window.resetAppCache = async function resetAppCache() {{
+          if ("serviceWorker" in navigator) {{
+            var regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(function (reg) {{ return reg.unregister().catch(function () {{ return false; }}); }}));
+          }}
+          if ("caches" in window) {{
+            var keys = await caches.keys();
+            await Promise.all(keys.map(function (key) {{ return caches.delete(key).catch(function () {{ return false; }}); }}));
+          }}
+          try {{
+            ["updateAvailable","forceUpdate","needsUpdate","appVersion","lastVersion","swUpdate","cacheVersion","hasUpdate","sk_seen_app_version","sk_update_prompt_deferred"].forEach(function (key) {{
+              try {{ localStorage.removeItem(key); }} catch (e) {{}}
+              try {{ sessionStorage.removeItem(key); }} catch (e) {{}}
+            }});
+          }} catch (e) {{}}
+          window.location.reload();
+        }};
+      }} catch (e) {{}}
+
+      try {{
         var resetBtn = document.getElementById("diagResetCache");
         if (resetBtn) {{
           resetBtn.addEventListener("click", function (event) {{
             event.preventDefault();
             (async function () {{
               try {{
-                if ("serviceWorker" in navigator) {{
-                  var regs = await navigator.serviceWorker.getRegistrations();
-                  await Promise.all(regs.map(function (reg) {{ return reg.unregister().catch(function () {{ return false; }}); }}));
+                if (typeof window.resetAppCache === "function") {{
+                  await window.resetAppCache();
+                  return;
                 }}
-                if ("caches" in window) {{
-                  var keys = await caches.keys();
-                  await Promise.all(keys.map(function (key) {{ return caches.delete(key).catch(function () {{ return false; }}); }}));
-                }}
-                alert("Service Worker und Cache wurden zurückgesetzt. Bitte Seite neu laden.");
               }} catch (err) {{
                 alert("Cache-Reset fehlgeschlagen: " + String(err));
               }}

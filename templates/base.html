@@ -116,7 +116,10 @@
       <div class="app-update-kicker">Salon Karola App</div>
       <h2 id="appUpdateTitle">Neue Version verf&uuml;gbar</h2>
       <p id="appUpdateText">Es steht eine neue Version zur Verf&uuml;gung. Bitte jetzt aktualisieren.</p>
-      <button type="button" class="premium-button" id="appUpdateButton">Aktualisieren</button>
+      <div class="app-update-actions">
+        <button type="button" class="premium-button secondary" id="appUpdateLaterButton">Sp&auml;ter</button>
+        <button type="button" class="premium-button" id="appUpdateButton">Aktualisieren</button>
+      </div>
     </div>
   </div>
   {% endif %}
@@ -328,6 +331,7 @@
       const updatePrompt = document.getElementById("appUpdatePrompt");
       const updatePromptText = document.getElementById("appUpdateText");
       const updatePromptButton = document.getElementById("appUpdateButton");
+      const updatePromptLaterButton = document.getElementById("appUpdateLaterButton");
       const isMobileView = () => (typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 768px)").matches : (window.innerWidth || 1024) <= 768);
       const loggedInStaff = {{ logged_in_staff|tojson }};
       const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};
@@ -346,6 +350,9 @@
       let nativePushPending = null;
       let pendingUpdateRegistration = null;
       let swControllerListenerBound = false;
+      let swRefreshing = false;
+      const UPDATE_DEFERRED_SESSION_KEY = "sk_update_prompt_deferred";
+      const UPDATE_FLAG_KEYS = ["updateAvailable", "forceUpdate", "needsUpdate", "appVersion", "lastVersion", "swUpdate", "cacheVersion", "hasUpdate"];
 
       setDebugValue("route", window.location.pathname + window.location.search);
       setDebugValue("swStatus", (runtimeSafeMode || !serviceWorkerFeatureEnabled) ? "deaktiviert (safe-mode)" : (autoServiceWorkerBootAllowed ? (isNativeApp ? "deaktiviert (native Android-App)" : "nicht initialisiert") : "manuell aktivierbar"));
@@ -420,18 +427,59 @@
         return (safeLocalStorageGet(STORAGE_KEY_APP_VERSION, "") || "").trim();
       }
 
+      function clearUpdateFlags() {
+        try {
+          UPDATE_FLAG_KEYS.forEach((key) => {
+            try { localStorage.removeItem(key); } catch (error) {}
+            try { sessionStorage.removeItem(key); } catch (error) {}
+          });
+          try { sessionStorage.removeItem(UPDATE_DEFERRED_SESSION_KEY); } catch (error) {}
+        } catch (error) {}
+      }
+
+      function closeUpdatePrompt(options = {}) {
+        if (!updatePrompt) return;
+        const rememberSession = !!options.rememberSession;
+        updatePrompt.classList.remove("visible");
+        updatePrompt.hidden = true;
+        document.body.classList.remove("modal-open", "overflow-hidden");
+        document.documentElement.classList.remove("modal-open", "overflow-hidden");
+        document.body.style.overflow = "";
+        document.documentElement.style.overflow = "";
+        pendingUpdateRegistration = null;
+        if (updatePromptButton) {
+          updatePromptButton.disabled = false;
+          updatePromptButton.textContent = "Aktualisieren";
+        }
+        if (rememberSession) {
+          safeSessionStorageSet(UPDATE_DEFERRED_SESSION_KEY, APP_VERSION);
+        }
+      }
+
       function showUpdatePrompt(message, registration = null) {
         if (!updatePrompt) return;
+        if (safeSessionStorageGet(UPDATE_DEFERRED_SESSION_KEY, "") === APP_VERSION) return;
         if (registration) pendingUpdateRegistration = registration;
         if (updatePromptText) {
           updatePromptText.textContent = message || "Es steht eine neue Version zur Verf\u00fcgung. Bitte jetzt aktualisieren.";
         }
+        document.body.classList.add("modal-open");
+        document.documentElement.classList.add("modal-open");
+        document.body.style.overflow = "hidden";
+        document.documentElement.style.overflow = "hidden";
         updatePrompt.hidden = false;
         updatePrompt.classList.add("visible");
       }
 
+      async function clearBrowserCaches() {
+        if (!("caches" in window)) return;
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map((key) => caches.delete(key).catch(() => false)));
+      }
+
       async function applyAppUpdate() {
         if (!serviceWorkerFeatureEnabled) {
+          closeUpdatePrompt();
           window.location.reload();
           return;
         }
@@ -440,13 +488,16 @@
           updatePromptButton.textContent = "Aktualisiere...";
         }
         try {
-          persistSeenAppVersion(APP_VERSION);
           const registration = pendingUpdateRegistration || (!isNativeApp && boot.canUseServiceWorker && boot.canUseServiceWorker() ? await navigator.serviceWorker.getRegistration() : null);
           if (registration) {
             try { await registration.update(); } catch (e) {}
-            if (registration.waiting) {
+            const waitingWorker = registration.waiting;
+            if (waitingWorker) {
               pendingUpdateRegistration = registration;
-              registration.waiting.postMessage({ type: "SKIP_WAITING" });
+              persistSeenAppVersion(APP_VERSION);
+              clearUpdateFlags();
+              closeUpdatePrompt();
+              waitingWorker.postMessage({ type: "SKIP_WAITING" });
               window.setTimeout(() => {
                 if (!window.__skReloaded) {
                   window.__skReloaded = true;
@@ -456,7 +507,16 @@
               return;
             }
           }
-        } catch (e) {}
+          await clearBrowserCaches();
+          persistSeenAppVersion(APP_VERSION);
+          clearUpdateFlags();
+          closeUpdatePrompt();
+        } catch (e) {
+          reportError("applyAppUpdate", e);
+          closeUpdatePrompt();
+          alert("Aktualisierung konnte nicht vollständig ausgeführt werden. Die App bleibt nutzbar. Bitte später erneut versuchen.");
+          return;
+        }
         window.location.reload();
       }
 
@@ -509,6 +569,23 @@
         }
         persistSeenAppVersion(APP_VERSION);
       }
+
+      window.resetAppCache = async function resetAppCache() {
+        try {
+          if ("serviceWorker" in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map((reg) => reg.unregister().catch(() => false)));
+          }
+          await clearBrowserCaches();
+          clearUpdateFlags();
+          try { localStorage.removeItem(STORAGE_KEY_APP_VERSION); } catch (error) {}
+          try { sessionStorage.removeItem(UPDATE_DEFERRED_SESSION_KEY); } catch (error) {}
+          window.location.reload();
+        } catch (error) {
+          reportError("resetAppCache", error);
+          alert("Cache-Reset fehlgeschlagen. Die App bleibt nutzbar.");
+        }
+      };
 
       function closeMobileMenu() {
         if (mainNavLinks) {
@@ -1117,14 +1194,21 @@ ${body}`);
       }
 
       if (updatePromptButton) {
-        updatePromptButton.addEventListener('click', () => {
-          applyAppUpdate();
+        updatePromptButton.addEventListener('click', () => { applyAppUpdate(); });
+      }
+
+      if (updatePromptLaterButton) {
+        updatePromptLaterButton.addEventListener('click', () => {
+          closeUpdatePrompt({ rememberSession: true });
         });
       }
 
       document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
-          if (updatePrompt && !updatePrompt.hidden) return;
+          if (updatePrompt && !updatePrompt.hidden) {
+            closeUpdatePrompt({ rememberSession: true });
+            return;
+          }
           closeMobileMenu();
           closeDeviceStaffBar();
         }
@@ -1149,11 +1233,12 @@ ${body}`);
           if (!isNativeApp && navigator.serviceWorker && !swControllerListenerBound) {
             swControllerListenerBound = true;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
-              if (!window.__skReloaded) {
-                persistSeenAppVersion(APP_VERSION);
-                window.__skReloaded = true;
-                window.location.reload();
-              }
+              if (swRefreshing) return;
+              swRefreshing = true;
+              persistSeenAppVersion(APP_VERSION);
+              clearUpdateFlags();
+              if (!window.__skReloaded) window.__skReloaded = true;
+              window.location.reload();
             });
           }
         } catch (e) {
