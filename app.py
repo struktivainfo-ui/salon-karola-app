@@ -86,7 +86,23 @@ except Exception:
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
-DB_PATH = Path(os.getenv("DATABASE_PATH", str(BASE_DIR / "salon_karola.db")))
+
+
+def _resolve_database_path():
+    explicit = (os.getenv("DATABASE_PATH") or "").strip()
+    if explicit:
+        return Path(explicit)
+
+    # Render fallback: prefer mounted persistent disk if no explicit DATABASE_PATH was provided.
+    render_disk_default = Path("/var/data/salon_karola.db")
+    running_on_render = bool((os.getenv("RENDER") or "").strip() or (os.getenv("RENDER_EXTERNAL_URL") or "").strip())
+    if running_on_render and render_disk_default.parent.exists():
+        return render_disk_default
+
+    return BASE_DIR / "salon_karola.db"
+
+
+DB_PATH = _resolve_database_path()
 APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Europe/Berlin")
 os.environ.setdefault("TZ", APP_TIMEZONE)
 try:
@@ -95,6 +111,36 @@ try:
         _time.tzset()
 except Exception:
     pass
+
+
+def persistence_diagnosis():
+    db_path = DB_PATH.resolve()
+    db_dir = db_path.parent
+    explicit_db_path = bool((os.getenv("DATABASE_PATH") or "").strip())
+    running_on_render = bool((os.getenv("RENDER") or "").strip() or (os.getenv("RENDER_EXTERNAL_URL") or "").strip())
+    render_persistent_disk = str(db_dir).startswith("/var/data")
+
+    if running_on_render and not render_persistent_disk:
+        level = "Risiko vorhanden"
+        note = "Render erkannt, aber Datenbank liegt nicht auf /var/data (Persistent Disk)."
+    elif running_on_render and render_persistent_disk:
+        level = "Sicher dauerhaft gespeichert"
+        note = "Render Persistent Disk aktiv (/var/data)."
+    elif explicit_db_path:
+        level = "Sicher dauerhaft gespeichert"
+        note = "Expliziter DATABASE_PATH gesetzt."
+    else:
+        level = "Risiko vorhanden"
+        note = "Kein expliziter DATABASE_PATH gesetzt; lokale Pfade können je nach Umgebung flüchtig sein."
+
+    return {
+        "level": level,
+        "note": note,
+        "running_on_render": running_on_render,
+        "database_path_explicit": explicit_db_path,
+        "database_dir": str(db_dir),
+        "render_persistent_disk_path": render_persistent_disk,
+    }
 
 app = Flask(
     __name__,
@@ -1372,13 +1418,9 @@ Salon Karola''',
         body = (row[1] or "").strip()
 
         reset_needed = False
-        if not subject or not body:
-            reset_needed = True
-        if "Matthias" in subject or "Matthias" in body:
-            reset_needed = True
-        if template_id == "birthdate" and "{name}" not in body:
-            reset_needed = True
-        if template_id == "appointment" and "{termin}" not in body:
+        # Do not overwrite admin-managed templates on startup.
+        # Only auto-repair rows that are fully empty.
+        if not subject and not body:
             reset_needed = True
 
         if reset_needed:
@@ -1411,7 +1453,7 @@ Salon Karola''',
         row = conn.execute("SELECT subject, body FROM _MailTemplates WHERE id = ? LIMIT 1", (template_id,)).fetchone()
         subject = (row[0] or "") if row else ""
         body = (row[1] or "") if row else ""
-        if ("Ã" in subject or "Ã" in body or "Matthias" in subject or "Matthias" in body or not subject.strip() or not body.strip()):
+        if (not subject.strip() and not body.strip()):
             conn.execute("UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?", (values[0], values[1], template_id))
 
 
@@ -3065,6 +3107,14 @@ def diagnose():
         "app_version": APP_VERSION,
         "server_time": datetime.now().isoformat(timespec="seconds"),
         "database_path": str(DB_PATH),
+        "persistence": persistence_diagnosis(),
+        "storage_backends": {
+            "customers": "SQLite",
+            "appointments": "SQLite",
+            "mail_templates": "SQLite",
+            "app_settings": "SQLite",
+            "session_ui_state_client": "localStorage/sessionStorage (nur UI, nicht Kern-Daten)",
+        },
         "database_reachable": False,
         "customer_count": "n/a",
         "appointment_count": "n/a",
