@@ -237,6 +237,16 @@ def handle_internal_server_error(exc):
     )
 
 
+@app.errorhandler(405)
+def handle_method_not_allowed(exc):
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Diese Aktion ist für diese URL nicht erlaubt."}), 405
+    if session.get("admin_logged_in"):
+        flash("Die Aktion konnte nicht ausgeführt werden. Bitte Seite neu laden und erneut speichern.")
+        return redirect(url_for("templates_view"))
+    return redirect(url_for("login"))
+
+
 def hash_password(password):
     return generate_password_hash(password or "")
 
@@ -4118,7 +4128,8 @@ def admin_push_alias():
     return push_center()
 
 
-@app.route("/admin/templates")
+@app.route("/admin/templates", methods=["GET", "POST"])
+@app.route("/admin/templates/", methods=["GET", "POST"])
 @admin_required
 def admin_templates_alias():
     set_ui_world("admin")
@@ -6150,6 +6161,7 @@ def templates_live_api():
 
 
 @app.route("/templates", methods=["GET", "POST"])
+@app.route("/templates/", methods=["GET", "POST"])
 @admin_required
 def templates_view():
     db = get_db()
