@@ -102,7 +102,17 @@ def _resolve_database_path():
     return BASE_DIR / "salon_karola.db"
 
 
+def _resolve_backup_dir():
+    explicit = (os.getenv("BACKUP_DIR") or "").strip()
+    if explicit:
+        return Path(explicit)
+
+    # Keep backups on the same storage as the database by default.
+    return DB_PATH.parent / "backups"
+
+
 DB_PATH = _resolve_database_path()
+BACKUP_DIR = _resolve_backup_dir()
 APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Europe/Berlin")
 os.environ.setdefault("TZ", APP_TIMEZONE)
 try:
@@ -116,9 +126,12 @@ except Exception:
 def persistence_diagnosis():
     db_path = DB_PATH.resolve()
     db_dir = db_path.parent
+    backup_dir = BACKUP_DIR.resolve()
     explicit_db_path = bool((os.getenv("DATABASE_PATH") or "").strip())
+    explicit_backup_dir = bool((os.getenv("BACKUP_DIR") or "").strip())
     running_on_render = bool((os.getenv("RENDER") or "").strip() or (os.getenv("RENDER_EXTERNAL_URL") or "").strip())
     render_persistent_disk = str(db_dir).startswith("/var/data")
+    backup_on_persistent_disk = str(backup_dir).startswith("/var/data")
 
     if running_on_render and not render_persistent_disk:
         level = "Risiko vorhanden"
@@ -138,9 +151,65 @@ def persistence_diagnosis():
         "note": note,
         "running_on_render": running_on_render,
         "database_path_explicit": explicit_db_path,
+        "backup_dir_explicit": explicit_backup_dir,
         "database_dir": str(db_dir),
+        "backup_dir": str(backup_dir),
         "render_persistent_disk_path": render_persistent_disk,
+        "backup_on_persistent_disk": backup_on_persistent_disk,
     }
+
+
+def running_on_render():
+    return bool((os.getenv("RENDER") or "").strip() or (os.getenv("RENDER_EXTERNAL_URL") or "").strip())
+
+
+def production_like_runtime():
+    node_env = (os.getenv("NODE_ENV") or "").strip().lower()
+    flask_env = (os.getenv("FLASK_ENV") or "").strip().lower()
+    return running_on_render() or node_env == "production" or flask_env == "production"
+
+
+def ensure_persistent_storage_ready(require_writable=False):
+    if not production_like_runtime():
+        return
+
+    db_dir = DB_PATH.parent
+    backup_dir = BACKUP_DIR
+
+    if not str(DB_PATH).startswith("/var/data/"):
+        raise RuntimeError("Produktivschutz: DATABASE_PATH muss auf Render unter /var/data liegen.")
+    if not str(backup_dir).startswith("/var/data/"):
+        raise RuntimeError("Produktivschutz: BACKUP_DIR muss auf Render unter /var/data liegen.")
+    if not db_dir.exists():
+        raise RuntimeError("Render-Disk-Pfad nicht gefunden: Datenbankordner existiert nicht.")
+    if require_writable:
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        if not os.access(str(db_dir), os.W_OK):
+            raise RuntimeError("Keine Schreibrechte auf dem Render-Datenbankpfad.")
+        if not os.access(str(backup_dir), os.W_OK):
+            raise RuntimeError("Keine Schreibrechte auf dem Render-Backup-Pfad.")
+
+
+def explain_import_error(exc):
+    msg = str(exc or "").strip()
+    low = msg.lower()
+    if "no such file or directory" in low:
+        return "Import fehlgeschlagen: Datei oder Zielpfad wurde nicht gefunden."
+    if "readonly" in low or "read-only" in low:
+        return "Import fehlgeschlagen: Schreibrechte auf Datenbank/Render-Disk fehlen."
+    if "unable to open database file" in low:
+        return "Import fehlgeschlagen: Datenbankpfad ist ungültig oder nicht erreichbar."
+    if "file is not a database" in low:
+        return "Import fehlgeschlagen: Die hochgeladene Datei ist keine gültige SQLite-Datenbank."
+    if "_customers" in low:
+        return "Import fehlgeschlagen: Datei ist keine gültige Salon-Karola-Datenbank (_Customers fehlt)."
+    if "backup" in low:
+        return "Import fehlgeschlagen: Backup vor Import konnte nicht erstellt werden."
+    if "disk" in low and "full" in low:
+        return "Import fehlgeschlagen: Render-Disk hat keinen freien Speicher."
+    if "produkt" in low and "schutz" in low:
+        return msg
+    return "Import fehlgeschlagen: Bitte Render-Disk-Pfad, Schreibrechte und Dateiinhalt prüfen."
 
 app = Flask(
     __name__,
@@ -290,6 +359,20 @@ def handle_method_not_allowed(exc):
     if session.get("admin_logged_in"):
         flash("Die Aktion konnte nicht ausgeführt werden. Bitte Seite neu laden und erneut speichern.")
         return redirect(url_for("templates_view"))
+    return redirect(url_for("login"))
+
+
+@app.errorhandler(405)
+def handle_method_not_allowed_v2(exc):
+    try:
+        app.logger.warning("405 auf %s %s", request.method, request.path)
+    except Exception:
+        pass
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Diese Aktion ist für diese URL nicht erlaubt."}), 405
+    if session.get("admin_logged_in"):
+        flash(f"Aktion nicht erlaubt (HTTP 405) auf {request.path} mit Methode {request.method}.")
+        return redirect(request.referrer or url_for("calendar_view"))
     return redirect(url_for("login"))
 
 
@@ -4186,7 +4269,7 @@ def admin_templates_alias():
     return templates_view()
 
 
-@app.route("/admin/backup")
+@app.route("/admin/backup", methods=["GET", "POST"])
 @admin_required
 def admin_backup_alias():
     set_ui_world("admin")
@@ -6400,6 +6483,7 @@ def inject_globals():
 
 
 def boot_app():
+    ensure_persistent_storage_ready(require_writable=False)
     init_db()
     ensure_default_admin(force_reset=False)
     if ENABLE_PUSH and not SAFE_MODE:
@@ -6436,8 +6520,7 @@ def boot_app():
 
 
 # ---------- Database import / export ----------
-BACKUP_DIR = BASE_DIR / "backups"
-BACKUP_DIR.mkdir(exist_ok=True)
+BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def close_live_db_connection():
@@ -6673,6 +6756,15 @@ def merge_database_from_upload(uploaded_file):
 @app.route("/database-tools", methods=["GET", "POST"])
 @admin_required
 def database_tools():
+    try:
+        ensure_persistent_storage_ready(require_writable=True)
+    except Exception as exc:
+        try:
+            app.logger.error("Produktivschutz blockiert database-tools: %s", exc)
+        except Exception:
+            pass
+        flash(explain_import_error(exc))
+        return render_template("database_tools.html", db_info=None, backup_files=[], current_endpoint="database_tools", app_version=APP_VERSION)
     db_info = inspect_sqlite_database(DB_PATH) if DB_PATH.exists() else None
     backup_files = sorted(BACKUP_DIR.glob("*.sqlite"), reverse=True)[:10]
     if request.method == "POST":
@@ -6699,7 +6791,11 @@ def database_tools():
                     f"Datenbank komplett ersetzt. Aktuell: {info_after['counts'].get('_Customers', 0)} Kontakte und {info_after['counts'].get('appointments', 0)} Termine. Backup: {backup_path.name if backup_path else 'keins'}"
                 )
         except Exception as exc:
-            flash(f"Datenbank-Import fehlgeschlagen: {exc}")
+            try:
+                app.logger.exception("Datenbank-Import fehlgeschlagen (route=/database-tools, action=%s): %s", action, exc)
+            except Exception:
+                pass
+            flash(explain_import_error(exc))
         return redirect(url_for("database_tools"))
     return render_template("database_tools.html", db_info=db_info, backup_files=backup_files, current_endpoint="database_tools", app_version=APP_VERSION)
 

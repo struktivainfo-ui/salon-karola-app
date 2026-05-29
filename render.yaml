@@ -17,6 +17,8 @@ services:
         value: Europe/Berlin
       - key: DATABASE_PATH
         value: /var/data/salon_karola.db
+      - key: BACKUP_DIR
+        value: /var/data/backups
       - key: SMTP_USE_TLS
         value: true
       - key: EMAIL_PROVIDER

@@ -46,7 +46,7 @@
           <h2 class="premium-panel-title">Datei einspielen</h2>
         </div>
       </div>
-      <form method="post" enctype="multipart/form-data" class="premium-form premium-space-top">
+      <form method="post" action="{{ url_for('database_tools') }}" enctype="multipart/form-data" class="premium-form premium-space-top">
         <div class="form-group premium-form-group"><label>Datei</label><input type="file" name="db_file" accept=".sqlite,.db,.backup" required></div>
         <div class="form-group premium-form-group">
           <label>Aktion</label>
