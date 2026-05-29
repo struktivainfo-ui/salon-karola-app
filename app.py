@@ -222,6 +222,25 @@ app.permanent_session_lifetime = timedelta(days=45)
 app.json.ensure_ascii = False
 
 
+def log_storage_context_once():
+    try:
+        app.logger.info(
+            "Storage-Kontext: render=%s production_like=%s db_path=%s db_exists=%s db_dir_exists=%s backup_dir=%s backup_dir_exists=%s",
+            running_on_render(),
+            production_like_runtime(),
+            str(DB_PATH),
+            DB_PATH.exists(),
+            DB_PATH.parent.exists(),
+            str(BACKUP_DIR),
+            BACKUP_DIR.exists(),
+        )
+    except Exception:
+        pass
+
+
+log_storage_context_once()
+
+
 @app.after_request
 def add_no_cache_headers(response):
     try:
@@ -6483,7 +6502,13 @@ def inject_globals():
 
 
 def boot_app():
-    ensure_persistent_storage_ready(require_writable=False)
+    try:
+        ensure_persistent_storage_ready(require_writable=False)
+    except Exception as exc:
+        try:
+            app.logger.error("Produktivschutz beim Start: %s", exc)
+        except Exception:
+            pass
     init_db()
     ensure_default_admin(force_reset=False)
     if ENABLE_PUSH and not SAFE_MODE:
@@ -6520,7 +6545,17 @@ def boot_app():
 
 
 # ---------- Database import / export ----------
-BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
+def ensure_backup_dir_available():
+    try:
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        return True
+    except Exception as exc:
+        try:
+            app.logger.error("Backup-Ordner konnte nicht angelegt werden (%s): %s", BACKUP_DIR, exc)
+        except Exception:
+            pass
+        return False
 
 
 def close_live_db_connection():
@@ -6570,6 +6605,8 @@ def direct_customer_count_from_file():
 def backup_current_database(label="manual"):
     if not DB_PATH.exists():
         return None
+    if not ensure_backup_dir_available():
+        raise RuntimeError("Backup vor Import fehlgeschlagen: Backup-Ordner ist nicht verfügbar.")
     backup_path = BACKUP_DIR / f"salon_karola_{label}_{timestamp_slug()}.sqlite"
     shutil.copy2(DB_PATH, backup_path)
     return backup_path
@@ -6765,6 +6802,7 @@ def database_tools():
             pass
         flash(explain_import_error(exc))
         return render_template("database_tools.html", db_info=None, backup_files=[], current_endpoint="database_tools", app_version=APP_VERSION)
+    ensure_backup_dir_available()
     db_info = inspect_sqlite_database(DB_PATH) if DB_PATH.exists() else None
     backup_files = sorted(BACKUP_DIR.glob("*.sqlite"), reverse=True)[:10]
     if request.method == "POST":
