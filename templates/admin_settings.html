@@ -6,13 +6,26 @@
     <div class="simple-panel-head">
       <div>
         <div class="simple-kicker">Admin</div>
-        <h1 class="simple-section-title">Einstellungen und Technik</h1>
+        <h1 class="simple-section-title">Einstellungen</h1>
+        <p class="simple-subtitle">Alltaegliche Verwaltung vorne, technische Seiten bewusst gesammelt dahinter.</p>
       </div>
     </div>
     <div class="simple-admin-grid">
       <a class="simple-admin-link" href="{{ url_for('push_center') }}">Push</a>
       <a class="simple-admin-link" href="{{ url_for('templates_view') }}">Vorlagen</a>
       <a class="simple-admin-link" href="{{ url_for('staff_management') }}">Mitarbeiter</a>
+      <a class="simple-admin-link" href="{{ url_for('whatsapp_hub') }}">WhatsApp</a>
+    </div>
+  </section>
+
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Technik</div>
+        <h2 class="simple-section-title">Nur bei Bedarf</h2>
+      </div>
+    </div>
+    <div class="simple-admin-grid">
       <a class="simple-admin-link" href="{{ url_for('database_tools') }}">Backup / Datenbank</a>
       <a class="simple-admin-link" href="{{ url_for('import_customers') }}">Import</a>
       <a class="simple-admin-link" href="{{ url_for('email_logs') }}">Protokolle</a>
@@ -20,4 +33,3 @@
   </section>
 </section>
 {% endblock %}
-

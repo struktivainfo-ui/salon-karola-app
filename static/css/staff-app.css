@@ -611,6 +611,12 @@ body.employee-mode {
   color: #3b2616;
 }
 
+.employee-mode .simple-list-card {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(146, 103, 58, 0.12);
+}
+
 .employee-mode .menu-overlay:not(.active) {
   display: none;
   pointer-events: none;

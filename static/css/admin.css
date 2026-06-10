@@ -33,6 +33,16 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.admin-mode .premium-action-grid-primary {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.admin-mode .premium-list-item[href] {
+  display: grid;
+  color: inherit;
+  text-decoration: none;
+}
+
 .admin-mode .premium-form-grid-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -44,7 +54,8 @@
 
 @media (max-width: 1024px) {
   .admin-mode .premium-grid-2,
-  .admin-mode .premium-form-grid-2 {
+  .admin-mode .premium-form-grid-2,
+  .admin-mode .premium-action-grid-primary {
     grid-template-columns: 1fr;
   }
 }
@@ -58,5 +69,16 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  .admin-mode .mobile-app-dock {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 6px;
+  }
+
+  .admin-mode .mobile-app-link {
+    min-height: 46px;
+    padding: 6px 4px;
+    font-size: 0.72rem;
   }
 }

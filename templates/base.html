@@ -47,8 +47,8 @@
       <button type="button" class="menu-close mobile-menu-only" id="menuClose" aria-label="Menü schließen" onclick="window.skCloseMenu && window.skCloseMenu(event)">Schließen</button>
       <nav class="nav-links" id="mainNavLinks" hidden>
         {% if is_staff_world %}
-        <a class="{% if current_endpoint in ['salon_home', 'calendar_view', 'staff_today'] %}active{% endif %}" href="{{ url_for('staff_today') }}" data-nav-link="heute">Heute</a>
-        <a class="{% if current_endpoint in ['appointments_hub', 'staff_new_appointment', 'staff_appointments_center'] %}active{% endif %}" href="{{ url_for('staff_appointments_center') }}" data-nav-link="neuer-termin">Termin</a>
+        <a class="{% if current_endpoint in ['salon_home', 'staff_today'] or (current_endpoint == 'calendar_view' and request.args.get('view', 'month') == 'day') %}active{% endif %}" href="{{ url_for('staff_today') }}" data-nav-link="heute">Heute</a>
+        <a class="{% if current_endpoint == 'calendar_view' and request.args.get('view', 'month') != 'day' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', mine=1) }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint in ['customer_search_page', 'customer_detail', 'customer_new'] %}active{% endif %}" href="{{ url_for('staff_customers') }}" data-nav-link="kunden">Kunden</a>
         <details class="nav-admin-group" id="navMoreGroup">
           <summary class="nav-admin-summary {% if current_endpoint in ['customer_birthdays_page', 'customer_inactive_page', 'salon_reminders'] %}active{% endif %}">Mehr</summary>
@@ -59,19 +59,20 @@
           </div>
         </details>
         {% else %}
-        <a class="{% if current_endpoint in ['admin_dashboard', 'dashboard_legacy'] %}active{% endif %}" href="{{ url_for('admin_dashboard') }}" data-nav-link="dashboard">Dashboard</a>
+        <a class="{% if current_endpoint in ['admin_dashboard', 'dashboard_legacy'] %}active{% endif %}" href="{{ url_for('admin_dashboard') }}" data-nav-link="heute">Heute</a>
         <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('admin_calendar_alias') }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint == 'customer_search_page' %}active{% endif %}" href="{{ url_for('admin_customers_alias') }}" data-nav-link="kunden">Kunden</a>
+        <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('admin_templates_alias') }}" data-nav-link="vorlagen">Vorlagen</a>
+        <a class="{% if current_endpoint == 'admin_settings' %}active{% endif %}" href="{{ url_for('admin_settings') }}" data-nav-link="einstellungen">Einstellungen</a>
         <details class="nav-admin-group" id="navMoreGroup">
-          <summary class="nav-admin-summary {% if current_endpoint in ['appointments_hub', 'customer_birthdays_page', 'push_center', 'templates_view', 'staff_management', 'database_tools', 'import_customers', 'email_logs', 'admin_settings'] %}active{% endif %}">Mehr</summary>
+          <summary class="nav-admin-summary {% if current_endpoint in ['appointments_hub', 'customer_birthdays_page', 'push_center', 'whatsapp_hub', 'staff_management', 'database_tools', 'import_customers', 'email_logs', 'admin_automation'] %}active{% endif %}">Mehr</summary>
           <div class="nav-admin-links">
             <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('admin_appointments_alias') }}" data-nav-link="termine">Termine</a>
             <a class="{% if current_endpoint == 'customer_birthdays_page' %}active{% endif %}" href="{{ url_for('customer_birthdays_page') }}" data-nav-link="geburtstage">Geburtstage</a>
             <a class="{% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('admin_push_alias') }}" data-nav-link="push">Push</a>
-            <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('admin_templates_alias') }}" data-nav-link="vorlagen">Vorlagen</a>
+            <a class="{% if current_endpoint == 'whatsapp_hub' %}active{% endif %}" href="{{ url_for('whatsapp_hub') }}" data-nav-link="whatsapp">WhatsApp</a>
             <a class="{% if current_endpoint == 'staff_management' %}active{% endif %}" href="{{ url_for('admin_staff_alias') }}" data-nav-link="mitarbeiter">Mitarbeiter</a>
             <a class="{% if current_endpoint in ['database_tools', 'import_customers', 'email_logs'] %}active{% endif %}" href="{{ url_for('admin_backup_alias') }}" data-nav-link="datenbank">Backup / Technik</a>
-            <a class="{% if current_endpoint == 'admin_settings' %}active{% endif %}" href="{{ url_for('admin_settings') }}" data-nav-link="einstellungen">Einstellungen</a>
             <a class="{% if current_endpoint == 'admin_automation' %}active{% endif %}" href="{{ url_for('admin_automation') }}" data-nav-link="automationen">Automationen</a>
             <a href="{{ url_for('switch_to_staff_app') }}" data-nav-link="staff-app">Mitarbeiter-App</a>
             <a href="{{ url_for('logout') }}" data-nav-link="logout">Abmelden</a>
@@ -100,15 +101,16 @@
   {% if session.get('admin_logged_in') %}
   <nav class="mobile-app-dock {% if is_staff_world %}staff-bottom-nav{% elif is_admin_world %}admin-bottom-nav{% endif %}" aria-label="Schnellnavigation">
     {% if is_staff_world %}
-    <a class="mobile-app-link {% if current_endpoint in ['salon_home', 'staff_today'] %}active{% endif %}" href="{{ url_for('staff_today') }}">Dashboard</a>
-    <a class="mobile-app-link {% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', mine=1) }}">Kalender</a>
+    <a class="mobile-app-link {% if current_endpoint in ['salon_home', 'staff_today'] or (current_endpoint == 'calendar_view' and request.args.get('view', 'month') == 'day') %}active{% endif %}" href="{{ url_for('staff_today') }}">Heute</a>
+    <a class="mobile-app-link {% if current_endpoint == 'calendar_view' and request.args.get('view', 'month') != 'day' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', mine=1) }}">Kalender</a>
     <a class="mobile-app-link {% if current_endpoint in ['customer_new', 'customer_detail', 'customer_search_page'] %}active{% endif %}" href="{{ url_for('staff_customers') }}">Kunden</a>
     <a class="mobile-app-link {% if current_endpoint in ['salon_reminders', 'customer_birthdays_page'] %}active{% endif %}" href="{{ url_for('staff_more') }}">Mehr</a>
     {% else %}
-    <a class="mobile-app-link {% if current_endpoint in ['admin_dashboard', 'dashboard_legacy'] %}active{% endif %}" href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a class="mobile-app-link {% if current_endpoint in ['admin_dashboard', 'dashboard_legacy'] %}active{% endif %}" href="{{ url_for('admin_dashboard') }}">Heute</a>
     <a class="mobile-app-link {% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('admin_calendar_alias') }}">Kalender</a>
     <a class="mobile-app-link {% if current_endpoint == 'customer_search_page' %}active{% endif %}" href="{{ url_for('admin_customers_alias') }}">Kunden</a>
-    <button type="button" class="mobile-app-link mobile-app-link-button" id="menuDockToggle" onclick="return window.skToggleMenu ? window.skToggleMenu(event) : false;">Mehr</button>
+    <a class="mobile-app-link {% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('admin_templates_alias') }}">Vorlagen</a>
+    <a class="mobile-app-link {% if current_endpoint == 'admin_settings' %}active{% endif %}" href="{{ url_for('admin_settings') }}">Einstellungen</a>
     {% endif %}
   </nav>
   <div class="app-update-prompt" id="appUpdatePrompt" hidden aria-live="polite" aria-labelledby="appUpdateTitle">
