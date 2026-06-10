@@ -10,6 +10,20 @@ body.employee-mode {
   padding-bottom: 96px;
 }
 
+.employee-mode,
+.employee-mode .app-main,
+.employee-mode .simple-shell,
+.employee-mode .simple-panel,
+.employee-mode .simple-card-list,
+.employee-mode .calendar-page,
+.employee-mode .calendar-grid,
+.employee-mode .calendar-header,
+.employee-mode .staff-premium-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 .employee-mode .simple-action-button,
 .employee-mode .simple-save-button,
 .employee-mode .simple-filter-chip,
@@ -184,14 +198,25 @@ body.employee-mode {
 }
 
 .employee-mode .mobile-app-dock {
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  width: auto;
+  max-width: calc(100vw - 24px);
+  transform: none;
+  box-sizing: border-box;
   min-height: 60px;
   padding: 6px;
 }
 
 .employee-mode .mobile-app-link {
+  min-width: 0;
   min-height: 44px;
   border-radius: 14px;
   font-size: 0.8rem;
+  line-height: 1.15;
+  text-align: center;
+  word-break: break-word;
 }
 
 @media (min-width: 1024px) {
@@ -481,6 +506,116 @@ body.employee-mode {
   font-size: 0.84rem;
 }
 
+.employee-mode .calendar-page {
+  padding-bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+}
+
+.employee-mode .calendar-header {
+  align-items: flex-start;
+}
+
+.employee-mode .calendar-header .sk-kicker {
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.employee-mode .calendar-header h1 {
+  font-size: clamp(1.32rem, 5.8vw, 1.78rem);
+  line-height: 1.08;
+}
+
+.employee-mode .calendar-page .sk-cal-actions {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  width: 100%;
+  max-width: 260px;
+}
+
+.employee-mode .calendar-page .sk-btn {
+  width: auto;
+  min-width: 0;
+}
+
+.employee-mode .calendar-grid {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.employee-mode .calendar-grid > * {
+  min-width: 0;
+}
+
+.employee-mode .calendar-page .sk-wd {
+  min-width: 0;
+  font-size: 0.72rem;
+}
+
+.employee-mode .calendar-day {
+  min-width: 0;
+  width: 100%;
+  min-height: 0;
+  aspect-ratio: 0.76 / 1;
+  padding: 7px 5px;
+  align-items: flex-start;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.employee-mode .calendar-day .sk-day-num,
+.employee-mode .calendar-day .sk-day-dotline,
+.employee-mode .calendar-day .sk-day-count {
+  min-width: 0;
+}
+
+.employee-mode .calendar-day .sk-day-dotline {
+  width: 100%;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.employee-mode .calendar-day .sk-day-count {
+  margin-left: auto;
+  font-size: 0.72rem;
+}
+
+.employee-mode .calendar-page .sk-filter-row,
+.employee-mode .calendar-page .sk-day-actions {
+  width: 100%;
+}
+
+.employee-mode .calendar-page .sk-day-actions .sk-btn,
+.employee-mode .calendar-page .sk-filter-row .sk-chip {
+  min-width: 0;
+}
+
+.employee-mode .staff-bottom-nav {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  background: rgba(44, 31, 22, 0.94);
+  border: 1px solid rgba(119, 82, 45, 0.16);
+  box-shadow: 0 18px 32px rgba(48, 33, 22, 0.18);
+}
+
+.employee-mode .staff-bottom-nav .mobile-app-link {
+  display: flex;
+  color: rgba(255, 244, 229, 0.9);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid transparent;
+}
+
+.employee-mode .staff-bottom-nav .mobile-app-link.active {
+  background: linear-gradient(180deg, #f7d48e 0%, #ebbe68 100%);
+  color: #3b2616;
+}
+
+.employee-mode .menu-overlay:not(.active) {
+  display: none;
+  pointer-events: none;
+}
+
 @media (max-width: 430px) {
   .employee-mode .staff-quick-actions {
     grid-template-columns: 1fr 1fr;
@@ -505,6 +640,27 @@ body.employee-mode {
 
   .employee-mode .mobile-app-dock {
     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .employee-mode .calendar-page {
+    padding-bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .employee-mode .calendar-page .sk-cal-actions {
+    max-width: 100%;
+  }
+
+  .employee-mode .calendar-day {
+    aspect-ratio: 0.72 / 1;
+    padding: 6px 4px;
+  }
+
+  .employee-mode .calendar-page .sk-wd {
+    font-size: 0.68rem;
+  }
+
+  .employee-mode .staff-bottom-nav .mobile-app-link {
+    font-size: 0.76rem;
   }
 
   .employee-mode .compact-action-row {

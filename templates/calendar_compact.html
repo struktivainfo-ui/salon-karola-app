@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 {% block title %}Kalender · Salon Karola{% endblock %}
 {% block content %}
-<section class="sk-cal-wrap">
-  <header class="sk-cal-head">
+<section class="sk-cal-wrap calendar-page">
+  <header class="sk-cal-head calendar-header">
     <div>
       <div class="sk-kicker">{% if is_admin_world %}Admin-Kalender{% else %}Mitarbeiter-Kalender{% endif %}</div>
       <h1>{{ month_label }}</h1>
@@ -14,11 +14,11 @@
     </div>
   </header>
 
-  <section class="sk-month-grid">
+  <section class="sk-month-grid calendar-grid">
     <div class="sk-wd">Mo</div><div class="sk-wd">Di</div><div class="sk-wd">Mi</div><div class="sk-wd">Do</div><div class="sk-wd">Fr</div><div class="sk-wd">Sa</div><div class="sk-wd">So</div>
     {% for week in month_weeks %}
       {% for cell in week %}
-      <a class="sk-day {% if not cell.in_month %}is-muted{% endif %} {% if cell.is_today %}is-today{% endif %}" href="{{ url_for('calendar_view', view='day', mode=calendar_mode, date=cell.date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">
+      <a class="sk-day calendar-day {% if not cell.in_month %}is-muted{% endif %} {% if cell.is_today %}is-today{% endif %}" href="{{ url_for('calendar_view', view='day', mode=calendar_mode, date=cell.date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">
         <span class="sk-day-num">{{ cell.day }}</span>
         {% if cell.count_total > 0 %}
         <span class="sk-day-dotline">

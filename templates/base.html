@@ -98,10 +98,10 @@
     <button type="button" id="appRuntimeRetryButton" class="premium-button secondary">Erneut versuchen</button>
   </div>
   {% if session.get('admin_logged_in') %}
-  <nav class="mobile-app-dock" aria-label="Schnellnavigation">
+  <nav class="mobile-app-dock {% if is_staff_world %}staff-bottom-nav{% elif is_admin_world %}admin-bottom-nav{% endif %}" aria-label="Schnellnavigation">
     {% if is_staff_world %}
-    <a class="mobile-app-link {% if current_endpoint in ['salon_home', 'calendar_view', 'staff_today'] %}active{% endif %}" href="{{ url_for('staff_today') }}">Heute</a>
-    <a class="mobile-app-link {% if current_endpoint in ['appointments_hub', 'staff_new_appointment', 'staff_appointments_center'] %}active{% endif %}" href="{{ url_for('staff_appointments_center') }}">Termin</a>
+    <a class="mobile-app-link {% if current_endpoint in ['salon_home', 'staff_today'] %}active{% endif %}" href="{{ url_for('staff_today') }}">Dashboard</a>
+    <a class="mobile-app-link {% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', mine=1) }}">Kalender</a>
     <a class="mobile-app-link {% if current_endpoint in ['customer_new', 'customer_detail', 'customer_search_page'] %}active{% endif %}" href="{{ url_for('staff_customers') }}">Kunden</a>
     <a class="mobile-app-link {% if current_endpoint in ['salon_reminders', 'customer_birthdays_page'] %}active{% endif %}" href="{{ url_for('staff_more') }}">Mehr</a>
     {% else %}

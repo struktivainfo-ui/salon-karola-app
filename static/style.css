@@ -7162,20 +7162,20 @@ input[type="submit"]:disabled {
   cursor: wait;
   opacity: 0.72;
 }
-.sk-cal-wrap{max-width:1200px;margin:0 auto;padding:12px 12px 90px}
+.sk-cal-wrap{width:100%;max-width:1200px;margin:0 auto;padding:12px 12px 90px;box-sizing:border-box;overflow-x:hidden}
 .sk-cal-head,.sk-day-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .sk-cal-head h1{margin:0;font-size:1.4rem}
 .sk-kicker{font-size:.78rem;opacity:.7}
 .sk-cal-actions,.sk-day-actions,.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.sk-btn{border:1px solid #d8cdbf;background:#fff;padding:8px 12px;border-radius:10px;text-decoration:none;color:#1f1a17;font-weight:600}
+.sk-btn{display:inline-flex;align-items:center;justify-content:center;width:auto;max-width:100%;border:1px solid #d8cdbf;background:#fff;padding:8px 12px;border-radius:10px;text-decoration:none;color:#1f1a17;font-weight:600}
 .sk-btn-primary{background:#1f1a17;color:#fff}
-.sk-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:12px}
+.sk-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-top:12px;width:100%;max-width:100%}
 .sk-wd{font-size:.75rem;opacity:.75;padding:2px 0;text-align:center}
-.sk-day{display:flex;flex-direction:column;justify-content:space-between;min-height:64px;border:1px solid #eadfce;border-radius:12px;padding:8px;background:#fff;text-decoration:none;color:inherit}
+.sk-day{display:flex;flex-direction:column;justify-content:space-between;min-width:0;min-height:64px;border:1px solid #eadfce;border-radius:12px;padding:8px;background:#fff;text-decoration:none;color:inherit;overflow:hidden}
 .sk-day.is-muted{opacity:.5}
 .sk-day.is-today{outline:2px solid #b88e5f}
 .sk-day-num{font-weight:700}
-.sk-day-dotline{display:flex;align-items:center;gap:6px;font-size:.75rem}
+.sk-day-dotline{display:flex;align-items:center;gap:6px;font-size:.75rem;min-width:0}
 .dot-ute,.dot-jessi{width:8px;height:8px;border-radius:50%}
 .dot-ute{background:#cfa95d}
 .dot-jessi{background:#b67078}
