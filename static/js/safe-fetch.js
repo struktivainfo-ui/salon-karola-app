@@ -12,6 +12,9 @@
     try {
       var fetchOptions = Object.assign({}, opts);
       delete fetchOptions.timeoutMs;
+      if (typeof fetchOptions.cache === "undefined") {
+        fetchOptions.cache = "no-store";
+      }
       if (controller) fetchOptions.signal = controller.signal;
       var response = await fetch(url, fetchOptions);
       var text = await response.text();

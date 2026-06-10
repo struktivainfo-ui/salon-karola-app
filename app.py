@@ -258,6 +258,20 @@ def add_no_cache_headers(response):
         pass
     return response
 
+
+def apply_no_cache_headers(response):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
+def json_no_store(payload, status=200):
+    response = jsonify(payload)
+    response.status_code = status
+    return apply_no_cache_headers(response)
+
+
 APP_VERSION = "Salon Karola App 2026-05-07-production-rebuild-1"
 # -*- coding: utf-8 -*-
 
@@ -689,6 +703,21 @@ def current_passkey_origin():
 
 def current_passkey_rp_name():
     return (os.getenv("WEBAUTHN_RP_NAME") or "Salon Karola").strip() or "Salon Karola"
+
+
+def configured_app_server_url():
+    config_path = BASE_DIR / "capacitor.config.json"
+    try:
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    server = payload.get("server") or {}
+    return str(server.get("url") or "").strip()
+
+
+def request_looks_like_android_webview(user_agent=""):
+    raw = str(user_agent or "").strip().lower()
+    return bool(raw) and "android" in raw and (" wv" in raw or "; wv" in raw or "version/" in raw or "capacitor" in raw)
 
 
 def passkey_credentials_for_user(db, user_id):
@@ -3205,10 +3234,16 @@ def diagnose():
     if not safe_access and not is_admin_session():
         return redirect(url_for("login"))
 
+    request_host = (request.host or "").strip()
+    request_url_root = request.url_root.rstrip("/")
+    app_server_url = configured_app_server_url().rstrip("/")
+    user_agent = request.headers.get("User-Agent", "")
     diagnostics = {
         "app_version": APP_VERSION,
         "server_time": datetime.now().isoformat(timespec="seconds"),
         "database_path": str(DB_PATH),
+        "database_exists": DB_PATH.exists(),
+        "database_size_bytes": (DB_PATH.stat().st_size if DB_PATH.exists() else 0),
         "persistence": persistence_diagnosis(),
         "storage_backends": {
             "customers": "SQLite",
@@ -3220,6 +3255,9 @@ def diagnose():
         "database_reachable": False,
         "customer_count": "n/a",
         "appointment_count": "n/a",
+        "latest_customer_name": "",
+        "latest_customer_created_at": "",
+        "latest_customer_search_hint": "",
         "push_configured": False,
         "scheduler_enabled": ENABLE_SCHEDULER,
         "scheduler_running": False,
@@ -3232,7 +3270,14 @@ def diagnose():
             "ENABLE_SERVICE_WORKER": ENABLE_SERVICE_WORKER,
             "ENABLE_FIREBASE": ENABLE_FIREBASE,
         },
-        "user_agent": request.headers.get("User-Agent", ""),
+        "host": request_host,
+        "request_url_root": request_url_root,
+        "request_base_url": request.base_url,
+        "render_external_url": (os.getenv("RENDER_EXTERNAL_URL") or "").strip(),
+        "android_app_server_url": app_server_url,
+        "same_host_as_android_app": bool(app_server_url and request_url_root.rstrip("/") == app_server_url.rstrip("/")),
+        "user_agent": user_agent,
+        "android_webview_detected": request_looks_like_android_webview(user_agent),
         "manifest_url": "/manifest.json",
         "manifest_reachable": False,
         "manifest_content_type": "",
@@ -3265,6 +3310,9 @@ def diagnose():
         "mail_status": {},
         "mail_last_error": "",
         "mail_last_error_at": "",
+        "customer_api_url": f"{request_url_root}{url_for('customer_search_alias')}",
+        "customer_api_reachable": False,
+        "customer_api_cache_control": "no-store, no-cache, must-revalidate, max-age=0",
     }
     try:
         db = get_db()
@@ -3273,6 +3321,22 @@ def diagnose():
         row_appointments = db.execute("SELECT COUNT(*) AS cnt FROM appointments").fetchone()
         diagnostics["customer_count"] = int(row_customers["cnt"] or 0) if row_customers else 0
         diagnostics["appointment_count"] = int(row_appointments["cnt"] or 0) if row_appointments else 0
+        latest_created_select = "created_at" if customer_has_column("created_at") else "'' AS created_at"
+        latest_order_sql = "ORDER BY COALESCE(created_at, '') DESC, _id DESC" if customer_has_column("created_at") else "ORDER BY _id DESC"
+        row_latest_customer = db.execute(
+            f"""
+            SELECT _id, _firstname, _name, {latest_created_select}
+            FROM _Customers
+            WHERE {visible_customer_condition('_Customers')}
+            {latest_order_sql}
+            LIMIT 1
+            """
+        ).fetchone()
+        if row_latest_customer:
+            diagnostics["latest_customer_name"] = customer_full_name(row_latest_customer)
+            diagnostics["latest_customer_created_at"] = row_latest_customer["created_at"] or ""
+            diagnostics["latest_customer_search_hint"] = diagnostics["latest_customer_name"]
+        diagnostics["customer_api_reachable"] = True
     except Exception as exc:
         diagnostics["database_reachable"] = False
         diagnostics["database_error"] = str(exc)
@@ -3375,6 +3439,7 @@ def diagnose():
       <a class="btn" href="/admin/icon-check">Icon-Check</a>
       <a class="btn" href="#" onclick="location.reload();return false;">Erneut laden</a>
       <a class="btn" href="#" id="diagResetCache">App-Cache zurücksetzen</a>
+      <a class="btn" href="/admin/customers?q={quote((diagnostics.get("latest_customer_search_hint") or "").strip())}">Kunden-Sync testen</a>
     </div>
     <div class="row" style="margin-top:6px;">
       <div style="display:grid;gap:4px;min-width:130px;">
@@ -4425,7 +4490,7 @@ def customer_quick_search():
                 "whatsapp_url": whatsapp_link(row),
             }
         )
-    return {"ok": True, "items": items}
+    return json_no_store({"ok": True, "items": items})
 
 
 @app.route("/api/customers/search")
@@ -4454,7 +4519,7 @@ def customer_search_alias():
                 "mobile": mobile,
             }
         )
-    return {"ok": True, "items": items}
+    return json_no_store({"ok": True, "items": items})
 
 
 @app.route("/api/calendar/month")
@@ -4501,7 +4566,7 @@ def api_calendar_month():
         elif staff == "jessi":
             days[day_key]["jessi"] += cnt
 
-    return {"ok": True, "year": year, "month": month, "days": list(days.values())}
+    return json_no_store({"ok": True, "year": year, "month": month, "days": list(days.values())})
 
 
 @app.route("/api/calendar/day")
@@ -4538,10 +4603,10 @@ def api_calendar_day():
     hours = opening_hours_for_date(selected_date)
     opening = {"open": bool(hours), "start": (hours[0] if hours else ""), "end": (hours[1] if hours else "")}
     if staff == "ute":
-        return {"ok": True, "date": selected_date.isoformat(), "opening": opening, "ute": ute_items, "jessi": []}
+        return json_no_store({"ok": True, "date": selected_date.isoformat(), "opening": opening, "ute": ute_items, "jessi": []})
     if staff == "jessi":
-        return {"ok": True, "date": selected_date.isoformat(), "opening": opening, "ute": [], "jessi": jessi_items}
-    return {"ok": True, "date": selected_date.isoformat(), "opening": opening, "ute": ute_items, "jessi": jessi_items}
+        return json_no_store({"ok": True, "date": selected_date.isoformat(), "opening": opening, "ute": [], "jessi": jessi_items})
+    return json_no_store({"ok": True, "date": selected_date.isoformat(), "opening": opening, "ute": ute_items, "jessi": jessi_items})
 
 
 @app.route("/api/appointments", methods=["POST"])
@@ -5700,7 +5765,7 @@ def api_appointments_today():
                 "status": row["status"] or "geplant",
             }
         )
-    return {"ok": True, "date": day, "count": len(items), "items": items}
+    return json_no_store({"ok": True, "date": day, "count": len(items), "items": items})
 
 
 @app.route("/api/mail/status")

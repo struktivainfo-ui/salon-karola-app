@@ -259,7 +259,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     try {
       if (typeof window.safeFetch !== "function") throw new Error("safeFetch nicht verfügbar");
-      const result = await window.safeFetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}`, { credentials: "same-origin", timeoutMs: 12000 });
+      const result = await window.safeFetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}&_ts=${Date.now()}`, { credentials: "same-origin", timeoutMs: 12000, cache: "no-store" });
       if (!result.ok) throw new Error(result.error || "Suche fehlgeschlagen");
       const payload = result.data || {};
       customerResults.innerHTML = (payload.items || []).map((item) => `

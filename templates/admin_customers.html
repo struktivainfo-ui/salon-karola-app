@@ -39,6 +39,7 @@
       </div>
       <div class="premium-button-row inline-right">
         <button type="submit" class="premium-button">Suchen</button>
+        <button type="button" class="premium-button secondary" id="adminCustomerRefreshButton">Daten neu laden</button>
         <a class="premium-button secondary" href="{{ url_for('customer_search_page') }}">Zurücksetzen</a>
       </div>
     </form>
@@ -71,4 +72,15 @@
     </div>
   </section>
 </section>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const refreshButton = document.getElementById("adminCustomerRefreshButton");
+  if (!refreshButton) return;
+  refreshButton.addEventListener("click", function () {
+    const nextUrl = new URL(window.location.href);
+    nextUrl.searchParams.set("_refresh", Date.now().toString());
+    window.location.href = nextUrl.toString();
+  });
+});
+</script>
 {% endblock %}

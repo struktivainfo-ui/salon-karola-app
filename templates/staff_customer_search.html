@@ -13,6 +13,9 @@
       <input type="search" name="q" id="customerQuickSearchInput" value="{{ q }}" placeholder="Name oder Telefon">
       <button type="submit" class="simple-search-submit">Suche</button>
     </form>
+    <div class="simple-space-top">
+      <button type="button" class="simple-action-button" id="customerRefreshButton">Aktualisieren</button>
+    </div>
     <div class="simple-live-results" id="customerQuickResults"></div>
   </section>
 
@@ -92,6 +95,7 @@
 document.addEventListener("DOMContentLoaded", function () {
   const input = document.getElementById("customerQuickSearchInput");
   const results = document.getElementById("customerQuickResults");
+  const refreshButton = document.getElementById("customerRefreshButton");
   const overlay = document.getElementById("customerSheetOverlay");
   const sheet = document.getElementById("customerSheet");
   const closeSheetButton = document.getElementById("customerSheetClose");
@@ -184,7 +188,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     try {
       if (typeof window.safeFetch !== "function") throw new Error("safeFetch nicht verfügbar");
-      const result = await window.safeFetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}`, { credentials: "same-origin", timeoutMs: 12000 });
+      const result = await window.safeFetch(`{{ url_for('customer_quick_search') }}?q=${encodeURIComponent(q)}&_ts=${Date.now()}`, { credentials: "same-origin", timeoutMs: 12000, cache: "no-store" });
       if (!result.ok) throw new Error(result.error || "Suche fehlgeschlagen");
       const payload = result.data || {};
       const items = payload.items || [];
@@ -219,6 +223,19 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   input.addEventListener("input", refreshSuggestions);
+  if (refreshButton) {
+    refreshButton.addEventListener("click", function () {
+      results.innerHTML = "";
+      const nextUrl = new URL(window.location.href);
+      if (input.value.trim()) {
+        nextUrl.searchParams.set("q", input.value.trim());
+      } else {
+        nextUrl.searchParams.delete("q");
+      }
+      nextUrl.searchParams.set("_refresh", Date.now().toString());
+      window.location.href = nextUrl.toString();
+    });
+  }
   if (input.value.trim()) refreshSuggestions();
   wireSheetButtons();
   if (closeSheetButton) closeSheetButton.addEventListener("click", closeSheet);
