@@ -17,12 +17,19 @@ instance/
 *.tmp
 *.bak
 *.orig
+INSTALL_HINWEIS*.txt
+*_HINWEIS*.txt
+*_FINAL*.txt
+app_fixed.py
+_pycache_/
 
 # Android/Capacitor build artifacts
 android/.gradle/
 android/build/
 android/app/build/
 android/capacitor-cordova-android-plugins/build/
+android/*.keystore
+android/release-signing-info.txt
 
 # Local desktop and sync artifacts
 .DS_Store

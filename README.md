@@ -24,3 +24,6 @@ Diese Version enthält:
 ## Wichtige Hinweise
 - lokale Datenbankdateien, Backups und `.env` gehören nicht ins Git-Repository
 - Mail- und Push-Funktionen erst nach dem Setzen der echten Zugangsdaten produktiv nutzen
+
+## Versionshistorie
+Releases und Changelogs: siehe [CHANGELOG.md](CHANGELOG.md) und GitHub Releases.

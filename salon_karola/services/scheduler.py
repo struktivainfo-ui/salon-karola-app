@@ -1,0 +1,6 @@
+from salon_karola_legacy import boot_app
+from salon_karola_legacy import run_appointment_job
+from salon_karola_legacy import run_automation_if_due
+from salon_karola_legacy import run_birthday_job
+from salon_karola_legacy import scheduler
+from salon_karola_legacy import scheduler_tick

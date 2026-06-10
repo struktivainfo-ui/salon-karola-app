@@ -1,0 +1,5 @@
+from salon_karola_legacy import customer_quick_search
+from salon_karola_legacy import customer_search_alias
+from salon_karola_legacy import customer_search_page
+from salon_karola_legacy import staff_customer_detail
+from salon_karola_legacy import staff_customers
