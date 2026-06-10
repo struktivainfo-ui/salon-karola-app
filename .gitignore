@@ -4,10 +4,12 @@ dist/
 *.py[cod]
 *.sqlite
 *.db
+*.sqlite3
 *.sqlite-journal
 *.db-journal
 *.backup
 .env
+.env.*
 backups/
 .pytest_cache/
 .venv/
@@ -29,7 +31,13 @@ android/build/
 android/app/build/
 android/capacitor-cordova-android-plugins/build/
 android/*.keystore
+android/*.jks
 android/release-signing-info.txt
+google-services.json
+firebase-service-account*.json
+service-account*.json
+*.p12
+*.pem
 
 # Local desktop and sync artifacts
 .DS_Store
