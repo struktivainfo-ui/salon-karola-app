@@ -3153,7 +3153,7 @@ self.addEventListener('fetch', () => {});
 # ---------- Routes ----------
 @app.route("/safe-start")
 def safe_start():
-    diagnose_url = "/diagnose?safe=1"
+    diagnose_url = "/login"
     login_url = "/login"
     test_login_url = "/test-login"
     test_staff_url = "/test-staff-today"
@@ -3186,7 +3186,7 @@ def safe_start():
       <a class="btn" href="{test_admin_url}">Admin Dashboard testen</a>
       <a class="btn" href="{test_sw_url}">Service Worker Test</a>
       <a class="btn" href="{test_push_url}">Push Test</a>
-      <a class="btn" href="{diagnose_url}">Diagnose anzeigen</a>
+      <a class="btn" href="{diagnose_url}">Admin-Diagnose</a>
       <a class="btn" href="#" id="clearCacheBtn">Cache löschen</a>
     </div>
     <p id="safeInfo" style="margin-top:12px;font-size:.92rem;color:#444;"></p>
@@ -3230,8 +3230,7 @@ def safe_start():
 
 @app.route("/diagnose")
 def diagnose():
-    safe_access = SAFE_MODE or (request.args.get("safe") or "").strip() == "1"
-    if not safe_access and not is_admin_session():
+    if not is_admin_session():
         return redirect(url_for("login"))
 
     request_host = (request.host or "").strip()

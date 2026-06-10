@@ -164,7 +164,7 @@ public class MainActivity extends BridgeActivity {
                     + "<button onclick='(async function(){try{if(\"serviceWorker\" in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister().catch(()=>false)));}if(\"caches\" in window){const keys=await caches.keys();await Promise.all(keys.map(k=>caches.delete(k).catch(()=>false)));}localStorage.setItem(\"sk_sw_disabled_debug\",\"1\");alert(\"Cache geloescht\");}catch(e){alert(\"Cache konnte nicht geloescht werden\");}})()'>Cache loeschen</button>"
                     + "</body></html>";
             try {
-                view.loadDataWithBaseURL("https://salon-karola-app.onrender.com", html, "text/html", "UTF-8", null);
+                view.loadDataWithBaseURL("https://salon-karola-crm.onrender.com", html, "text/html", "UTF-8", null);
             } catch (Exception error) {
                 Log.e(TAG, "Fallback-Seite konnte nicht geladen werden", error);
             }
