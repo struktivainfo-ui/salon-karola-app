@@ -34,6 +34,11 @@ Die Anwendung buendelt die wichtigsten internen Arbeitsablaeufe in einer geschue
 5. Start Command verwenden:
    `gunicorn app:app --workers 1 --threads 2 --timeout 120`
 
+## APK-Modus
+- Die Android-App nutzt Capacitor als WebView-Shell und oeffnet die produktive Render-App unter `https://salon-karola-crm.onrender.com`.
+- Die zentrale Datenbank liegt auf Render.
+- Die APK enthaelt keine eigene Kundendatenbank.
+
 ## Datenschutz und Sicherheit
 - Keine Kunden-, Termin- oder Zugangsdaten ins Repository committen.
 - `SECRET_KEY` muss in produktionsaehnlichen Umgebungen als Umgebungsvariable gesetzt sein.
