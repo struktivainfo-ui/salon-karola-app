@@ -5,14 +5,14 @@
   <section class="simple-panel staff-premium-header">
     <div class="staff-premium-title-row">
       <div>
-        <div class="simple-kicker">Salon Karola · {{ logged_in_staff or default_staff }}</div>
+        <div class="simple-kicker">Salon Karola - {{ logged_in_staff or default_staff }}</div>
         <h1 class="simple-section-title">Heute</h1>
-        <p class="simple-subtitle">{{ selected_date_label or selected_date }} · {{ simple_day_items|length }} Termine</p>
+        <p class="simple-subtitle">{{ selected_date_label or selected_date }} - {{ filter_summary }} - {{ simple_day_items|length }} Termine</p>
       </div>
-      <a class="simple-floating-action" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else own_staff) }}">+ Termin</a>
+      <a class="simple-floating-action" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=new_appointment_staff) }}">+ Termin</a>
     </div>
     <div class="staff-quick-actions">
-      <a class="simple-action-button" href="{{ url_for('staff_appointments_center') }}">Termin</a>
+      <a class="simple-action-button" href="{{ url_for('calendar_view', view='month', mine=1) }}">Kalender</a>
       <a class="simple-action-button" href="{{ url_for('staff_customers') }}">Kunden</a>
       <a class="simple-action-button" href="{{ url_for('staff_more') }}">Mehr</a>
     </div>
@@ -21,77 +21,178 @@
   <section class="simple-panel">
     <div class="simple-filter-row simple-filter-row-wrap">
       {% if mine_mode %}
-      <a class="simple-filter-chip active" href="{{ url_for('calendar_view', view='day', date=selected_date, mine=1) }}">Meine</a>
+      <a class="simple-filter-chip active" href="{{ url_for('staff_today', date=selected_date, mine=1) }}">Meine</a>
       {% else %}
-      <a class="simple-filter-chip" href="{{ url_for('calendar_view', view='day', date=selected_date, mine=1) }}">Meine</a>
+      <a class="simple-filter-chip" href="{{ url_for('staff_today', date=selected_date, mine=1) }}">Meine</a>
       {% endif %}
-      <a class="simple-filter-chip {% if staff == 'Alle' and not mine_mode %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff='Alle') }}">Alle</a>
+      <a class="simple-filter-chip {% if staff == 'Alle' and not mine_mode %}active{% endif %}" href="{{ url_for('staff_today', date=selected_date, staff='Alle') }}">Alle</a>
       {% for member in bookable_staff %}
       {% if member != 'Sven' %}
-      <a class="simple-filter-chip {% if staff == member and not mine_mode %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=member) }}">{{ member }}</a>
+      <a class="simple-filter-chip {% if staff == member and not mine_mode %}active{% endif %}" href="{{ url_for('staff_today', date=selected_date, staff=member) }}">{{ member }}</a>
       {% endif %}
       {% endfor %}
     </div>
     <div class="staff-day-chip-row">
       {% for chip in staff_day_chip_dates or [] %}
-      <a class="staff-day-chip {% if chip.date == selected_date %}active{% endif %}" href="{{ url_for('calendar_view', view='day', date=chip.date, mine=1 if mine_mode else 0, staff=staff if not mine_mode else own_staff) }}">{{ chip.label }}</a>
+      <a class="staff-day-chip {% if chip.date == selected_date %}active{% endif %}" href="{{ url_for('staff_today', date=chip.date, mine=1 if mine_mode else 0, staff=staff if not mine_mode else none) }}">{{ chip.label }}</a>
       {% endfor %}
     </div>
   </section>
 
-  <section class="simple-card-list staff-timeline-list">
-    {% for item in simple_day_items %}
-    <article class="simple-appointment-card staff-timeline-card">
-      <button
-        type="button"
-        class="staff-card-open js-appointment-sheet"
-        data-time="{{ item.time_label }}"
-        data-customer="{{ item.customer_name }}"
-        data-service="{{ item.service_label }}"
-        data-staff="{{ item.staff_name }}"
-        data-status="{{ item.status or 'geplant' }}"
-        data-notes="{{ item.notes_short or '' }}"
-        data-call="{{ item.call_url or '' }}"
-        data-whatsapp="{{ item.whatsapp_url or '' }}"
-        data-edit="{{ item.edit_url }}"
-      >
-        <div class="simple-appointment-top">
-          <div>
-            <div class="simple-appointment-time">{{ item.time_label }}</div>
-            <h2>{{ item.customer_name }}</h2>
-          </div>
-          <div class="simple-card-badges">
-            <span class="simple-status-pill">{{ item.staff_name }}</span>
-            <span class="simple-status-pill simple-status-muted">{{ item.status or 'geplant' }}</span>
-          </div>
+  <section class="simple-panel">
+    <div class="simple-summary-box">
+      <div>
+        <strong>Gesamt</strong>
+        <span>{{ count_total }} Termine</span>
+      </div>
+      <div>
+        <strong>Ute</strong>
+        <span>{{ count_ute }} Termine</span>
+      </div>
+      <div>
+        <strong>Jessi</strong>
+        <span>{{ count_jessi }} Termine</span>
+      </div>
+      <div>
+        <strong>Ohne Zuordnung</strong>
+        <span>{{ count_general }} Termine</span>
+      </div>
+      <div>
+        <strong>Naechster Termin</strong>
+        <span>{% if next_item %}{{ next_item.time_label }} - {{ next_item.customer_name }}{% else %}Noch offen{% endif %}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="simple-two-column">
+    <article class="simple-panel">
+      <div class="simple-panel-head">
+        <div>
+          <div class="simple-kicker">Morgenstart</div>
+          <h2 class="simple-section-title">Schnellinfos</h2>
         </div>
-        <div class="simple-appointment-meta">{{ item.service_label }}</div>
-        {% if item.notes_short %}
-        <div class="simple-appointment-meta">{{ item.notes_short }}</div>
-        {% endif %}
-      </button>
-      <div class="simple-action-row compact-action-row">
-        {% if item.call_url %}
-        <a class="simple-action-button" href="{{ item.call_url }}">Telefon</a>
-        {% else %}
-        <span class="simple-action-button disabled">Telefon fehlt</span>
-        {% endif %}
-        {% if item.whatsapp_url %}
-        <a class="simple-action-button" href="{{ item.whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>
-        {% else %}
-        <span class="simple-action-button disabled">WhatsApp fehlt</span>
-        {% endif %}
-        <a class="simple-action-button" href="{{ item.edit_url }}">Bearbeiten</a>
+        <a class="simple-inline-link" href="{{ url_for('calendar_view', view='day', date=selected_date, staff=staff if not mine_mode else own_staff, mine=1 if mine_mode else 0) }}">Tag im Kalender</a>
+      </div>
+      <div class="simple-compact-list">
+        <div class="simple-list-card">
+          <strong>Ute frei</strong>
+          <span>{% if free_slots_ute %}{{ free_slots_ute[:3]|join(', ') }}{% else %}Keine freie Schnellzeit{% endif %}</span>
+        </div>
+        <div class="simple-list-card">
+          <strong>Jessi frei</strong>
+          <span>{% if free_slots_jessi %}{{ free_slots_jessi[:3]|join(', ') }}{% else %}Keine freie Schnellzeit{% endif %}</span>
+        </div>
+        <div class="simple-list-card">
+          <strong>Ohne Zuordnung</strong>
+          <span>{% if count_general %}{{ count_general }} Termin(e) bitte kurz pruefen{% else %}Alles sauber zugeordnet{% endif %}</span>
+        </div>
       </div>
     </article>
-    {% else %}
+
+    <article class="simple-panel">
+      <div class="simple-panel-head">
+        <div>
+          <div class="simple-kicker">Heute</div>
+          <h2 class="simple-section-title">Wichtig</h2>
+        </div>
+        <a class="simple-inline-link" href="{{ url_for('staff_more') }}">Mehr</a>
+      </div>
+      <div class="simple-compact-list">
+        {% for item in reminder_items %}
+        <a class="simple-list-card" href="{{ url_for('staff_customer_detail', customer_id=item['customer_id']) }}">
+          <strong>{{ item['appointment_at']|dt }}</strong>
+          <span>{{ item['_firstname'] }} {{ item['_name'] }}</span>
+        </a>
+        {% endfor %}
+        {% for customer in birthday_items %}
+        <a class="simple-list-card" href="{{ url_for('staff_customer_detail', customer_id=customer['_id']) }}">
+          <strong>{{ customer_full_name(customer) }}</strong>
+          <span>Geburtstag: {{ customer['_birthdate']|birthday }}</span>
+        </a>
+        {% endfor %}
+        {% if not reminder_items and not birthday_items %}
+        <div class="simple-empty">Keine Erinnerungen oder Geburtstage offen.</div>
+        {% endif %}
+      </div>
+    </article>
+  </section>
+
+  {% for section in visible_sections %}
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">{{ section["subtitle"] }}</div>
+        <h2 class="simple-section-title">{{ section["title"] }}</h2>
+      </div>
+      <span class="simple-status-pill">{{ section["items"]|length }} Termine</span>
+    </div>
+    {% if section["free_slots"] %}
+    <div class="simple-appointment-meta">Freie Schnellzeiten: {{ section["free_slots"][:4]|join(', ') }}</div>
+    {% endif %}
+    <div class="simple-card-list staff-timeline-list">
+      {% for item in section["items"] %}
+      <article class="simple-appointment-card staff-timeline-card">
+        <button
+          type="button"
+          class="staff-card-open js-appointment-sheet"
+          data-time="{{ item.time_label }}"
+          data-customer="{{ item.customer_name }}"
+          data-service="{{ item.service_label }}"
+          data-staff="{{ item.staff_name }}"
+          data-status="{{ item.status or 'geplant' }}"
+          data-notes="{{ item.notes_short or '' }}"
+          data-call="{{ item.call_url or '' }}"
+          data-whatsapp="{{ item.whatsapp_url or '' }}"
+          data-edit="{{ item.edit_url }}"
+        >
+          <div class="simple-appointment-top">
+            <div>
+              <div class="simple-appointment-time">{{ item.time_label }}</div>
+              <h2>{{ item.customer_name }}</h2>
+            </div>
+            <div class="simple-card-badges">
+              <span class="simple-status-pill">{{ item.staff_name or section["title"] }}</span>
+              <span class="simple-status-pill simple-status-muted">{{ item.status or 'geplant' }}</span>
+            </div>
+          </div>
+          <div class="simple-appointment-meta">{{ item.service_label }}</div>
+          {% if item.notes_short %}
+          <div class="simple-appointment-meta">{{ item.notes_short }}</div>
+          {% endif %}
+        </button>
+        <div class="simple-action-row compact-action-row">
+          {% if item.call_url %}
+          <a class="simple-action-button" href="{{ item.call_url }}">Telefon</a>
+          {% else %}
+          <span class="simple-action-button disabled">Telefon fehlt</span>
+          {% endif %}
+          {% if item.whatsapp_url %}
+          <a class="simple-action-button" href="{{ item.whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>
+          {% else %}
+          <span class="simple-action-button disabled">WhatsApp fehlt</span>
+          {% endif %}
+          <a class="simple-action-button" href="{{ item.edit_url }}">Bearbeiten</a>
+        </div>
+      </article>
+      {% else %}
+      <div class="simple-empty simple-empty-state">
+        <strong>Keine Termine in diesem Bereich.</strong>
+        <span>Der Abschnitt ist fuer heute leer.</span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+
+  {% if not visible_sections %}
+  <section class="simple-panel">
     <div class="simple-empty simple-empty-state">
       <strong>Heute sind keine Termine eingetragen.</strong>
       <span>Lege den ersten Termin direkt an.</span>
-      <a class="simple-save-button" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=staff if staff != 'Alle' else own_staff) }}">Ersten Termin erstellen</a>
+      <a class="simple-save-button" href="{{ url_for('staff_new_appointment', appointment_at=selected_date ~ 'T09:00', staff=new_appointment_staff) }}">Ersten Termin erstellen</a>
     </div>
-    {% endfor %}
   </section>
+  {% endif %}
 </section>
 
 <div class="staff-sheet-overlay" id="appointmentSheetOverlay" hidden></div>
@@ -101,7 +202,7 @@
       <div class="simple-kicker" id="appointmentSheetTime">--:--</div>
       <h2 class="simple-section-title" id="appointmentSheetTitle">Termin</h2>
     </div>
-    <button type="button" class="simple-action-button" id="appointmentSheetClose">Schließen</button>
+    <button type="button" class="simple-action-button" id="appointmentSheetClose">Schliessen</button>
   </header>
   <div class="staff-sheet-body">
     <div class="simple-detail-grid">

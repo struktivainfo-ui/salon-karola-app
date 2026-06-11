@@ -4134,7 +4134,138 @@ def switch_to_admin_app():
 @login_required
 def staff_today():
     set_ui_world("staff")
-    return redirect(url_for("calendar_view", view="day", mine=1))
+    db = get_db()
+    selected_date = parse_iso_date(request.args.get("date"))
+    own_staff = default_staff_for_simple_mode(db)
+    mine_mode = (request.args.get("mine") or "").strip().lower() in {"1", "true", "yes", "on"}
+    staff_raw = (request.args.get("staff") or ("Alle" if not mine_mode else own_staff)).strip()
+    if mine_mode or not staff_raw or staff_raw == "Sven":
+        staff_raw = own_staff
+    if staff_raw not in {"Alle", "Ute", "Jessi"}:
+        staff_raw = own_staff
+
+    all_items = appointments_for_day(selected_date, "Alle", limit=180, db=db)
+    own_items = appointments_for_day(selected_date, own_staff, limit=120, db=db)
+    filtered_items = own_items if mine_mode else appointments_for_day(selected_date, staff_raw, limit=180, db=db)
+
+    col_ute = []
+    col_jessi = []
+    col_general = []
+    for item in all_items:
+        staff_name = (item.get("staff_name") or "").strip()
+        if staff_name == "Ute":
+            col_ute.append(item)
+        elif staff_name == "Jessi":
+            col_jessi.append(item)
+        else:
+            col_general.append(item)
+
+    visible_sections = []
+    if mine_mode:
+        visible_sections.append(
+            {
+                "title": own_staff,
+                "subtitle": "Meine Termine",
+                "items": filtered_items,
+                "free_slots": quick_free_slots_for_staff(selected_date, own_staff),
+            }
+        )
+    elif staff_raw == "Ute":
+        visible_sections.append(
+            {
+                "title": "Ute",
+                "subtitle": "Heute fuer Ute",
+                "items": col_ute,
+                "free_slots": quick_free_slots_for_staff(selected_date, "Ute"),
+            }
+        )
+    elif staff_raw == "Jessi":
+        visible_sections.append(
+            {
+                "title": "Jessi",
+                "subtitle": "Heute fuer Jessi",
+                "items": col_jessi,
+                "free_slots": quick_free_slots_for_staff(selected_date, "Jessi"),
+            }
+        )
+    else:
+        visible_sections.extend(
+            [
+                {
+                    "title": "Ute",
+                    "subtitle": "Schneller Start fuer Ute",
+                    "items": col_ute,
+                    "free_slots": quick_free_slots_for_staff(selected_date, "Ute"),
+                },
+                {
+                    "title": "Jessi",
+                    "subtitle": "Schneller Start fuer Jessi",
+                    "items": col_jessi,
+                    "free_slots": quick_free_slots_for_staff(selected_date, "Jessi"),
+                },
+            ]
+        )
+        if col_general:
+            visible_sections.append(
+                {
+                    "title": "Ohne Zuordnung",
+                    "subtitle": "Bitte manuell pruefen",
+                    "items": col_general,
+                    "free_slots": [],
+                }
+            )
+
+    next_item = None
+    now_dt = datetime.now()
+    for item in filtered_items:
+        item_dt = _parse_dt_safe(f"{selected_date.isoformat()}T{item.get('time_label', '')}")
+        if selected_date > now_dt.date() or (item_dt and item_dt >= now_dt):
+            next_item = item
+            break
+    if not next_item and filtered_items:
+        next_item = filtered_items[0]
+
+    chip_dates = []
+    today = datetime.now().date()
+    for offset in range(-1, 4):
+        chip_date = selected_date + timedelta(days=offset)
+        if chip_date == today:
+            label = "Heute"
+        elif chip_date == today + timedelta(days=1):
+            label = "Morgen"
+        else:
+            label = chip_date.strftime("%a %d.%m.")
+        chip_dates.append({"date": chip_date.isoformat(), "label": label})
+
+    filter_summary = "Meine Termine" if mine_mode else ("Alle Termine" if staff_raw == "Alle" else staff_raw)
+    new_appointment_staff = own_staff if mine_mode or staff_raw == "Alle" else staff_raw
+
+    return render_template(
+        "staff_today.html",
+        current_endpoint="staff_today",
+        app_version=APP_VERSION,
+        selected_date=selected_date.isoformat(),
+        selected_date_label=selected_date.strftime("%d.%m.%Y"),
+        today_date=today.isoformat(),
+        own_staff=own_staff,
+        staff=staff_raw,
+        mine_mode=mine_mode,
+        bookable_staff=staff_members_for_simple_mode(db),
+        staff_day_chip_dates=chip_dates,
+        simple_day_items=filtered_items,
+        visible_sections=visible_sections,
+        next_item=next_item,
+        filter_summary=filter_summary,
+        reminder_items=due_reminders(limit=4),
+        birthday_items=upcoming_birthdays(limit=4),
+        count_total=len(all_items),
+        count_ute=len(col_ute),
+        count_jessi=len(col_jessi),
+        count_general=len(col_general),
+        free_slots_ute=quick_free_slots_for_staff(selected_date, "Ute"),
+        free_slots_jessi=quick_free_slots_for_staff(selected_date, "Jessi"),
+        new_appointment_staff=new_appointment_staff,
+    )
 
 
 @app.route("/staff/calendar")
@@ -4148,7 +4279,7 @@ def staff_calendar():
 @staff_or_admin_required
 def staff_day_view(date_value):
     set_ui_world("staff")
-    return redirect(url_for("calendar_view", view="day", date=date_value, mine=1))
+    return redirect(url_for("staff_today", date=date_value, mine=1))
 
 
 @app.route("/staff/appointment/new", methods=["GET", "POST"])
@@ -4198,24 +4329,12 @@ def salon_home():
     if is_admin_world_session():
         return redirect(url_for("admin_dashboard"))
     set_ui_world("staff")
-    db = get_db()
-    today = datetime.now().date()
-    own_staff = default_staff_for_simple_mode(db)
-    own_appointments = appointments_for_day(today, own_staff, db=db)
-    all_appointments = appointments_for_day(today, "Alle", db=db)
-    reminder_items = due_reminders(limit=8)
-    birthday_items = upcoming_birthdays(limit=8)
-    return render_template(
-        "staff_today.html",
-        today_date=today.isoformat(),
-        own_staff=own_staff,
-        own_appointments=own_appointments,
-        all_appointments=all_appointments,
-        reminder_items=reminder_items,
-        birthday_items=birthday_items,
-        current_endpoint="salon_home",
-        app_version=APP_VERSION,
-    )
+    redirect_args = {}
+    for key in ("date", "staff", "mine"):
+        value = (request.args.get(key) or "").strip()
+        if value:
+            redirect_args[key] = value
+    return redirect(url_for("staff_today", **redirect_args))
 
 
 @app.route("/salon/reminders")
