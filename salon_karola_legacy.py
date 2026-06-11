@@ -4449,84 +4449,10 @@ def salon_reminders():
 @app.route("/dashboard-legacy")
 @admin_required
 def dashboard_legacy():
-    set_ui_world("admin")
-    db = get_db()
-    q = request.args.get("q", "").strip()
-    tag = request.args.get("tag", "").strip()
-    sort = (request.args.get("sort") or "az").strip().lower()
-    if sort not in {"az", "za", "recent"}:
-        sort = "az"
-
-    base_query = """
-        SELECT c.*, MAX(a.appointment_at) AS last_appointment_at
-        FROM _Customers c
-        LEFT JOIN appointments a ON a.customer_id = c._id
-    """
-    params = []
-    conditions = [visible_customer_condition("c")]
-
-    if tag:
-        base_query += " JOIN customer_tags t ON t.customer_id = c._id"
-        conditions.append("t.tag = ?")
-        params.append(tag)
-
-    if q:
-        like = f"%{q}%"
-        customer_cols = customer_columns()
-        search_parts = []
-        for column_name in ["_name", "_firstname", "_mail", "Customer_Mobiltelefon", "Customer_PersönlichesTelefon", "Customer_Stadt"]:
-            if column_name in customer_cols:
-                search_parts.append(f"c.{column_name} LIKE ?")
-                params.append(like)
-        if search_parts:
-            conditions.append("(" + " OR ".join(search_parts) + ")")
-
-    if conditions:
-        base_query += " WHERE " + " AND ".join(conditions)
-
-    order_sql = "COALESCE(c._name, '') COLLATE NOCASE, COALESCE(c._firstname, '') COLLATE NOCASE"
-    if sort == "za":
-        order_sql = "COALESCE(c._name, '') COLLATE NOCASE DESC, COALESCE(c._firstname, '') COLLATE NOCASE DESC"
-    elif sort == "recent":
-        order_sql = "MAX(a.appointment_at) DESC, COALESCE(c._name, '') COLLATE NOCASE, COALESCE(c._firstname, '') COLLATE NOCASE"
-
-    base_query += f" GROUP BY c._id ORDER BY {order_sql} LIMIT 200"
-    customers = db.execute(base_query, params).fetchall()
-    tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
-
-    stats = dashboard_stats()
-    stats["direct_customer_count"] = direct_customer_count_from_file()
-    if stats.get("direct_customer_count") is not None:
-        stats["total_customers"] = int(stats.get("direct_customer_count") or 0)
-    if customers and not stats.get("total_customers"):
-        stats["total_customers"] = len(customers)
-    if customers and not stats.get("total_emails"):
-        stats["total_emails"] = sum(1 for row in customers if ((row["_mail"] if "_mail" in row.keys() else "") or "").strip())
-    if customers and not stats.get("total_mobile"):
-        stats["total_mobile"] = sum(1 for row in customers if (((row["Customer_Mobiltelefon"] if "Customer_Mobiltelefon" in row.keys() else "") or (row["Customer_PersönlichesTelefon"] if "Customer_PersönlichesTelefon" in row.keys() else "") or "").strip()))
-
-    return render_template(
-        "admin_dashboard.html",
-        customers=customers,
-        q=q,
-        tag=tag,
-        sort=sort,
-        stats=stats,
-        upcoming=next_appointments(),
-        birthdays=upcoming_birthdays(),
-        tags=tags,
-        smtp_ready=smtp_ready(),
-        automation={**get_automation_status(), "dashboard_error": get_setting("dashboard:last_safe_count_error")},
-        inactive=inactive_customers(),
-        today_items=today_appointments(),
-        due_items=due_reminders(),
-        staff_counts=staff_dashboard_counts(),
-        now=datetime.now(),
-        current_endpoint="admin_dashboard",
-        app_version=APP_VERSION,
-        deploy_marker=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        db_path=str(DB_PATH),
-    )
+    # Legacy dashboard flow: keep the URL alive for old bookmarks,
+    # but send users to the canonical admin dashboard instead of
+    # maintaining a second dashboard logic path.
+    return redirect(url_for("admin_dashboard"))
 
 
 @app.route("/customers/search")
@@ -5753,7 +5679,9 @@ def _calendar_nav_date(selected_date, view, step):
 def appointments_hub():
     db = get_db()
 
-    if request.method == "GET" and (request.args.get("legacy") or "").strip() != "1":
+    if request.method == "GET":
+        # Legacy query-string variants now resolve into the canonical
+        # calendar flow instead of rendering legacy appointment templates.
         at_raw = (request.args.get("appointment_at") or "").strip()
         parsed = _parse_dt_safe(at_raw)
         day = parsed.date().isoformat() if parsed else parse_iso_date(request.args.get("date")).isoformat()
