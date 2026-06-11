@@ -230,6 +230,9 @@ app.secret_key = _secret_key
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 app.permanent_session_lifetime = timedelta(days=45)
 app.json.ensure_ascii = False
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = production_like_runtime()
 
 
 def log_storage_context_once():
@@ -325,13 +328,26 @@ _BOOT_DONE = False
 
 
 # ---------- Auth ----------
+def safe_next_target(raw_target, fallback_endpoint="index"):
+    fallback_url = url_for(fallback_endpoint)
+    target = (raw_target or "").strip()
+    if not target:
+        return fallback_url
+    if not target.startswith("/") or target.startswith("//"):
+        return fallback_url
+    if target.startswith("/\\") or "\\\\" in target or "\x00" in target:
+        return fallback_url
+    return target
+
+
 def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if not session.get("admin_logged_in"):
             if request.path.startswith("/api/"):
                 return jsonify({"ok": False, "error": "Bitte zuerst anmelden."}), 401
-            return redirect(url_for("login", next=request.path))
+            next_target = request.full_path if request.query_string else request.path
+            return redirect(url_for("login", next=safe_next_target(next_target, fallback_endpoint="login")))
         return view(*args, **kwargs)
     return wrapped
 
@@ -668,6 +684,7 @@ def default_staff_for_simple_mode(db=None):
 
 def login_user(user, *, staff_name=None, remember_device=False):
     resolved_staff = staff_name or resolve_staff_name_for_user(user)
+    session.clear()
     session.permanent = bool(remember_device)
     session["admin_logged_in"] = True
     session["admin_name"] = user["display_name"] or user["username"]
@@ -3948,6 +3965,7 @@ def test_push():
 def login():
     login_options = default_login_options()
     db = get_db()
+    next_target = safe_next_target(request.args.get("next"), fallback_endpoint="index")
     if request.method == "POST":
         action = (request.form.get("action") or "login").strip().lower()
         selected_staff = _normalize_staff_name(request.form.get("staff_name"), default=get_default_staff(db), db=db)
@@ -3971,7 +3989,7 @@ def login():
                 db.commit()
                 login_user(user, staff_name=selected_staff, remember_device=remember_device)
                 flash(f"Passwort für {selected_staff} gespeichert. Willkommen, {selected_staff}.")
-                return redirect(request.args.get("next") or default_route_after_login(selected_staff))
+                return redirect(next_target if next_target != url_for("index") else default_route_after_login(selected_staff))
         else:
             password = request.form.get("password", "")
             if not user:
@@ -3988,7 +4006,7 @@ def login():
                 staff_name = resolve_staff_name_for_user(user, db=db)
                 login_user(user, staff_name=staff_name, remember_device=remember_device)
                 flash(f"Login erfolgreich: {staff_name}.")
-                return redirect(request.args.get("next") or default_route_after_login(staff_name))
+                return redirect(next_target if next_target != url_for("index") else default_route_after_login(staff_name))
             else:
                 flash("Login fehlgeschlagen.")
 

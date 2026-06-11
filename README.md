@@ -40,6 +40,8 @@ Die Anwendung buendelt die wichtigsten internen Arbeitsablaeufe in einer geschue
 - `SECRET_KEY` muss in produktionsaehnlichen Umgebungen als Umgebungsvariable gesetzt sein.
 - Mail-, Push- und Firebase-Zugangsdaten ausschliesslich ueber sichere Environment Variables verwalten.
 - Die App ist fuer den internen Salonbetrieb gedacht und sollte nicht ohne Authentifizierung oeffentlich freigegeben werden.
+- Admin-Bereiche wie Backup, Import, Export, Push-Verwaltung und Einstellungen sind fuer den Admin-Account vorgesehen.
+- In produktionsaehnlichen Umgebungen sollte die App nur ueber HTTPS betrieben werden, damit `SESSION_COOKIE_SECURE` aktiv bleibt.
 
 ## Backup-Hinweise
 - Die produktive SQLite-Datenbank muss auf einer Persistent Disk liegen.
