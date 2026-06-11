@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
-{% block title %}Vorlagen · Salon Karola App{% endblock %}
+{% block title %}Vorlagen - Salon Karola App{% endblock %}
 {% block content %}
 <section class="premium-shell">
   <section class="premium-page-head">
     <div>
       <div class="premium-page-kicker">Admin</div>
       <h1 class="premium-page-title">Vorlagen</h1>
-      <div class="premium-page-subtitle">Texte ruhig, zentral und einheitlich pflegen.</div>
+      <div class="premium-page-subtitle">Texte zentral pflegen, sauber vorbereiten und mobil schnell nutzen.</div>
     </div>
     <div class="premium-top-actions">
       <a class="premium-top-action primary" href="{{ url_for('email_logs') }}">Logs</a>
-      <a class="premium-top-action" href="{{ url_for('calendar_view') }}">Kalender</a>
+      <a class="premium-top-action" href="{{ url_for('whatsapp_hub') }}">WhatsApp</a>
     </div>
   </section>
 
@@ -25,11 +25,11 @@
         </div>
         <div class="form-group premium-form-group">
           <label>Betreff</label>
-          <input type="text" name="birthdate_subject" id="birthdate_subject" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}" data-server-value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}">
+          <input type="text" name="birthdate_subject" id="birthdate_subject" autocomplete="off" value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}" data-server-value="{{ templates['birthdate']['subject'] if 'birthdate' in templates else '' }}">
         </div>
         <div class="form-group premium-form-group">
           <label>Text</label>
-          <textarea name="birthdate_body" id="birthdate_body" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-server-value="{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}">{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}</textarea>
+          <textarea name="birthdate_body" id="birthdate_body" autocomplete="off" data-server-value="{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}">{{ templates['birthdate']['body'] if 'birthdate' in templates else '' }}</textarea>
         </div>
       </div>
 
@@ -37,35 +37,69 @@
         <div class="premium-panel-head slim">
           <div>
             <div class="premium-panel-kicker">Mail</div>
-            <h2 class="premium-panel-title">Termin</h2>
+            <h2 class="premium-panel-title">Terminerinnerung</h2>
           </div>
         </div>
         <div class="form-group premium-form-group">
           <label>Betreff</label>
-          <input type="text" name="appointment_subject" id="appointment_subject" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}" data-server-value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}">
+          <input type="text" name="appointment_subject" id="appointment_subject" autocomplete="off" value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}" data-server-value="{{ templates['appointment']['subject'] if 'appointment' in templates else '' }}">
         </div>
         <div class="form-group premium-form-group">
           <label>Text</label>
-          <textarea name="appointment_body" id="appointment_body" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-server-value="{{ templates['appointment']['body'] if 'appointment' in templates else '' }}">{{ templates['appointment']['body'] if 'appointment' in templates else '' }}</textarea>
+          <textarea name="appointment_body" id="appointment_body" autocomplete="off" data-server-value="{{ templates['appointment']['body'] if 'appointment' in templates else '' }}">{{ templates['appointment']['body'] if 'appointment' in templates else '' }}</textarea>
         </div>
       </div>
 
       <div class="premium-button-row premium-space-top">
-        <button type="submit" class="premium-button">Vorlagen speichern</button>
+        <button type="submit" class="premium-button">Mail-Vorlagen speichern</button>
       </div>
     </form>
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Kommunikation</div>
+        <h2 class="premium-panel-title">Zentrale Textbausteine</h2>
+      </div>
+    </div>
+    <p class="premium-help-text">Diese Vorlagen werden nur vorbereitet. Versand erfolgt immer erst nach bewusster Nutzeraktion.</p>
+    <div class="premium-action-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
+      {% for key, item in message_templates.items() %}
+      <article class="premium-action-card">
+        <strong>{{ item.title }}</strong>
+        <small>{{ item.channel }} · {{ item.category }}</small>
+        <p class="premium-help-text" style="margin:10px 0 0 0; white-space:pre-line;">{{ item.body }}</p>
+        <button type="button" class="premium-button secondary js-copy-template" data-copy="{{ item.body }}">Kopieren</button>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Platzhalter</div>
+        <h2 class="premium-panel-title">Verfuegbare Platzhalter</h2>
+      </div>
+    </div>
+    <div class="premium-action-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+      <div class="premium-action-card"><strong>[Name]</strong><small>Voller Kundenname</small></div>
+      <div class="premium-action-card"><strong>[Vorname]</strong><small>Vorname, falls vorhanden</small></div>
+      <div class="premium-action-card"><strong>[Datum]</strong><small>Deutsches Datumsformat</small></div>
+      <div class="premium-action-card"><strong>[Uhrzeit]</strong><small>Saubere Uhrzeit</small></div>
+      <div class="premium-action-card"><strong>[Leistung]</strong><small>Termin oder Service</small></div>
+      <div class="premium-action-card"><strong>[Mitarbeiterin]</strong><small>Zustaendiges Teammitglied</small></div>
+      <div class="premium-action-card"><strong>[Salonname]</strong><small>Salon Karola</small></div>
+      <div class="premium-action-card"><strong>[Bewertungslink]</strong><small>Nur wenn hinterlegt</small></div>
+    </div>
   </section>
 
 <script>
 (function () {
   const form = document.getElementById("template-form");
   const liveUrl = form ? form.getAttribute("data-live-url") : "";
-  const fieldIds = [
-    "birthdate_subject",
-    "birthdate_body",
-    "appointment_subject",
-    "appointment_body"
-  ];
+  const fieldIds = ["birthdate_subject", "birthdate_body", "appointment_subject", "appointment_body"];
 
   function setValuesFromPayload(payload) {
     if (!payload || !payload.templates) return;
@@ -73,7 +107,7 @@
       birthdate_subject: (((payload.templates.birthdate || {}).subject) || ""),
       birthdate_body: (((payload.templates.birthdate || {}).body) || ""),
       appointment_subject: (((payload.templates.appointment || {}).subject) || ""),
-      appointment_body: (((payload.templates.appointment || {}).body) || "")
+      appointment_body: (((payload.templates.appointment || {}).body) || ""),
     };
     fieldIds.forEach((id) => {
       const el = document.getElementById(id);
@@ -114,6 +148,15 @@
     forceLiveSync();
     setTimeout(forceLiveSync, 250);
     setTimeout(forceLiveSync, 1200);
+    document.querySelectorAll(".js-copy-template").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(button.dataset.copy || "");
+          button.textContent = "Kopiert";
+          setTimeout(() => { button.textContent = "Kopieren"; }, 1200);
+        } catch (error) {}
+      });
+    });
   });
 
   window.addEventListener("pageshow", () => {
@@ -133,14 +176,7 @@
       clearClientDraftCopies();
     });
   }
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      registrations.forEach((registration) => {
-        registration.update().catch(() => {});
-      });
-    }).catch(() => {});
-  }
 })();
 </script>
+</section>
 {% endblock %}

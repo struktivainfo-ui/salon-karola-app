@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
-{% block title %}WhatsApp · Salon Karola App{% endblock %}
+{% block title %}WhatsApp - Salon Karola App{% endblock %}
 {% block content %}
 <section class="premium-shell">
   <section class="premium-page-head">
     <div>
       <div class="premium-page-kicker">Kommunikation</div>
       <h1 class="premium-page-title">WhatsApp</h1>
-      <div class="premium-page-subtitle">Kunden direkt öffnen und in einem Tap anschreiben.</div>
+      <div class="premium-page-subtitle">Nachrichten vorbereitet, klar und nur nach bewusster Nutzeraktion.</div>
     </div>
     <div class="premium-top-actions">
       <a class="premium-top-action primary" href="{{ url_for('customer_search_page') }}">Kundensuche</a>
-      <a class="premium-top-action" href="{{ url_for('calendar_view') }}">Kalender</a>
+      <a class="premium-top-action" href="{{ url_for('templates_view') }}">Vorlagen</a>
     </div>
   </section>
 
@@ -22,7 +22,7 @@
       </div>
       <div class="premium-button-row inline-right">
         <button type="submit" class="premium-button">Suchen</button>
-        <a class="premium-button secondary" href="{{ url_for('whatsapp_hub') }}">Zurücksetzen</a>
+        <a class="premium-button secondary" href="{{ url_for('whatsapp_hub') }}">Zuruecksetzen</a>
       </div>
     </form>
   </section>
@@ -30,20 +30,51 @@
   <section class="premium-card-grid premium-space-top">
     {% for customer in customers %}
     {% set next_appt = next_appt_map.get(customer['_id']) %}
+    {% set general_wa = whatsapp_link(customer, communication_template_text('general_message', customer=customer)) %}
+    {% set callback_wa = whatsapp_link(customer, communication_template_text('callback_request', customer=customer)) %}
+    {% set birthday_wa = whatsapp_link(customer, communication_template_text('birthday_message', customer=customer)) %}
+    {% set review_wa = whatsapp_link(customer, communication_template_text('review_request', customer=customer)) %}
+    {% set reminder_wa = whatsapp_link(customer, communication_template_text('appointment_reminder', customer=customer, appointment=next_appt)) if next_appt else '' %}
     <article class="premium-contact-card premium-contact-card-wide">
       <div class="premium-list-row">
         <div>
           <h3>{{ customer['_firstname'] }} {{ customer['_name'] }}</h3>
-          <div class="premium-contact-meta">{{ customer_phone(customer) }}</div>
+          <div class="premium-contact-meta">{{ customer_phone(customer) or 'Keine gueltige WhatsApp-Nummer' }}</div>
         </div>
-        <a class="premium-inline-link" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">Karte öffnen</a>
+        <a class="premium-inline-link" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">Karte oeffnen</a>
       </div>
-      <div class="premium-action-grid compact premium-space-top">
-        <a class="premium-action-card" href="{{ whatsapp_link(customer) }}" target="_blank" rel="noopener">Nachricht</a>
+
+      <div class="premium-space-top">
+        <div class="premium-panel-kicker">Sofortnachricht</div>
+        <p class="premium-help-text">{{ communication_template_text('general_message', customer=customer) }}</p>
+        <div class="premium-button-row compact">
+          {% if general_wa %}<a class="premium-button" href="{{ general_wa }}" target="_blank" rel="noopener">WhatsApp oeffnen</a>{% else %}<span class="premium-button secondary" aria-disabled="true">WhatsApp fehlt</span>{% endif %}
+        </div>
+      </div>
+
+      <div class="premium-action-grid compact premium-space-top" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+        <div class="premium-action-card">
+          <strong>Rueckrufbitte</strong>
+          <small>{{ communication_template_text('callback_request', customer=customer) }}</small>
+          {% if callback_wa %}<a class="premium-inline-link" href="{{ callback_wa }}" target="_blank" rel="noopener">WhatsApp oeffnen</a>{% endif %}
+        </div>
         {% if next_appt %}
-        <a class="premium-action-card" href="{{ whatsapp_link(customer, 'Hallo ' ~ customer['_firstname'] ~ ', wir freuen uns auf deinen Termin am ' ~ (next_appt['appointment_at']|dt) ~ '. Viele Grüße vom Salon Karola') }}" target="_blank" rel="noopener">Termin senden</a>
+        <div class="premium-action-card">
+          <strong>Terminerinnerung</strong>
+          <small>{{ communication_template_text('appointment_reminder', customer=customer, appointment=next_appt) }}</small>
+          {% if reminder_wa %}<a class="premium-inline-link" href="{{ reminder_wa }}" target="_blank" rel="noopener">WhatsApp oeffnen</a>{% endif %}
+        </div>
         {% endif %}
-        <a class="premium-action-card" href="{{ whatsapp_link(customer, 'Hallo ' ~ customer['_firstname'] ~ ', wir würden uns freuen, dich bald wieder bei uns im Salon zu sehen. Melde dich gerne für einen neuen Termin. Viele Grüße vom Salon Karola') }}" target="_blank" rel="noopener">Rückholung</a>
+        <div class="premium-action-card">
+          <strong>Geburtstag</strong>
+          <small>{{ communication_template_text('birthday_message', customer=customer) }}</small>
+          {% if birthday_wa %}<a class="premium-inline-link" href="{{ birthday_wa }}" target="_blank" rel="noopener">WhatsApp oeffnen</a>{% endif %}
+        </div>
+        <div class="premium-action-card">
+          <strong>Bewertung</strong>
+          <small>{{ communication_template_text('review_request', customer=customer) }}</small>
+          {% if review_wa %}<a class="premium-inline-link" href="{{ review_wa }}" target="_blank" rel="noopener">WhatsApp oeffnen</a>{% endif %}
+        </div>
       </div>
     </article>
     {% else %}

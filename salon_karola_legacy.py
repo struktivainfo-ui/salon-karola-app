@@ -1540,6 +1540,171 @@ def customer_phone(customer):
     return _row_value(customer, "Customer_Mobiltelefon", "Customer_PersoenlichesTelefon") or ""
 
 
+COMMUNICATION_TEMPLATE_CATALOG = {
+    "appointment_confirmation": {
+        "title": "Terminbestaetigung",
+        "channel": "WhatsApp",
+        "category": "Termin",
+        "body": "[Anrede]\nIhr Termin im [Salonname] ist bestaetigt:\n[Terminzeile]\n\nWir freuen uns auf Sie.\nLiebe Gruesse\nJessi & Ute",
+    },
+    "appointment_reminder": {
+        "title": "Terminerinnerung",
+        "channel": "WhatsApp / E-Mail",
+        "category": "Termin",
+        "body": "[Anrede]\nwir erinnern freundlich an Ihren Termin im [Salonname]:\n[Terminzeile]\n\nLiebe Gruesse\nJessi & Ute",
+    },
+    "appointment_change": {
+        "title": "Terminaenderung",
+        "channel": "WhatsApp",
+        "category": "Termin",
+        "body": "[Anrede]\nIhr Termin im [Salonname] wurde geaendert:\nNeuer Termin: [Datum] um [Uhrzeit].\n\nFalls etwas nicht passt, melden Sie sich gerne bei uns.\nLiebe Gruesse\nJessi & Ute",
+    },
+    "appointment_cancellation": {
+        "title": "Terminabsage",
+        "channel": "WhatsApp",
+        "category": "Termin",
+        "body": "[Anrede]\nIhr Termin im [Salonname] am [Datum] um [Uhrzeit] wurde abgesagt.\n\nBei Fragen melden Sie sich gerne bei uns.\nLiebe Gruesse\nJessi & Ute",
+    },
+    "birthday_message": {
+        "title": "Geburtstag",
+        "channel": "WhatsApp / E-Mail",
+        "category": "Geburtstag",
+        "body": "Liebe/r [Name],\ndas Team von [Salonname] wuenscht Ihnen alles Gute zum Geburtstag.\n\nAls kleines Geschenk erhalten Sie 10 % auf Ihren naechsten Besuch.\n\nLiebe Gruesse\nJessi & Ute",
+    },
+    "callback_request": {
+        "title": "Rueckrufbitte",
+        "channel": "WhatsApp",
+        "category": "Service",
+        "body": "[Anrede]\nhier ist [Salonname]. Wir wollten Sie kurz erreichen.\nBitte melden Sie sich gerne zurueck, wenn es Ihnen passt.\n\nLiebe Gruesse\nJessi & Ute",
+    },
+    "general_message": {
+        "title": "Allgemeine Nachricht",
+        "channel": "WhatsApp",
+        "category": "Service",
+        "body": "[Anrede]\nhier ist [Salonname]. Wir melden uns kurz bei Ihnen.\nWenn Sie Fragen haben, erreichen Sie uns direkt im Salon.\n\nLiebe Gruesse\nJessi & Ute",
+    },
+    "review_request": {
+        "title": "Bewertungsbitte",
+        "channel": "WhatsApp",
+        "category": "Service",
+        "body": "[Anrede]\nvielen Dank fuer Ihren Besuch bei [Salonname].\nWenn Sie zufrieden waren, freuen wir uns sehr ueber eine Google-Bewertung.\n[Bewertungslink]\n\nLiebe Gruesse\nJessi & Ute",
+    },
+}
+
+
+def _message_name(customer):
+    if customer is None:
+        return ""
+    first_name = ((customer["_firstname"] if "_firstname" in customer.keys() else "") or "").strip()
+    last_name = ((customer["_name"] if "_name" in customer.keys() else "") or "").strip()
+    return f"{first_name} {last_name}".strip()
+
+
+def _message_first_name(customer):
+    if customer is None:
+        return ""
+    return ((customer["_firstname"] if "_firstname" in customer.keys() else "") or "").strip()
+
+
+def _message_salutation(customer):
+    name = _message_name(customer)
+    return f"Hallo {name}," if name else "Hallo,"
+
+
+def _message_date_time(appointment=None):
+    if not appointment:
+        return "", "", ""
+    appointment_at = ""
+    try:
+        appointment_at = (appointment.get("appointment_at") or "").strip()
+    except Exception:
+        appointment_at = (appointment["appointment_at"] or "").strip() if "appointment_at" in appointment.keys() else ""
+    if not appointment_at:
+        return "", "", ""
+    try:
+        dt_value = datetime.fromisoformat(appointment_at)
+        return dt_value.strftime("%d.%m.%Y"), dt_value.strftime("%H:%M"), dt_value.strftime("%d.%m.%Y um %H:%M")
+    except Exception:
+        return "", "", appointment_at
+
+
+def _message_service_label(appointment=None):
+    if not appointment:
+        return ""
+    try:
+        return (appointment.get("service_summary") or appointment.get("title") or "").strip()
+    except Exception:
+        return ""
+
+
+def _message_staff_label(appointment=None):
+    if not appointment:
+        return ""
+    try:
+        return (appointment.get("staff_name") or "").strip()
+    except Exception:
+        return ""
+
+
+def _message_review_link():
+    return (os.getenv("GOOGLE_REVIEW_URL") or get_setting("communication:review_link", "") or "").strip()
+
+
+def _message_context(customer=None, appointment=None, extra=None):
+    date_value, time_value, date_time_value = _message_date_time(appointment)
+    if date_value and time_value:
+        appointment_line = f"{date_value} um {time_value}."
+    elif date_time_value:
+        appointment_line = f"{date_time_value}."
+    else:
+        appointment_line = "Bitte melden Sie sich bei Fragen direkt im Salon."
+    context = {
+        "Anrede": _message_salutation(customer),
+        "Name": _message_name(customer),
+        "Vorname": _message_first_name(customer),
+        "Datum": date_value,
+        "Uhrzeit": time_value,
+        "Leistung": _message_service_label(appointment),
+        "Mitarbeiterin": _message_staff_label(appointment),
+        "Salonname": "Salon Karola",
+        "Bewertungslink": _message_review_link(),
+        "Terminzeile": appointment_line,
+    }
+    if extra:
+        for key, value in extra.items():
+            context[str(key)] = "" if value is None else str(value)
+    return context
+
+
+def apply_message_template(template_text, customer=None, appointment=None, extra=None):
+    text = (template_text or "").strip()
+    if not text:
+        return ""
+    context = _message_context(customer=customer, appointment=appointment, extra=extra)
+    replacements = {}
+    for key, value in context.items():
+        clean = (value or "").strip()
+        replacements[f"[{key}]"] = clean
+        replacements[f"{{{key}}}"] = clean
+        replacements[f"{{{key.lower()}}}"] = clean
+    for needle, replacement in replacements.items():
+        text = text.replace(needle, replacement)
+    text = re.sub(r"\[(Name|Vorname|Datum|Uhrzeit|Leistung|Mitarbeiterin|Salonname|Bewertungslink|Terminzeile|Anrede)\]", "", text)
+    text = re.sub(r"\{(name|vorname|datum|uhrzeit|leistung|mitarbeiterin|salonname|bewertungslink|terminzeile|anrede)\}", "", text)
+    text = text.replace("Hallo ,", "Hallo,")
+    text = re.sub(r"\s+um\s+\.", ".", text)
+    text = re.sub(r"\s+am\s+\.", ".", text)
+    text = re.sub(r":\s*\.", ".", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    return text.strip()
+
+
+def communication_template_text(template_id, customer=None, appointment=None, extra=None):
+    template = COMMUNICATION_TEMPLATE_CATALOG.get(template_id) or {}
+    return apply_message_template(template.get("body", ""), customer=customer, appointment=appointment, extra=extra)
+
+
 def sync_default_mail_templates(conn):
     defaults = {
         "birthdate": {
@@ -1696,7 +1861,80 @@ def render_template_text(template_id, customer, appointment=None):
     return subject, body
 
 
+def mail_template_defaults():
+    return {
+        "birthdate": (
+            "Salon Karola wuenscht alles Gute zum Geburtstag, {vorname}",
+            "Liebe/r {name},\n\n"
+            "das Team von Salon Karola wuenscht Ihnen alles Gute zum Geburtstag.\n\n"
+            "Als kleines Geschenk erhalten Sie 10 % auf Ihren naechsten Besuch.\n\n"
+            "Liebe Gruesse\n"
+            "Jessi & Ute",
+        ),
+        "appointment": (
+            "Terminerinnerung Salon Karola",
+            "Hallo {name},\n\n"
+            "wir erinnern freundlich an Ihren Termin im Salon Karola:\n"
+            "{termin}\n\n"
+            "Liebe Gruesse\n"
+            "Jessi & Ute",
+        ),
+    }
+
+
+def sync_default_mail_templates(conn):
+    defaults = mail_template_defaults()
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS _MailTemplates (
+            id TEXT PRIMARY KEY,
+            subject TEXT NOT NULL,
+            body TEXT NOT NULL
+        )
+        """
+    )
+    for template_id, values in defaults.items():
+        row = conn.execute("SELECT subject, body FROM _MailTemplates WHERE id = ? LIMIT 1", (template_id,)).fetchone()
+        if not row:
+            conn.execute(
+                "INSERT INTO _MailTemplates(id, subject, body) VALUES (?, ?, ?)",
+                (template_id, values[0], values[1]),
+            )
+            continue
+        subject = (row[0] or "").strip()
+        body = (row[1] or "").strip()
+        if not subject and not body:
+            conn.execute("UPDATE _MailTemplates SET subject = ?, body = ? WHERE id = ?", (values[0], values[1], template_id))
+
+
+def render_template_text(template_id, customer, appointment=None):
+    defaults = mail_template_defaults()
+    if template_id not in defaults:
+        raise KeyError(f"Unbekannte Vorlage: {template_id}")
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        template = conn.execute("SELECT subject, body FROM _MailTemplates WHERE id = ?", (template_id,)).fetchone()
+
+    subject, body = defaults[template_id]
+    if template:
+        subject = (template["subject"] or "").strip() or subject
+        body = (template["body"] or "").strip() or body
+
+    context = _message_context(customer=customer, appointment=appointment)
+    context["termin"] = context.get("Terminzeile", "").rstrip(".")
+    context["email"] = ((customer["_mail"] if customer is not None and "_mail" in customer.keys() else "") or "").strip()
+    context["telefon"] = customer_phone(customer) if customer is not None else ""
+    context["nachname"] = ((customer["_name"] if customer is not None and "_name" in customer.keys() else "") or "").strip()
+    subject = apply_message_template(subject, customer=customer, appointment=appointment, extra=context)
+    body = apply_message_template(body, customer=customer, appointment=appointment, extra=context)
+    return subject, body
+
+
 def log_email(customer_id, email_type, subject, body, recipient, status, error_message=None):
+    body_preview = (body or "").strip()
+    if len(body_preview) > 280:
+        body_preview = body_preview[:277].rstrip() + "..."
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
             """
@@ -1707,7 +1945,7 @@ def log_email(customer_id, email_type, subject, body, recipient, status, error_m
                 customer_id,
                 email_type,
                 subject,
-                body,
+                body_preview,
                 recipient,
                 datetime.now().isoformat(timespec="seconds"),
                 status,
@@ -1773,6 +2011,9 @@ def normalized_phone_number(raw_value):
         number = "+49" + number[1:]
     elif number and not number.startswith("+"):
         number = "+" + number
+    digits_only = "".join(ch for ch in number if ch.isdigit())
+    if len(digits_only) < 7:
+        return ""
     return number
 
 
@@ -1785,24 +2026,14 @@ def whatsapp_link(customer, text=None):
     number = normalized_phone_number(customer_phone(customer)).replace("+", "")
     if not number:
         return ""
-    text = text or f"Hallo {customer_full_name(customer)}, hier ist Salon Karola."
+    text = (text or communication_template_text("general_message", customer=customer)).strip()
+    if not text:
+        text = "Hallo, hier ist Salon Karola."
     return f"https://wa.me/{number}?text={quote(text)}"
 
 
 def appointment_whatsapp_text(customer, appointment):
-    when = "deinem Termin"
-    if appointment and appointment["appointment_at"]:
-        try:
-            when = datetime.fromisoformat(str(appointment["appointment_at"])).strftime("%d.%m.%Y um %H:%M")
-        except Exception:
-            when = str(appointment["appointment_at"])
-    staff_name = ""
-    try:
-        staff_name = (appointment.get("staff_name") or "").strip() if appointment else ""
-    except Exception:
-        staff_name = ""
-    staff_line = f" Liebe Gruesse, {staff_name}" if staff_name else " Liebe Gruesse, Jessi und Ute"
-    return f"Hallo {customer_full_name(customer)}, hier ist Salon Karola. Wir erinnern freundlich an deinen Termin am {when}.{staff_line}"
+    return communication_template_text("appointment_reminder", customer=customer, appointment=appointment)
 
 
 def comeback_whatsapp_text(customer):
@@ -1816,6 +2047,10 @@ def get_automation_status():
         "last_run_error": get_setting("automation:last_run_error"),
         "scheduler_interval_minutes": get_setting("automation:scheduler_interval_minutes", "15") or "15",
     }
+
+
+def comeback_whatsapp_text(customer):
+    return communication_template_text("callback_request", customer=customer)
 
 
 def _get_app_setting(key, default=""):
@@ -5133,6 +5368,8 @@ def customer_detail(customer_id):
         wa_link=whatsapp_link(customer),
         wa_comeback_link=whatsapp_link(customer, comeback_whatsapp_text(customer)),
         wa_next_appt_link=whatsapp_link(customer, appointment_whatsapp_text(customer, next_appt)) if next_appt else "",
+        wa_birthday_link=whatsapp_link(customer, communication_template_text("birthday_message", customer=customer)),
+        wa_review_link=whatsapp_link(customer, communication_template_text("review_request", customer=customer)),
         customer_status=customer_activity_status(appointments[0]["appointment_at"]) if appointments else "neu",
         current_endpoint="customer_detail",
         app_version=APP_VERSION,
@@ -6693,7 +6930,15 @@ def templates_live_api():
         r["id"]: {"subject": r["subject"], "body": r["body"]}
         for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
     }
-    return jsonify({"ok": True, "templates": templates, "app_version": APP_VERSION, "db_path": str(DB_PATH)})
+    return jsonify(
+        {
+            "ok": True,
+            "templates": templates,
+            "message_templates": COMMUNICATION_TEMPLATE_CATALOG,
+            "app_version": APP_VERSION,
+            "db_path": str(DB_PATH),
+        }
+    )
 
 
 @app.route("/templates", methods=["GET", "POST"])
@@ -6719,7 +6964,12 @@ def templates_view():
         r["id"]: r
         for r in db.execute("SELECT * FROM _MailTemplates WHERE id IN ('birthdate','appointment')").fetchall()
     }
-    return render_template("templates.html", templates=templates, current_endpoint="templates_view")
+    return render_template(
+        "templates.html",
+        templates=templates,
+        message_templates=COMMUNICATION_TEMPLATE_CATALOG,
+        current_endpoint="templates_view",
+    )
 
 
 @app.route("/send-test/<int:customer_id>/<template_id>")
@@ -6863,6 +7113,8 @@ def inject_globals():
         "customer_activity_status": customer_activity_status,
         "customer_full_name": customer_full_name,
         "whatsapp_link": whatsapp_link,
+        "communication_template_text": communication_template_text,
+        "communication_template_catalog": COMMUNICATION_TEMPLATE_CATALOG,
         "phone_href": phone_href,
         "customer_phone": customer_phone,
         "row_value": _row_value,

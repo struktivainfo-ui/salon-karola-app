@@ -25,6 +25,20 @@
       <a class="simple-action-button primary" href="{{ url_for('staff_new_appointment', customer_id=customer['_id']) }}">Neuer Termin</a>
       <a class="simple-action-button" href="#kunde-bearbeiten">Bearbeiten</a>
     </div>
+    <div class="simple-action-row simple-detail-actions">
+      {% if wa_next_appt_link %}
+      <a class="simple-action-button" href="{{ wa_next_appt_link }}" target="_blank" rel="noopener">Terminerinnerung</a>
+      {% endif %}
+      {% if wa_birthday_link %}
+      <a class="simple-action-button" href="{{ wa_birthday_link }}" target="_blank" rel="noopener">Geburtstag</a>
+      {% endif %}
+      {% if wa_comeback_link %}
+      <a class="simple-action-button" href="{{ wa_comeback_link }}" target="_blank" rel="noopener">Rueckrufbitte</a>
+      {% endif %}
+      {% if wa_review_link %}
+      <a class="simple-action-button" href="{{ wa_review_link }}" target="_blank" rel="noopener">Bewertung</a>
+      {% endif %}
+    </div>
 
     <div class="simple-detail-grid">
       <div><strong>Telefon</strong><span>{{ row_value(customer, 'Customer_PersoenlichesTelefon') or 'Nicht hinterlegt' }}</span></div>
