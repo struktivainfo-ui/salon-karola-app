@@ -285,7 +285,7 @@ def json_no_store(payload, status=200):
     return apply_no_cache_headers(response)
 
 
-APP_VERSION = "Salon Karola App 2026-05-07-production-rebuild-1"
+APP_VERSION = "Salon Karola App 2026-06-11-customer-count-sync-1"
 # -*- coding: utf-8 -*-
 
 def env_bool(name, default=False):
@@ -2890,7 +2890,7 @@ def opportunistic_automation_runner():
 def dashboard_stats():
     db = get_db()
 
-    total_customers = direct_customer_count_from_file()
+    total_customers = visible_customer_count(db=db)
     total_emails = 0
     total_mobile = 0
     try:
@@ -2901,9 +2901,10 @@ def dashboard_stats():
                    {mobile_sql} AS Customer_Mobiltelefon,
                    {phone_sql} AS Customer_PersönlichesTelefon
             FROM _Customers
+            WHERE {visible_customer_condition('_Customers')}
             """
         ).fetchall()
-        total_customers = max(total_customers, len(customer_rows))
+        total_customers = len(customer_rows)
         total_emails = sum(1 for row in customer_rows if str(row["_mail"]).strip())
         total_mobile = sum(
             1
@@ -2911,9 +2912,11 @@ def dashboard_stats():
             if str(row["Customer_Mobiltelefon"]).strip() or str(row["Customer_PersönlichesTelefon"]).strip()
         )
     except Exception:
-        total_customers = max(total_customers, safe_count("SELECT COUNT(*) FROM _Customers"))
+        total_customers = visible_customer_count(db=db)
         if customer_has_column("_mail"):
-            total_emails = safe_count("SELECT COUNT(*) FROM _Customers WHERE _mail IS NOT NULL AND TRIM(_mail) <> ''")
+            total_emails = safe_count(
+                f"SELECT COUNT(*) FROM _Customers WHERE {visible_customer_condition('_Customers')} AND _mail IS NOT NULL AND TRIM(_mail) <> ''"
+            )
         else:
             total_emails = 0
         mobile_parts = []
@@ -2921,7 +2924,9 @@ def dashboard_stats():
             mobile_parts.append("(Customer_Mobiltelefon IS NOT NULL AND TRIM(Customer_Mobiltelefon) <> '')")
         if customer_has_column("Customer_PersönlichesTelefon"):
             mobile_parts.append("(Customer_PersönlichesTelefon IS NOT NULL AND TRIM(Customer_PersönlichesTelefon) <> '')")
-        total_mobile = safe_count(f"SELECT COUNT(*) FROM _Customers WHERE {' OR '.join(mobile_parts)}") if mobile_parts else 0
+        total_mobile = safe_count(
+            f"SELECT COUNT(*) FROM _Customers WHERE {visible_customer_condition('_Customers')} AND ({' OR '.join(mobile_parts)})"
+        ) if mobile_parts else 0
     upcoming_appointments = safe_count(
         "SELECT COUNT(*) FROM appointments WHERE appointment_at >= ?",
         (datetime.now().isoformat(timespec="minutes"),),
@@ -3320,9 +3325,16 @@ def manifest():
         ]
         response = jsonify(payload)
         response.mimetype = "application/manifest+json"
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
         return response
     except Exception:
-        return send_from_directory(app.static_folder, "manifest.webmanifest", mimetype="application/manifest+json")
+        response = send_from_directory(app.static_folder, "manifest.webmanifest", mimetype="application/manifest+json")
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
 
 @app.route("/service-worker.js")
@@ -7028,6 +7040,20 @@ def direct_customer_count_from_file():
         except Exception:
             pass
     return 0
+
+
+def visible_customer_count(db=None):
+    conn = db or get_db()
+    try:
+        row = conn.execute(
+            f"SELECT COUNT(*) AS cnt FROM _Customers WHERE {visible_customer_condition('_Customers')}"
+        ).fetchone()
+        return int((row["cnt"] if row and row["cnt"] is not None else 0))
+    except Exception:
+        return safe_count(
+            "SELECT COUNT(*) FROM _Customers WHERE COALESCE(_name, '') <> ?",
+            (MANUAL_PLACEHOLDER_LASTNAME,),
+        )
 
 
 def backup_current_database(label="manual"):
