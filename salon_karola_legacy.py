@@ -2896,7 +2896,7 @@ def opportunistic_automation_runner():
 def dashboard_stats():
     db = get_db()
 
-    total_customers = visible_customer_count(db=db)
+    total_customers = saved_customer_count(db=db)
     total_emails = 0
     total_mobile = 0
     try:
@@ -2918,7 +2918,7 @@ def dashboard_stats():
             if str(row["Customer_Mobiltelefon"]).strip() or str(row["Customer_PersönlichesTelefon"]).strip()
         )
     except Exception:
-        total_customers = visible_customer_count(db=db)
+        total_customers = saved_customer_count(db=db)
         if customer_has_column("_mail"):
             total_emails = safe_count(
                 f"SELECT COUNT(*) FROM _Customers WHERE {visible_customer_condition('_Customers')} AND _mail IS NOT NULL AND TRIM(_mail) <> ''"
@@ -3538,7 +3538,7 @@ def diagnose():
         diagnostics["database_reachable"] = True
         row_customers = db.execute("SELECT COUNT(*) AS cnt FROM _Customers").fetchone()
         row_appointments = db.execute("SELECT COUNT(*) AS cnt FROM appointments").fetchone()
-        diagnostics["customer_count"] = int(row_customers["cnt"] or 0) if row_customers else 0
+        diagnostics["customer_count"] = saved_customer_count(db=db)
         diagnostics["appointment_count"] = int(row_appointments["cnt"] or 0) if row_appointments else 0
         latest_created_select = "created_at" if customer_has_column("created_at") else "'' AS created_at"
         latest_order_sql = "ORDER BY COALESCE(created_at, '') DESC, _id DESC" if customer_has_column("created_at") else "ORDER BY _id DESC"
@@ -3921,8 +3921,7 @@ def test_admin_dashboard():
     customers = today_count = next_7_days = 0
     try:
         db = get_db()
-        row_customers = db.execute("SELECT COUNT(*) AS cnt FROM _Customers WHERE COALESCE(_name, '') <> ?", (MANUAL_PLACEHOLDER_LASTNAME,)).fetchone()
-        customers = int(row_customers["cnt"] or 0) if row_customers else 0
+        customers = saved_customer_count(db=db)
         day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         day_end = day_start + timedelta(days=1)
         week_end = day_start + timedelta(days=7)
@@ -6629,6 +6628,10 @@ def visible_customer_count(db=None):
             "SELECT COUNT(*) FROM _Customers WHERE COALESCE(_name, '') <> ?",
             (MANUAL_PLACEHOLDER_LASTNAME,),
         )
+
+
+def saved_customer_count(db=None):
+    return visible_customer_count(db=db)
 
 
 def backup_current_database(label="manual"):
