@@ -65,11 +65,10 @@
         <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('admin_templates_alias') }}" data-nav-link="vorlagen">Vorlagen</a>
         <a class="{% if current_endpoint == 'admin_settings' %}active{% endif %}" href="{{ url_for('admin_settings') }}" data-nav-link="einstellungen">Einstellungen</a>
         <details class="nav-admin-group" id="navMoreGroup">
-          <summary class="nav-admin-summary {% if current_endpoint in ['appointments_hub', 'customer_birthdays_page', 'push_center', 'whatsapp_hub', 'staff_management', 'database_tools', 'import_customers', 'email_logs', 'admin_automation'] %}active{% endif %}">Mehr</summary>
+          <summary class="nav-admin-summary {% if current_endpoint in ['appointments_hub', 'customer_birthdays_page', 'whatsapp_hub', 'staff_management', 'database_tools', 'import_customers', 'email_logs', 'admin_automation'] %}active{% endif %}">Mehr</summary>
           <div class="nav-admin-links">
             <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>
             <a class="{% if current_endpoint == 'customer_birthdays_page' %}active{% endif %}" href="{{ url_for('customer_birthdays_page') }}" data-nav-link="geburtstage">Geburtstage</a>
-            <a class="{% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('admin_push_alias') }}" data-nav-link="push">Push</a>
             <a class="{% if current_endpoint == 'whatsapp_hub' %}active{% endif %}" href="{{ url_for('whatsapp_hub') }}" data-nav-link="whatsapp">WhatsApp</a>
             <a class="{% if current_endpoint == 'staff_management' %}active{% endif %}" href="{{ url_for('admin_staff_alias') }}" data-nav-link="mitarbeiter">Mitarbeiter</a>
             <a class="{% if current_endpoint in ['database_tools', 'import_customers', 'email_logs'] %}active{% endif %}" href="{{ url_for('admin_backup_alias') }}" data-nav-link="datenbank">Backup / Technik</a>
@@ -289,8 +288,6 @@
         safeSessionStorageGet: (key, fallback) => safeStorageGet("session", key, fallback),
         safeSessionStorageSet: (key, value) => safeStorageSet("session", key, value),
         canUseServiceWorker: () => !!(window.isSecureContext && navigator && "serviceWorker" in navigator),
-        canUseNotifications: () => typeof window.Notification !== "undefined" && typeof Notification.requestPermission === "function",
-        canUsePushManager: () => typeof window.PushManager !== "undefined",
         setDebugValue,
         disableServiceWorkerForDebug,
       };
@@ -339,14 +336,14 @@
       const allowedTargets = {{ (staff_members + ['Alle'])|tojson }};
       const capacitorBridge = window.Capacitor || null;
       const isNativePlatform = !!(capacitorBridge && typeof capacitorBridge.isNativePlatform === "function" && capacitorBridge.isNativePlatform());
-      const nativePushPlugin = isNativePlatform && capacitorBridge && capacitorBridge.Plugins ? capacitorBridge.Plugins.PushNotifications : null;
+      const nativePushPlugin = null;
       const isNativeApp = isNativePlatform;
       const runtimeSafeMode = {{ 'true' if safe_mode else 'false' }} || /(?:\?|&)safe=1(?:&|$)/.test(window.location.search);
-      const pushFeatureEnabled = {{ 'true' if enable_push else 'false' }} && !runtimeSafeMode;
+      const pushFeatureEnabled = false;
       const serviceWorkerFeatureEnabled = {{ 'true' if enable_service_worker else 'false' }} && !runtimeSafeMode;
-      const autoPushBootAllowed = {{ 'true' if allow_auto_push_boot else 'false' }};
+      const autoPushBootAllowed = false;
       const autoServiceWorkerBootAllowed = {{ 'true' if allow_auto_service_worker_boot else 'false' }};
-      const manualPushControlsAllowed = {{ 'true' if allow_manual_push_controls else 'false' }};
+      const manualPushControlsAllowed = false;
       const manualServiceWorkerControlsAllowed = {{ 'true' if allow_manual_service_worker_controls else 'false' }};
       let nativePushListenersBound = false;
       let nativePushPending = null;
@@ -358,7 +355,7 @@
 
       setDebugValue("route", window.location.pathname + window.location.search);
       setDebugValue("swStatus", (runtimeSafeMode || !serviceWorkerFeatureEnabled) ? "deaktiviert (safe-mode)" : (autoServiceWorkerBootAllowed ? (isNativeApp ? "deaktiviert (native Android-App)" : "nicht initialisiert") : "manuell aktivierbar"));
-      setDebugValue("pushStatus", pushFeatureEnabled ? (autoPushBootAllowed ? (isNativeApp ? "optional / nativer Push" : "nicht initialisiert") : "manuell aktivierbar") : "deaktiviert (safe-mode)");
+      setDebugValue("pushStatus", "deaktiviert");
 
       function setPushPanelOpen(open) {
         if (!navPushGroup || !navPushPanel || !navPushToggle) return;

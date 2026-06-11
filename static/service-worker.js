@@ -9,8 +9,6 @@ const STATIC_ASSETS = [
   "/static/icons/maskable-512.png",
   "/static/icons/apple-touch-icon.png",
   "/static/favicon.png",
-  "/static/push-icon.png",
-  "/static/push-badge.png",
 ];
 
 function isSameOrigin(urlString) {
@@ -115,45 +113,5 @@ self.addEventListener("fetch", (event) => {
       if (fallback) return fallback;
       return new Response("", { status: 204 });
     }
-  })());
-});
-
-self.addEventListener("push", (event) => {
-  event.waitUntil((async () => {
-    try {
-      let data = { title: "Salon Karola", body: "Neue Benachrichtigung", url: "/calendar" };
-      try {
-        if (event.data) data = Object.assign(data, event.data.json());
-      } catch (error) {}
-      await self.registration.showNotification(data.title || "Salon Karola", {
-        body: data.body || "Neue Nachricht",
-        icon: "/static/push-icon.png",
-        badge: "/static/push-badge.png",
-        data: { url: data.url || "/calendar" },
-        tag: data.tag || `push-${Date.now()}`,
-        renotify: true,
-        requireInteraction: false,
-      });
-    } catch (error) {}
-  })());
-});
-
-self.addEventListener("notificationclick", (event) => {
-  event.waitUntil((async () => {
-    try {
-      event.notification.close();
-      const targetUrl = (event.notification.data && event.notification.data.url) || "/calendar";
-      const clientsList = await clients.matchAll({ type: "window", includeUncontrolled: true });
-      for (const client of clientsList) {
-        if (client.url && client.url.startsWith(self.location.origin)) {
-          try {
-            if ("focus" in client) await client.focus();
-            if ("navigate" in client) await client.navigate(targetUrl);
-            return;
-          } catch (error) {}
-        }
-      }
-      if (clients.openWindow) await clients.openWindow(targetUrl);
-    } catch (error) {}
   })());
 });

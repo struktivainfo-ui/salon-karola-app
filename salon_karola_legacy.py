@@ -1,5 +1,4 @@
 
-import base64
 import csv
 import io
 import os
@@ -20,9 +19,6 @@ from pathlib import Path
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
-
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
@@ -1922,6 +1918,7 @@ def _get_app_setting(key, default=""):
 
 
 def _ensure_vapid_keys():
+    return "", ""
     public_key = (os.getenv("VAPID_PUBLIC_KEY") or _get_app_setting("push:vapid_public_key", "")).strip()
     private_key = (os.getenv("VAPID_PRIVATE_KEY") or _get_app_setting("push:vapid_private_key", "")).strip()
     if public_key and private_key:
@@ -1956,6 +1953,7 @@ def _b64url_decode(value):
 
 
 def _normalize_vapid_public_key(value):
+    return ""
     raw_value = (value or "").strip()
     if not raw_value:
         return ""
@@ -1976,6 +1974,7 @@ def _normalize_vapid_public_key(value):
 
 
 def _normalize_vapid_private_key(value):
+    return ""
     raw_value = (value or "").strip()
     if not raw_value:
         return ""
@@ -2001,16 +2000,19 @@ def _normalize_vapid_private_key(value):
 
 
 def vapid_ready():
+    return False
     public_key, private_key = _ensure_vapid_keys()
     return bool(_normalize_vapid_public_key(public_key) and _normalize_vapid_private_key(private_key) and webpush)
 
 
 def vapid_public_key():
+    return ""
     public_key, _ = _ensure_vapid_keys()
     return _normalize_vapid_public_key(public_key)
 
 
 def vapid_private_key():
+    return ""
     _, private_key = _ensure_vapid_keys()
     return _normalize_vapid_private_key(private_key)
 
@@ -2029,6 +2031,7 @@ def _json_file_if_exists(path):
 
 
 def firebase_service_account_info():
+    return None
     env_project_id = (os.getenv("FIREBASE_PROJECT_ID") or "").strip()
     env_client_email = (os.getenv("FIREBASE_CLIENT_EMAIL") or "").strip()
     env_private_key = (os.getenv("FIREBASE_PRIVATE_KEY") or "").strip()
@@ -2067,6 +2070,7 @@ def firebase_service_account_info():
 
 
 def firebase_project_id():
+    return ""
     explicit = (os.getenv("FIREBASE_PROJECT_ID") or "").strip()
     if explicit:
         return explicit
@@ -2081,28 +2085,21 @@ def firebase_project_id():
 
 
 def fcm_ready():
+    return False
     if not ENABLE_PUSH or not ENABLE_FIREBASE:
         return False
     return bool(firebase_project_id() and firebase_service_account_info() and GoogleAuthRequest and service_account)
 
 
 def push_delivery_ready():
+    return False
     if not ENABLE_PUSH:
         return False
     return bool(vapid_ready() or fcm_ready())
 
 
 def fcm_access_token():
-    info = firebase_service_account_info()
-    if not info:
-        raise RuntimeError("Firebase Service Account fehlt.")
-    if not GoogleAuthRequest or not service_account:
-        raise RuntimeError("google-auth ist auf dem Server nicht installiert.")
-    credentials = service_account.Credentials.from_service_account_info(info, scopes=FCM_SCOPES)
-    credentials.refresh(GoogleAuthRequest())
-    if not credentials.token:
-        raise RuntimeError("FCM Zugriffstoken konnte nicht erzeugt werden.")
-    return credentials.token
+    raise RuntimeError("Push-Benachrichtigungen sind nicht Bestandteil dieser App.")
 
 
 def _push_provider(row):
@@ -2183,6 +2180,7 @@ def _touch_push_subscription(subscription_id, **values):
 
 
 def push_devices_for_staff(staff_name=None):
+    return []
     db = get_db()
     active_staff = get_staff_members(db)
     params = []
@@ -2213,6 +2211,7 @@ def push_devices_for_staff(staff_name=None):
 
 
 def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
+    return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Push-Benachrichtigungen sind entfernt."]}
     db = get_db()
     now = datetime.now().isoformat(timespec="seconds")
     try:
@@ -2263,6 +2262,7 @@ def webpush_send_to_subscription_row(row, title, body, url="/calendar"):
 
 
 def fcm_send_to_subscription_row(row, title, body, url="/calendar"):
+    return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Push-Benachrichtigungen sind entfernt."]}
     db = get_db()
     now = datetime.now().isoformat(timespec="seconds")
     try:
@@ -2298,6 +2298,7 @@ def fcm_send_to_subscription_row(row, title, body, url="/calendar"):
 
 
 def send_push_to_subscription_row(row, title, body, url="/calendar"):
+    return {"ok": False, "sent": 0, "skipped": 1, "errors": ["Push-Benachrichtigungen sind entfernt."]}
     provider = _push_provider(row)
     if provider == "fcm":
         if not fcm_ready():
@@ -2309,6 +2310,7 @@ def send_push_to_subscription_row(row, title, body, url="/calendar"):
 
 
 def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
+    return {"sent": 0, "skipped": 0, "errors": []}
     db = get_db()
     rows = db.execute(
         """
@@ -2331,6 +2333,7 @@ def webpush_send_to_staff(target_staff, title, body, url="/calendar"):
 
 
 def webpush_send_to_all_staff(title, body, url="/calendar"):
+    return {"sent": 0, "skipped": 0, "errors": []}
     totals = {"sent": 0, "skipped": 0, "errors": []}
     for target_staff in get_staff_members():
         result = webpush_send_to_staff(target_staff, title, body, url)
@@ -2341,6 +2344,7 @@ def webpush_send_to_all_staff(title, body, url="/calendar"):
 
 
 def _push_birthday_message(customer):
+    return {"sent": 0, "skipped": 0, "errors": []}
     first_name = (customer["_firstname"] or "").strip()
     last_name = (customer["_name"] or "").strip()
     customer_name = f"{first_name} {last_name}".strip() or "Kundin"
@@ -2352,6 +2356,7 @@ def _push_birthday_message(customer):
 
 
 def _push_appointment_reminder(appt):
+    return {"sent": 0, "skipped": 0, "errors": []}
     first_name = (appt["_firstname"] or "").strip()
     last_name = (appt["_name"] or "").strip()
     customer_name = f"{first_name} {last_name}".strip() or "Kundin"
@@ -2369,6 +2374,7 @@ def _push_appointment_reminder(appt):
 
 
 def notify_other_staff_for_appointment(customer_id, title, appointment_at, staff_name, actor_name, manual_name=""):
+    return {"sent": 0, "skipped": 0, "errors": []}
 
     actor = _normalize_staff_name(actor_name or staff_name, default=DEFAULT_STAFF)
     targets = other_staff_members(actor)
@@ -3375,7 +3381,6 @@ def safe_start():
     test_staff_url = "/test-staff-today"
     test_admin_url = "/test-admin-dashboard"
     test_sw_url = "/test-service-worker"
-    test_push_url = "/test-push"
     html = f"""<!doctype html>
 <html lang="de">
 <head>
@@ -3401,7 +3406,6 @@ def safe_start():
       <a class="btn" href="{test_staff_url}">Mitarbeiter Heute testen</a>
       <a class="btn" href="{test_admin_url}">Admin Dashboard testen</a>
       <a class="btn" href="{test_sw_url}">Service Worker Test</a>
-      <a class="btn" href="{test_push_url}">Push Test</a>
       <a class="btn" href="{diagnose_url}">Admin-Diagnose</a>
       <a class="btn" href="#" id="clearCacheBtn">Cache löschen</a>
     </div>
@@ -3958,6 +3962,7 @@ def test_service_worker():
 @app.route("/test-push")
 @admin_required
 def test_push():
+    return redirect(url_for("safe_start"))
     html = f"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test Push</title>
 <style>body{{font-family:Arial,sans-serif;background:#f4efe8;color:#1f1f1f;padding:20px}}.card{{max-width:760px;margin:0 auto;background:#fff;padding:18px;border-radius:12px}}button,a{{display:inline-block;margin:8px 8px 0 0;padding:10px 14px;border:1px solid #222;border-radius:8px;background:#fff;color:#111;text-decoration:none;font-weight:600}}pre{{background:#111;color:#f5f5f5;padding:12px;border-radius:8px;white-space:pre-wrap}}</style></head><body>
 <section class="card"><h1>Push Test</h1>
@@ -3968,7 +3973,7 @@ def test_push():
 <pre id="out">Warte auf Test...</pre></section>
 <script>window.__pushFlags = {{ enabled: {str(ENABLE_PUSH and not SAFE_MODE).lower()}, swEnabled: {str(ENABLE_SERVICE_WORKER and not SAFE_MODE).lower()}, firebaseEnabled: {str(ENABLE_FIREBASE and not SAFE_MODE).lower()} }};</script>
 <script src="/static/js/safe-fetch.js?v={APP_VERSION}"></script>
-<script src="/static/js/push.js?v={APP_VERSION}"></script>
+<script>/* Push-Test entfernt */</script>
 </body></html>"""
     return Response(html, mimetype="text/html")
 
@@ -4604,7 +4609,7 @@ def admin_appointments_alias():
 @admin_required
 def admin_push_alias():
     set_ui_world("admin")
-    return push_center()
+    return redirect(url_for("admin_settings"))
 
 
 @app.route("/admin/templates", methods=["GET", "POST"])
@@ -5267,16 +5272,7 @@ def appointment_new(customer_id):
         ),
     )
     db.commit()
-    try:
-        notify_result = notify_other_staff_for_appointment(customer_id, payload["title"], appointment_at, payload["staff_name"], actor_name)
-    except Exception as exc:
-        app.logger.exception("Notify Fehler bei Terminanlage: %s", exc)
-        notify_result = {"sent": 0}
     flash_msg = "Termin wurde gespeichert."
-    if push_delivery_ready() and notify_result.get("sent", 0) > 0 and is_admin_session():
-        flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
-    elif not vapid_ready() and is_admin_session():
-        flash_msg += " Push ist noch nicht komplett aktiv - bitte VAPID-Keys in Render setzen."
     flash(flash_msg)
     return redirect(url_for("customer_detail", customer_id=customer_id))
 
@@ -5777,25 +5773,9 @@ def appointments_hub():
             ),
         )
         db.commit()
-        try:
-            notify_result = notify_other_staff_for_appointment(
-                notify_customer_id,
-                payload["title"],
-                appointment_at,
-                payload["staff_name"],
-                actor_name,
-                manual_name=manual_name,
-            )
-        except Exception as e:
-            app.logger.exception("Notify Fehler bei Terminanlage: %s", e)
-            notify_result = {"sent": 0, "error": str(e)}
         flash_msg = "Termin wurde gespeichert."
         if not customer_id_raw.isdigit() and (manual_firstname or manual_lastname):
             flash_msg += " Manueller Kontakt wurde nicht in der Kundenliste gespeichert."
-        if push_delivery_ready() and notify_result.get("sent", 0) > 0 and is_admin_session():
-            flash_msg += f" Hintergrund-Push gesendet: {notify_result['sent']}."
-        elif not vapid_ready() and is_admin_session():
-            flash_msg += " Push ist noch nicht komplett aktiv - bitte VAPID-Keys in Render setzen."
         flash(flash_msg)
         if is_admin_world_session():
             return redirect(url_for("appointments_hub"))
@@ -6138,6 +6118,7 @@ def api_mail_status():
 @app.route("/api/push/public-key")
 @login_required
 def push_public_key():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {
             "ok": True,
@@ -6170,6 +6151,7 @@ def push_public_key():
 @app.route("/api/push/status")
 @login_required
 def push_status():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     db = get_db()
     staff_members = get_staff_members(db)
     counts_by_staff = {}
@@ -6240,6 +6222,7 @@ def push_status():
 @app.route("/api/push/overview")
 @admin_required
 def push_overview():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {"ok": True, "enabled": False, "webpush_enabled": False, "native_enabled": False, "generated_keys": False, "total_devices": 0, "active_devices": 0, "counts_by_staff": {}, "disabled": True}
     db = get_db()
@@ -6274,6 +6257,7 @@ def push_overview():
 @app.route("/api/push/devices")
 @admin_required
 def push_devices():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {"ok": True, "items": [], "disabled": True}
     db = get_db()
@@ -6287,6 +6271,7 @@ def push_devices():
 @app.route("/api/push/device/<int:subscription_id>/test")
 @admin_required
 def push_test_device(subscription_id):
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {"ok": False, "error": "Push ist deaktiviert."}, 503
     row = get_db().execute("SELECT * FROM push_subscriptions WHERE id = ?", (subscription_id,)).fetchone()
@@ -6306,6 +6291,7 @@ def push_test_device(subscription_id):
 @app.route("/api/push/devices/cleanup", methods=["POST"])
 @admin_required
 def push_cleanup_devices():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {"ok": False, "error": "Push ist deaktiviert."}, 503
     db = get_db()
@@ -6321,6 +6307,7 @@ def push_cleanup_devices():
 @app.route("/api/push/device/<int:subscription_id>", methods=["DELETE"])
 @admin_required
 def push_delete_device(subscription_id):
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {"ok": False, "error": "Push ist deaktiviert."}, 503
     db = get_db()
@@ -6332,6 +6319,7 @@ def push_delete_device(subscription_id):
 @app.route("/api/push/subscribe", methods=["POST"])
 @login_required
 def push_subscribe():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {"ok": False, "error": "Push ist deaktiviert."}, 503
     payload = request.get_json(silent=True) or {}
@@ -6401,6 +6389,7 @@ def push_subscribe():
 @app.route("/api/push/native-subscribe", methods=["POST"])
 @login_required
 def push_native_subscribe():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {"ok": False, "error": "Push ist deaktiviert."}, 503
     payload = request.get_json(silent=True) or {}
@@ -6451,6 +6440,7 @@ def push_native_subscribe():
 @app.route("/api/push/unsubscribe", methods=["POST"])
 @login_required
 def push_unsubscribe():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {"ok": True, "disabled": True}
     payload = request.get_json(silent=True) or {}
@@ -6468,6 +6458,7 @@ def push_unsubscribe():
 @app.route("/api/fcm/register", methods=["POST"])
 @login_required
 def fcm_register():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {"ok": False, "error": "Push ist deaktiviert."}, 503
     payload = request.get_json(silent=True) or {}
@@ -6507,6 +6498,7 @@ def fcm_register():
 @app.route("/api/fcm/unregister", methods=["POST"])
 @login_required
 def fcm_unregister():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     payload = request.get_json(silent=True) or {}
     token = (payload.get("token") or "").strip()
     if not token:
@@ -6521,6 +6513,7 @@ def fcm_unregister():
 @app.route("/api/fcm/status")
 @admin_required
 def fcm_status():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     db = get_db()
     counts = {}
     for staff_name in get_staff_members(db):
@@ -6545,6 +6538,7 @@ def fcm_status():
 @app.route("/api/fcm/test", methods=["POST"])
 @admin_required
 def fcm_test():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {"ok": False, "error": "Push ist deaktiviert."}, 503
     payload = request.get_json(silent=True) or {}
@@ -6563,6 +6557,7 @@ def fcm_test():
 @app.route("/api/push/ping")
 @login_required
 def push_ping():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     if not ENABLE_PUSH:
         return {"ok": False, "error": "Push ist deaktiviert.", "enabled": False}, 503
     staff_name = _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF)
@@ -6590,6 +6585,7 @@ def push_ping():
 @app.route("/api/push/test", methods=["POST"])
 @login_required
 def push_test():
+    return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
     payload = request.get_json(silent=True) or {}
     staff_name = _normalize_staff_name(payload.get("staff_name") or request.args.get("staff_name"), default=DEFAULT_STAFF)
     if not ENABLE_PUSH:
@@ -6617,11 +6613,7 @@ def push_test():
 @app.route("/push")
 @admin_required
 def push_center():
-    return render_template(
-        "push.html",
-        current_endpoint="push_center",
-        app_version=APP_VERSION,
-    )
+    return redirect(url_for("admin_settings"))
 
 
 @app.route("/staff", methods=["GET", "POST"])
@@ -6903,8 +6895,7 @@ def format_phone_href(value):
 def inject_globals():
     ui_world = current_ui_world()
     endpoint_name = request.endpoint or ""
-    push_manual_page = endpoint_name in {"push_center", "test_push", "salon_reminders", "staff_more"}
-    sw_manual_page = endpoint_name in {"test_service_worker", "test_push"}
+    sw_manual_page = endpoint_name == "test_service_worker"
     return {
         "admin_name": session.get("admin_name"),
         "logged_in_staff": session.get("staff_name") or get_default_staff(),
@@ -6930,13 +6921,9 @@ def inject_globals():
         "passkeys_ready": passkeys_ready(),
         "service_presets": SERVICE_PRESETS,
         "safe_mode": SAFE_MODE,
-        "enable_push": ENABLE_PUSH and not SAFE_MODE,
         "enable_scheduler": ENABLE_SCHEDULER and not SAFE_MODE,
         "enable_service_worker": ENABLE_SERVICE_WORKER and not SAFE_MODE,
-        "enable_firebase": ENABLE_FIREBASE and not SAFE_MODE,
-        "allow_auto_push_boot": False,
         "allow_auto_service_worker_boot": False,
-        "allow_manual_push_controls": push_manual_page,
         "allow_manual_service_worker_controls": sw_manual_page,
     }
 
@@ -6951,7 +6938,7 @@ def boot_app():
             pass
     init_db()
     ensure_default_admin(force_reset=False)
-    if ENABLE_PUSH and not SAFE_MODE:
+    if False:
         try:
             _ensure_vapid_keys()
         except Exception as exc:

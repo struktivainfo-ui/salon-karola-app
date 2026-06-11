@@ -7,7 +7,6 @@ Die Anwendung buendelt die wichtigsten internen Arbeitsablaeufe in einer geschue
 - Kalender- und Terminverwaltung fuer Admin und Mitarbeitende
 - Kundensuche, Kundendetails und Terminhistorie
 - E-Mail-Vorlagen, Erinnerungen und Geburtstagsaktionen
-- Push-Benachrichtigungen fuer registrierte Geraete
 - einfache Betriebs- und Diagnosewerkzeuge fuer den internen Einsatz
 
 ## Wichtigste Funktionen
@@ -16,7 +15,7 @@ Die Anwendung buendelt die wichtigsten internen Arbeitsablaeufe in einer geschue
 - Kontakt- und Kundendatenpflege
 - Terminanlage, Terminbearbeitung und Statuspflege
 - Mail-Vorlagen fuer Geburtstage und Terminerinnerungen
-- Push- und Android-App-Anbindung
+- Android-App-Anbindung fuer den internen Zugriff
 - Import-, Backup- und Diagnosehilfen fuer den Betrieb
 
 ## Projektstruktur
@@ -30,7 +29,7 @@ Die Anwendung buendelt die wichtigsten internen Arbeitsablaeufe in einer geschue
 1. Repository mit Render verbinden.
 2. Persistent Disk anlegen und unter `/var/data` mounten.
 3. Environment Variables setzen:
-   `SECRET_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, optional SMTP-, Push- und Firebase-Zugangsdaten.
+   `SECRET_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` und bei Bedarf SMTP-Zugangsdaten.
 4. `DATABASE_PATH=/var/data/salon_karola.db` und `BACKUP_DIR=/var/data/backups` setzen.
 5. Start Command verwenden:
    `gunicorn app:app --workers 1 --threads 2 --timeout 120`
@@ -38,9 +37,10 @@ Die Anwendung buendelt die wichtigsten internen Arbeitsablaeufe in einer geschue
 ## Datenschutz und Sicherheit
 - Keine Kunden-, Termin- oder Zugangsdaten ins Repository committen.
 - `SECRET_KEY` muss in produktionsaehnlichen Umgebungen als Umgebungsvariable gesetzt sein.
-- Mail-, Push- und Firebase-Zugangsdaten ausschliesslich ueber sichere Environment Variables verwalten.
+- Mail-Zugangsdaten ausschliesslich ueber sichere Environment Variables verwalten.
 - Die App ist fuer den internen Salonbetrieb gedacht und sollte nicht ohne Authentifizierung oeffentlich freigegeben werden.
-- Admin-Bereiche wie Backup, Import, Export, Push-Verwaltung und Einstellungen sind fuer den Admin-Account vorgesehen.
+- Push-Benachrichtigungen sind aktuell nicht Bestandteil der App.
+- Admin-Bereiche wie Backup, Import, Export und Einstellungen sind fuer den Admin-Account vorgesehen.
 - In produktionsaehnlichen Umgebungen sollte die App nur ueber HTTPS betrieben werden, damit `SESSION_COOKIE_SECURE` aktiv bleibt.
 
 ## Backup-Hinweise
