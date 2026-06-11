@@ -4182,6 +4182,7 @@ def index():
 @app.route("/dashboard")
 @login_required
 def dashboard():
+    # Legacy shortcut: canonical admin landing path is /admin/dashboard.
     return redirect(url_for("admin_dashboard"))
 
 
@@ -4577,6 +4578,7 @@ def customer_search_page():
 @app.route("/admin")
 @admin_required
 def admin_home():
+    # Compatibility alias: keep /admin as a redirect to the canonical dashboard.
     return redirect(url_for("admin_dashboard"))
 
 
@@ -4661,6 +4663,7 @@ def admin_templates_alias():
 @admin_required
 def admin_backup_alias():
     set_ui_world("admin")
+    # Legacy admin tools path: canonical backup/export screen lives at /database-tools.
     return database_tools()
 
 
