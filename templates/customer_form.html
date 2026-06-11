@@ -209,7 +209,7 @@
               </select>
               <button class="premium-button secondary" type="submit">Status</button>
             </form>
-            <form method="post" action="{{ url_for('appointment_delete', appointment_id=appt['id']) }}">
+            <form method="post" action="{{ url_for('appointment_delete', appointment_id=appt['id']) }}" onsubmit="return window.confirm('Diesen Termin wirklich loeschen?\n\n{{ appt['appointment_at'][:16].replace('T', ' ') if appt['appointment_at'] else '' }}\n{{ appt['service_summary'] or appt['title'] or 'Termin' }}');">
         <button class="premium-button danger" type="submit">Löschen</button>
             </form>
           </div>

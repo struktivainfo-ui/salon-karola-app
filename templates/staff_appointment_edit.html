@@ -7,8 +7,16 @@
       <div>
         <div class="simple-kicker">Termin bearbeiten</div>
         <h1 class="simple-section-title">{{ appt['customer_firstname'] }} {{ appt['customer_lastname'] }}</h1>
-        <p class="simple-subtitle">Termin schnell anpassen und speichern.</p>
+        <p class="simple-subtitle">Aenderungen klar speichern oder ohne Risiko abbrechen.</p>
       </div>
+      <a class="simple-action-button" href="{{ return_url }}">Zur Tagesansicht</a>
+    </div>
+
+    <div class="simple-summary-box">
+      <div><strong>Aktuell</strong><span>{{ appt['appointment_at'][:16].replace('T', ' ') if appt['appointment_at'] else '-' }}</span></div>
+      <div><strong>Mitarbeiterin</strong><span>{{ appt['staff_name'] or simple_default_staff }}</span></div>
+      <div><strong>Status</strong><span>{{ appt['status'] or 'geplant' }}</span></div>
+      <div><strong>Service</strong><span>{{ appt['service_summary'] or appt['title'] or 'Termin' }}</span></div>
     </div>
 
     <form method="post" class="simple-wizard">
@@ -16,7 +24,7 @@
         <label class="full">
           <span>Service</span>
           <div class="simple-service-grid">
-            {% set selected_codes = (appt['service_codes'] or '') %}
+            {% set selected_codes = (appt['service_codes'] or '').split(',') %}
             {% for service in service_presets %}
             <label class="simple-choice-card">
               <input type="checkbox" name="selected_services" value="{{ service['id'] }}" {% if service['id'] in selected_codes %}checked{% endif %}>
@@ -25,8 +33,8 @@
             {% endfor %}
           </div>
         </label>
-        <label><span>Datum/Uhrzeit</span><input type="datetime-local" name="appointment_at" value="{{ (appt['appointment_at'] or '')[:16] }}" required></label>
-        <label><span>Mitarbeiter</span>
+        <label><span>Datum und Uhrzeit</span><input type="datetime-local" name="appointment_at" value="{{ (appt['appointment_at'] or '')[:16] }}" required></label>
+        <label><span>Mitarbeiterin</span>
           <select name="staff_name">
             {% for member in simple_staff_members %}
             <option value="{{ member }}" {% if (appt['staff_name'] or '') == member %}selected{% endif %}>{{ member }}</option>
@@ -40,15 +48,31 @@
             {% endfor %}
           </select>
         </label>
-        <details class="simple-more-options full">
-          <summary>Mehr Optionen</summary>
-          <label class="full"><span>Notiz</span><textarea name="notes">{{ appt['notes'] or '' }}</textarea></label>
+        <details class="simple-more-options full" open>
+          <summary>Notiz und Details</summary>
+          <div class="simple-form-grid">
+            <label class="full"><span>Notiz</span><textarea name="notes">{{ appt['notes'] or '' }}</textarea></label>
+          </div>
         </details>
       </div>
       <div class="simple-wizard-actions">
-        <a href="{{ url_for('staff_today') }}" class="simple-action-button">Zurück</a>
-        <button type="submit" class="simple-save-button simple-submit-button">Speichern</button>
+        <a href="{{ return_url }}" class="simple-action-button">Abbrechen</a>
+        <button type="submit" class="simple-save-button simple-submit-button">Aenderungen speichern</button>
       </div>
+    </form>
+  </section>
+
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Sicherheit</div>
+        <h2 class="simple-section-title">Termin loeschen</h2>
+      </div>
+    </div>
+    <p class="simple-subtitle">Loeschen erst nach klarer Bestaetigung. Danach geht es zur passenden Tagesansicht zurueck.</p>
+    <form method="post" action="{{ delete_action }}" onsubmit="return window.confirm('Diesen Termin wirklich loeschen?\\n\\n{{ appt['customer_firstname'] }} {{ appt['customer_lastname'] }}\\n{{ appt['appointment_at'][:16].replace('T', ' ') if appt['appointment_at'] else '' }}\\n{{ appt['service_summary'] or appt['title'] or 'Termin' }}');">
+      <input type="hidden" name="confirm_delete" value="yes">
+      <button type="submit" class="simple-action-button">Diesen Termin loeschen</button>
     </form>
   </section>
 </section>

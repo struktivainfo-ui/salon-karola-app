@@ -1,24 +1,41 @@
 {% extends 'base.html' %}
-{% block title %}Kalender · Salon Karola{% endblock %}
+{% block title %}Kalender - Salon Karola{% endblock %}
 {% block content %}
 <section class="sk-cal-wrap calendar-page">
   <header class="sk-cal-head calendar-header">
     <div>
       <div class="sk-kicker">{% if is_admin_world %}Admin-Kalender{% else %}Mitarbeiter-Kalender{% endif %}</div>
-      <h1>{{ month_label }}</h1>
+      <h1>{% if view == 'day' %}{{ selected_date_label }}{% else %}{{ month_label }}{% endif %}</h1>
+      <p class="sk-head-subline">{% if view == 'day' %}Tagesansicht mit klaren Karten und direkten Aktionen.{% else %}Monatsansicht als kompakter Einstieg in die Planung.{% endif %}</p>
     </div>
     <div class="sk-cal-actions">
-      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', mode=calendar_mode, date=month_prev, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">◀</a>
+      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', mode=calendar_mode, date=month_prev, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Zurueck</a>
       <a class="sk-btn" href="{{ url_for('calendar_view', view='month', mode=calendar_mode, date=today_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Heute</a>
-      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', mode=calendar_mode, date=month_next, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">▶</a>
+      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', mode=calendar_mode, date=month_next, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Weiter</a>
     </div>
   </header>
+
+  <div class="sk-filter-row sk-filter-row-primary">
+    <a class="sk-chip {% if staff_filter == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, mode=calendar_mode, date=selected_date if view == 'day' else today_date, staff='Alle', mine=0) }}">Alle</a>
+    <a class="sk-chip {% if staff_filter == 'Ute' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, mode=calendar_mode, date=selected_date if view == 'day' else today_date, staff='Ute', mine=1 if not is_admin_world else 0) }}">Ute</a>
+    <a class="sk-chip {% if staff_filter == 'Jessi' %}active{% endif %}" href="{{ url_for('calendar_view', view=view, mode=calendar_mode, date=selected_date if view == 'day' else today_date, staff='Jessi', mine=1 if not is_admin_world else 0) }}">Jessi</a>
+  </div>
+
+  {% if view != 'day' %}
+  <div class="sk-month-toolbar">
+    <a class="sk-btn sk-btn-primary" href="{{ url_for('calendar_view', view='day', mode='book', date=today_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Neuer Termin</a>
+    <div class="sk-month-legend">
+      <span><span class="dot-ute"></span> Ute</span>
+      <span><span class="dot-jessi"></span> Jessi</span>
+      <span><strong>Zahl</strong> Termine am Tag</span>
+    </div>
+  </div>
 
   <section class="sk-month-grid calendar-grid">
     <div class="sk-wd">Mo</div><div class="sk-wd">Di</div><div class="sk-wd">Mi</div><div class="sk-wd">Do</div><div class="sk-wd">Fr</div><div class="sk-wd">Sa</div><div class="sk-wd">So</div>
     {% for week in month_weeks %}
       {% for cell in week %}
-      <a class="sk-day calendar-day {% if not cell.in_month %}is-muted{% endif %} {% if cell.is_today %}is-today{% endif %}" href="{{ url_for('calendar_view', view='day', mode=calendar_mode, date=cell.date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">
+      <a class="sk-day calendar-day {% if not cell.in_month %}is-muted{% endif %} {% if cell.is_today %}is-today{% endif %}" href="{{ url_for('calendar_view', view='day', mode='view', date=cell.date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">
         <span class="sk-day-num">{{ cell.day }}</span>
         {% if cell.count_total > 0 %}
         <span class="sk-day-dotline">
@@ -26,11 +43,14 @@
           {% if cell.count_jessi > 0 %}<span class="dot-jessi" title="Jessi: {{ cell.count_jessi }}"></span>{% endif %}
           <span class="sk-day-count">{{ cell.count_total }}</span>
         </span>
+        {% else %}
+        <span class="sk-day-empty">frei</span>
         {% endif %}
       </a>
       {% endfor %}
     {% endfor %}
   </section>
+  {% endif %}
 
   {% if view == 'day' %}
   <section class="sk-day-head">
@@ -39,16 +59,34 @@
       <p>{{ opening_label }}</p>
     </div>
     <div class="sk-day-actions">
-      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', mode=calendar_mode, date=selected_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Zum Monat</a>
-      <button class="sk-btn sk-btn-primary" id="btnNewAppt">+ Termin</button>
+      <a class="sk-btn" href="{{ url_for('calendar_view', view='month', mode='view', date=selected_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0) }}">Zum Monat</a>
+      <button class="sk-btn sk-btn-primary" id="btnNewAppt">Neuer Termin</button>
     </div>
   </section>
 
-  <div class="sk-filter-row">
-    <a class="sk-chip {% if staff_filter == 'Alle' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', mode=calendar_mode, date=selected_date, staff='Alle', mine=0) }}">Alle</a>
-    <a class="sk-chip {% if staff_filter == 'Ute' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', mode=calendar_mode, date=selected_date, staff='Ute', mine=1 if not is_admin_world else 0) }}">Ute</a>
-    <a class="sk-chip {% if staff_filter == 'Jessi' %}active{% endif %}" href="{{ url_for('calendar_view', view='day', mode=calendar_mode, date=selected_date, staff='Jessi', mine=1 if not is_admin_world else 0) }}">Jessi</a>
-  </div>
+  <section class="sk-day-summary-grid">
+    {% if 'Ute' in visible_columns %}
+    <article class="sk-day-summary-card">
+      <strong>Ute</strong>
+      <span>{{ day_ute|length }} Termine</span>
+      <small>{% if free_slots_ute %}Freie Startzeiten: {{ free_slots_ute|join(', ') }}{% else %}Keine freie Schnellzeit gefunden{% endif %}</small>
+    </article>
+    {% endif %}
+    {% if 'Jessi' in visible_columns %}
+    <article class="sk-day-summary-card">
+      <strong>Jessi</strong>
+      <span>{{ day_jessi|length }} Termine</span>
+      <small>{% if free_slots_jessi %}Freie Startzeiten: {{ free_slots_jessi|join(', ') }}{% else %}Keine freie Schnellzeit gefunden{% endif %}</small>
+    </article>
+    {% endif %}
+    {% if 'Allgemein' in visible_columns %}
+    <article class="sk-day-summary-card">
+      <strong>Allgemein</strong>
+      <span>{{ day_general|length }} Termine</span>
+      <small>Ohne klare Zuordnung</small>
+    </article>
+    {% endif %}
+  </section>
 
   <section class="sk-columns">
     {% if 'Ute' in visible_columns %}
@@ -56,10 +94,22 @@
       <header>Ute <span>{{ day_ute|length }}</span></header>
       <div class="sk-col-body">
         {% for item in day_ute %}
-        <button class="sk-appt-card js-open-detail" data-id="{{ item.id }}" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">
-          <strong>{{ item.time_label }} · {{ item.customer_name }}</strong>
-          <span>{{ item.service_label }}</span>
-        </button>
+        <article class="sk-appt-card">
+          <button class="sk-appt-open js-open-detail" data-id="{{ item.id }}" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">
+            <div class="sk-appt-top">
+              <strong>{{ item.time_label }}</strong>
+              <span class="sk-appt-badge">{{ item.staff_name }}</span>
+            </div>
+            <h3>{{ item.customer_name }}</h3>
+            <p>{{ item.service_label }}</p>
+            {% if item.notes_short %}<small>{{ item.notes_short }}</small>{% endif %}
+          </button>
+          <div class="sk-appt-actions">
+            <a class="sk-btn" href="{{ item.edit_url }}">Bearbeiten</a>
+            <button type="button" class="sk-btn js-open-move" data-id="{{ item.id }}" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">Verschieben</button>
+            {% if item.whatsapp_url %}<a class="sk-btn sk-btn-primary" href="{{ item.whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>{% else %}<span class="sk-btn sk-btn-disabled">WhatsApp fehlt</span>{% endif %}
+          </div>
+        </article>
         {% else %}
         <div class="sk-empty">Keine Termine.</div>
         {% endfor %}
@@ -72,26 +122,65 @@
       <header>Jessi <span>{{ day_jessi|length }}</span></header>
       <div class="sk-col-body">
         {% for item in day_jessi %}
-        <button class="sk-appt-card js-open-detail" data-id="{{ item.id }}" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">
-          <strong>{{ item.time_label }} · {{ item.customer_name }}</strong>
-          <span>{{ item.service_label }}</span>
-        </button>
+        <article class="sk-appt-card">
+          <button class="sk-appt-open js-open-detail" data-id="{{ item.id }}" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">
+            <div class="sk-appt-top">
+              <strong>{{ item.time_label }}</strong>
+              <span class="sk-appt-badge">{{ item.staff_name }}</span>
+            </div>
+            <h3>{{ item.customer_name }}</h3>
+            <p>{{ item.service_label }}</p>
+            {% if item.notes_short %}<small>{{ item.notes_short }}</small>{% endif %}
+          </button>
+          <div class="sk-appt-actions">
+            <a class="sk-btn" href="{{ item.edit_url }}">Bearbeiten</a>
+            <button type="button" class="sk-btn js-open-move" data-id="{{ item.id }}" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">Verschieben</button>
+            {% if item.whatsapp_url %}<a class="sk-btn sk-btn-primary" href="{{ item.whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>{% else %}<span class="sk-btn sk-btn-disabled">WhatsApp fehlt</span>{% endif %}
+          </div>
+        </article>
         {% else %}
         <div class="sk-empty">Keine Termine.</div>
         {% endfor %}
       </div>
     </article>
     {% endif %}
+
+    {% if 'Allgemein' in visible_columns %}
+    <article class="sk-col">
+      <header>Allgemein <span>{{ day_general|length }}</span></header>
+      <div class="sk-col-body">
+        {% for item in day_general %}
+        <article class="sk-appt-card">
+          <button class="sk-appt-open js-open-detail" data-id="{{ item.id }}" data-time="{{ item.time_label }}" data-customer="{{ item.customer_name }}" data-service="{{ item.service_label }}" data-staff="{{ item.staff_name }}" data-notes="{{ item.notes_short }}" data-status="{{ item.status }}" data-call="{{ item.call_url }}" data-wa="{{ item.whatsapp_url }}" data-edit="{{ item.edit_url }}">
+            <div class="sk-appt-top">
+              <strong>{{ item.time_label }}</strong>
+              <span class="sk-appt-badge">{{ item.staff_name or 'Allgemein' }}</span>
+            </div>
+            <h3>{{ item.customer_name }}</h3>
+            <p>{{ item.service_label }}</p>
+          </button>
+          <div class="sk-appt-actions">
+            <a class="sk-btn" href="{{ item.edit_url }}">Bearbeiten</a>
+            {% if item.whatsapp_url %}<a class="sk-btn sk-btn-primary" href="{{ item.whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>{% else %}<span class="sk-btn sk-btn-disabled">WhatsApp fehlt</span>{% endif %}
+          </div>
+        </article>
+        {% else %}
+        <div class="sk-empty">Keine allgemeinen Termine.</div>
+        {% endfor %}
+      </div>
+    </article>
+    {% endif %}
   </section>
+
   <section class="sk-slot-grid">
-    <h3>Freie Uhrzeit wählen</h3>
+    <h3>Freie Schnellzeiten</h3>
     <div class="sk-slot-grid-inner">
       {% for slot in time_slots[:18] %}
       {% if staff_filter in ['Alle', 'Ute'] %}
-      <button type="button" class="sk-slot-btn js-new-slot" data-time="{{ slot }}" data-staff="Ute">{{ slot }} · Ute</button>
+      <button type="button" class="sk-slot-btn js-new-slot" data-time="{{ slot }}" data-staff="Ute">{{ slot }} - Ute</button>
       {% endif %}
       {% if staff_filter in ['Alle', 'Jessi'] %}
-      <button type="button" class="sk-slot-btn js-new-slot" data-time="{{ slot }}" data-staff="Jessi">{{ slot }} · Jessi</button>
+      <button type="button" class="sk-slot-btn js-new-slot" data-time="{{ slot }}" data-staff="Jessi">{{ slot }} - Jessi</button>
       {% endif %}
       {% endfor %}
     </div>
@@ -101,7 +190,7 @@
 
 <section id="apptModal" class="sk-modal" hidden>
   <div class="sk-modal-box">
-    <header><h3>Termin erstellen</h3><button type="button" id="closeApptModal">×</button></header>
+    <header><h3>Termin erstellen</h3><button type="button" id="closeApptModal">X</button></header>
     <div class="sk-modal-body">
       <div class="row"><label>Mitarbeiterin</label><select id="staffName"><option>Ute</option><option>Jessi</option></select></div>
       <div class="row"><label>Uhrzeit</label><input id="apptTime" type="time" value="09:00"></div>
@@ -109,14 +198,14 @@
       <div class="sk-results" id="customerResults"></div>
       <div class="row"><button type="button" class="sk-btn" id="toggleManual">Manuell eintragen</button></div>
       <div id="manualFields" hidden>
-        <div class="row"><label>Name</label><input id="manualName" type="text"></div>
+        <div class="row"><label>Name</label><input id="manualName" type="text" placeholder="Vor- und Nachname"></div>
         <div class="row"><label>Telefon</label><input id="manualPhone" type="text"></div>
         <div class="row"><label>E-Mail</label><input id="manualEmail" type="email"></div>
       </div>
       <div class="row">
         <label>Leistung</label>
         <div class="sk-service-chips" id="serviceChips">
-          {% for key,label in [('waschen','Waschen'),('schneiden','Schneiden'),('foehnen','Föhnen'),('sonstiges','Herren'),('dauerwelle','Dauerwelle'),('farbe','Farbe'),('straehnen','Strähnen'),('legen','Sonstiges')] %}
+          {% for key,label in [('waschen','Waschen'),('schneiden','Schneiden'),('foehnen','Foehnen'),('sonstiges','Herren'),('dauerwelle','Dauerwelle'),('farbe','Farbe'),('straehnen','Straehnen'),('legen','Sonstiges')] %}
           <button type="button" class="svc-chip" data-value="{{ key }}">{{ label }}</button>
           {% endfor %}
         </div>
@@ -133,9 +222,13 @@
 
 <section id="detailModal" class="sk-modal" hidden>
   <div class="sk-modal-box">
-    <header><h3 id="dCustomer">Termin</h3><button type="button" id="closeDetailModal">×</button></header>
+    <header><h3 id="dCustomer">Termin</h3><button type="button" id="closeDetailModal">X</button></header>
     <div class="sk-modal-body">
-      <p id="dTime"></p><p id="dService"></p><p id="dStaff"></p><p id="dStatus"></p><p id="dNotes"></p>
+      <p id="dTime"></p>
+      <p id="dService"></p>
+      <p id="dStaff"></p>
+      <p id="dStatus"></p>
+      <p id="dNotes"></p>
       <div class="row">
         <a class="sk-btn" id="dCall" href="#" hidden>Telefon</a>
         <a class="sk-btn" id="dWa" href="#" target="_blank" rel="noopener" hidden>WhatsApp</a>
@@ -143,11 +236,14 @@
         <a class="sk-btn sk-btn-primary" id="dEdit" href="#">Bearbeiten</a>
       </div>
       <div id="moveFields" hidden>
-        <div class="row"><label>Datum</label><input id="moveDate" type="date" value="{{ selected_date }}"></div>
-        <div class="row"><label>Uhrzeit</label><input id="moveTime" type="time"></div>
+        <div class="row"><label>Neues Datum</label><input id="moveDate" type="date" value="{{ selected_date }}"></div>
+        <div class="row"><label>Neue Uhrzeit</label><input id="moveTime" type="time"></div>
         <div class="row"><label>Mitarbeiterin</label><select id="moveStaff"><option>Ute</option><option>Jessi</option></select></div>
         <div class="row"><button type="button" class="sk-btn sk-btn-primary" id="moveSaveBtn">Verschieben speichern</button></div>
         <p id="moveMsg" class="sk-msg"></p>
+      </div>
+      <div class="row sk-delete-row">
+        <button type="button" class="sk-btn sk-btn-danger" id="dDeleteBtn">Termin loeschen</button>
       </div>
     </div>
   </div>
@@ -157,14 +253,15 @@
 (() => {
   const selectedDate = {{ selected_date|tojson }};
   const currentView = {{ view|tojson }};
-  const calendarMode = {{ calendar_mode|tojson }};
   const monthBackUrl = {{ url_for('calendar_view', view='month', mode=calendar_mode, date=selected_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0)|tojson }};
+  const dayRedirectBase = {{ url_for('calendar_view', view='day', date=selected_date, staff=staff_filter, mine=1 if not is_admin_world and staff_filter != 'Alle' else 0)|tojson }};
   const modal = document.getElementById("apptModal");
   const detailModal = document.getElementById("detailModal");
   const openBtn = document.getElementById("btnNewAppt");
   const closeBtn = document.getElementById("closeApptModal");
   const cancelBtn = document.getElementById("cancelApptBtn");
   const saveBtn = document.getElementById("saveApptBtn");
+  const deleteBtn = document.getElementById("dDeleteBtn");
   const msg = document.getElementById("saveApptMsg");
   const search = document.getElementById("customerSearch");
   const results = document.getElementById("customerResults");
@@ -179,221 +276,114 @@
   const moveStaff = document.getElementById("moveStaff");
   const chips = Array.from(document.querySelectorAll(".svc-chip"));
   const quickSlotButtons = Array.from(document.querySelectorAll(".js-new-slot"));
+  const moveQuickButtons = Array.from(document.querySelectorAll(".js-open-move"));
   let selectedCustomerId = "";
   let activeDetailAppointmentId = "";
-  let lockCount = 0;
-  let customerSearchOpen = false;
-  let isHandlingBack = false;
-  let isSyncingHistory = false;
-  let lastBackAction = "";
+  let activeDetailData = null;
 
-  window.appViewStack = Array.isArray(window.appViewStack) ? window.appViewStack : [];
-
-  function currentAppView() {
-    return window.appViewStack.length ? window.appViewStack[window.appViewStack.length - 1] : "";
-  }
-
-  function pushAppView(viewName, options = {}) {
-    const pushHistory = options.pushHistory !== false;
-    if (!viewName) return;
-    if (currentAppView() === viewName) return;
-    window.appViewStack.push(viewName);
-    if (pushHistory && !isSyncingHistory) {
-      history.pushState({ appView: viewName }, "", location.href);
-    }
-  }
-
-  function popAppView(expected) {
-    if (!window.appViewStack.length) return "";
-    const top = currentAppView();
-    if (expected && top !== expected) return "";
-    return window.appViewStack.pop() || "";
-  }
-
-  function ensureBaseStack() {
-    if (window.appViewStack.length) return;
-    pushAppView("calendar_month", { pushHistory: false });
-    if (currentView === "day") pushAppView("calendar_day", { pushHistory: false });
-  }
-
-  ensureBaseStack();
-  if (currentView === "day") {
-    const state = history.state || {};
-    if (!state || !state.appView) {
-      history.replaceState({ appView: "calendar_day" }, "", location.href);
-      history.pushState({ appView: "calendar_day_guard" }, "", location.href);
-    }
-  }
-
-  function lockBody() {
-    lockCount += 1;
-    document.body.classList.add("modal-open");
-    document.body.classList.add("body-locked");
+  function openLayer(layer) {
+    if (!layer) return;
+    layer.hidden = false;
+    layer.classList.add("is-open");
+    document.body.classList.add("modal-open", "body-locked");
     document.documentElement.classList.add("body-locked");
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-  }
-  function unlockBody() {
-    lockCount = Math.max(0, lockCount - 1);
-    if (lockCount > 0) return;
-    document.body.classList.remove("modal-open");
-    document.body.classList.remove("body-locked");
-    document.documentElement.classList.remove("body-locked");
-    document.body.style.overflow = "";
-    document.documentElement.style.overflow = "";
   }
 
-  function closeCustomerSearch(options = {}) {
-    const fromBack = options.fromBack === true;
-    if (!results) return;
-    if (!customerSearchOpen && !results.innerHTML) return;
-    results.innerHTML = "";
-    customerSearchOpen = false;
-    popAppView("customer_search");
-    if (!fromBack && !isSyncingHistory) {
-      isSyncingHistory = true;
-      history.back();
-      setTimeout(() => { isSyncingHistory = false; }, 0);
+  function closeLayer(layer) {
+    if (!layer) return;
+    layer.hidden = true;
+    layer.classList.remove("is-open");
+    if ((modal && modal.hidden) && (detailModal && detailModal.hidden)) {
+      document.body.classList.remove("modal-open", "body-locked");
+      document.documentElement.classList.remove("body-locked");
     }
   }
 
-  function closeManualCustomer(options = {}) {
-    const fromBack = options.fromBack === true;
-    if (!manual || manual.hidden) return;
-    manual.hidden = true;
-    popAppView("manual_customer");
-    if (!fromBack && !isSyncingHistory) {
-      isSyncingHistory = true;
-      history.back();
-      setTimeout(() => { isSyncingHistory = false; }, 0);
-    }
+  function openModal(prefill = {}) {
+    closeLayer(detailModal);
+    openLayer(modal);
+    const timeField = document.getElementById("apptTime");
+    const staffField = document.getElementById("staffName");
+    if (timeField && prefill.time) timeField.value = prefill.time;
+    if (staffField && prefill.staff) staffField.value = prefill.staff;
   }
 
-  function closeMoveDialog(options = {}) {
-    const fromBack = options.fromBack === true;
-    if (!moveFields || moveFields.hidden) return;
-    moveFields.hidden = true;
+  function openMoveFields(data) {
+    if (!moveFields) return;
+    moveFields.hidden = false;
+    if (moveDate) moveDate.value = selectedDate;
+    if (moveTime) moveTime.value = (data.time || "").slice(0, 5);
+    if (moveStaff) moveStaff.value = data.staff || "Ute";
     if (moveMsg) moveMsg.textContent = "";
-    popAppView("appointment_move");
-    if (!fromBack && !isSyncingHistory) {
-      isSyncingHistory = true;
-      history.back();
-      setTimeout(() => { isSyncingHistory = false; }, 0);
-    }
   }
 
-  function openModal() {
-    if (!modal || !modal.hidden) return;
-    closeDetail({ fromBack: true });
-    modal.hidden = false;
-    modal.classList.add("is-open");
-    lockBody();
-    pushAppView("appointment_create");
-    const firstField = document.getElementById("staffName");
-    if (firstField && typeof firstField.focus === "function") firstField.focus();
+  function fillDetail(data) {
+    activeDetailAppointmentId = String(data.id || "").trim();
+    activeDetailData = data;
+    document.getElementById("dCustomer").textContent = data.customer || "Termin";
+    document.getElementById("dTime").textContent = `Uhrzeit: ${data.time || "-"}`;
+    document.getElementById("dService").textContent = `Leistung: ${data.service || "-"}`;
+    document.getElementById("dStaff").textContent = `Mitarbeiterin: ${data.staff || "-"}`;
+    document.getElementById("dStatus").textContent = `Status: ${data.status || "-"}`;
+    document.getElementById("dNotes").textContent = `Notiz: ${data.notes || "Keine Notiz"}`;
+    const call = document.getElementById("dCall");
+    const wa = document.getElementById("dWa");
+    const edit = document.getElementById("dEdit");
+    if (call) { call.hidden = !data.call; call.href = data.call || "#"; }
+    if (wa) { wa.hidden = !data.whatsapp; wa.href = data.whatsapp || "#"; }
+    if (edit) edit.href = data.edit || "#";
+    if (moveFields) moveFields.hidden = true;
   }
-  function closeModal(options = {}) {
-    const fromBack = options.fromBack === true;
-    if (!modal || modal.hidden) return;
-    closeCustomerSearch({ fromBack: true });
-    closeManualCustomer({ fromBack: true });
-    modal.classList.remove("is-open");
-    modal.hidden = true;
-    popAppView("appointment_create");
-    unlockBody();
-    if (!fromBack && !isSyncingHistory) {
-      isSyncingHistory = true;
-      history.back();
-      setTimeout(() => { isSyncingHistory = false; }, 0);
-    }
+
+  function openDetail(data, openMove = false) {
+    closeLayer(modal);
+    fillDetail(data);
+    openLayer(detailModal);
+    if (openMove) openMoveFields(data);
   }
-  function openDetail() {
-    if (!detailModal || !detailModal.hidden) return;
-    closeModal({ fromBack: true });
-    detailModal.hidden = false;
-    detailModal.classList.add("is-open");
-    lockBody();
-    pushAppView("appointment_details");
-  }
-  function closeDetail(options = {}) {
-    const fromBack = options.fromBack === true;
-    if (!detailModal || detailModal.hidden) return;
-    closeMoveDialog({ fromBack: true });
-    detailModal.classList.remove("is-open");
-    detailModal.hidden = true;
-    popAppView("appointment_details");
-    unlockBody();
-    if (!fromBack && !isSyncingHistory) {
-      isSyncingHistory = true;
-      history.back();
-      setTimeout(() => { isSyncingHistory = false; }, 0);
-    }
-  }
-  function closeAllOverlays() {
-    closeDetail({ fromBack: true });
-    closeModal({ fromBack: true });
-    closeCustomerSearch({ fromBack: true });
-    closeManualCustomer({ fromBack: true });
-    closeMoveDialog({ fromBack: true });
-    document.body.classList.remove("modal-open", "body-locked");
-    document.documentElement.classList.remove("body-locked");
-    document.body.style.overflow = "";
-    document.documentElement.style.overflow = "";
-    lockCount = 0;
-  }
-  window.closeAllOverlays = closeAllOverlays;
-  window.closeAppointmentModal = closeModal;
-  window.closeCustomerSearch = closeCustomerSearch;
-  window.closeMoveDialog = closeMoveDialog;
-  window.closeAppointmentDetails = closeDetail;
-  window.closeDrawer = function () {
-    if (typeof window.skCloseMenu === "function") window.skCloseMenu();
-  };
-  window.closeDayView = function () {
-    if (currentView === "day") {
-      window.location.href = monthBackUrl;
-      return true;
-    }
-    return false;
-  };
-  window.getOverlayState = function () {
+
+  function cardDataFromElement(el) {
     return {
-      modalOpen: !!(modal && !modal.hidden),
-      detailOpen: !!(detailModal && !detailModal.hidden),
-      bodyModalOpen: document.body.classList.contains("modal-open"),
-      bodyLocked: document.body.classList.contains("body-locked"),
-      overlayCount: [modal, detailModal].filter((el) => el && !el.hidden).length,
-      currentAppView: currentAppView(),
-      customerSearchOpen: customerSearchOpen,
-      moveDialogOpen: !!(moveFields && !moveFields.hidden),
-      dayViewOpen: currentView === "day",
-      drawerOpen: document.body.classList.contains("mobile-menu-open"),
-      lastBackAction
+      id: el.dataset.id,
+      time: el.dataset.time,
+      customer: el.dataset.customer,
+      service: el.dataset.service,
+      staff: el.dataset.staff,
+      notes: el.dataset.notes,
+      status: el.dataset.status,
+      call: el.dataset.call,
+      whatsapp: el.dataset.wa,
+      edit: el.dataset.edit,
     };
-  };
-  if (openBtn) openBtn.addEventListener("click", openModal);
-  if (closeBtn) closeBtn.addEventListener("click", closeModal);
-  if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+  }
+
+  document.querySelectorAll(".js-open-detail").forEach((button) => {
+    button.addEventListener("click", () => openDetail(cardDataFromElement(button), false));
+  });
+  moveQuickButtons.forEach((button) => {
+    button.addEventListener("click", () => openDetail(cardDataFromElement(button), true));
+  });
+
+  if (openBtn) openBtn.addEventListener("click", () => openModal());
+  if (closeBtn) closeBtn.addEventListener("click", () => closeLayer(modal));
+  if (cancelBtn) cancelBtn.addEventListener("click", () => closeLayer(modal));
+  document.getElementById("closeDetailModal")?.addEventListener("click", () => closeLayer(detailModal));
+  if (moveBtn) moveBtn.addEventListener("click", () => openMoveFields(activeDetailData || {}));
+
   quickSlotButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const prefTime = (btn.dataset.time || "").trim();
-      const prefStaff = (btn.dataset.staff || "").trim();
-      openModal();
-      const t = document.getElementById("apptTime");
-      const s = document.getElementById("staffName");
-      if (t && prefTime) t.value = prefTime;
-      if (s && prefStaff) s.value = prefStaff;
+    btn.addEventListener("click", () => openModal({ time: (btn.dataset.time || "").trim(), staff: (btn.dataset.staff || "").trim() }));
+  });
+
+  [modal, detailModal].forEach((layer) => {
+    if (!layer) return;
+    layer.addEventListener("click", (event) => {
+      if (event.target === layer) closeLayer(layer);
     });
   });
+
   if (toggleManual) {
     toggleManual.addEventListener("click", () => {
-      if (!manual) return;
-      manual.hidden = !manual.hidden;
-      if (!manual.hidden) {
-        pushAppView("manual_customer");
-      } else {
-        popAppView("manual_customer");
-      }
+      if (manual) manual.hidden = !manual.hidden;
     });
   }
 
@@ -402,7 +392,7 @@
   async function searchCustomers(q) {
     if (!results) return;
     if (!q || q.trim().length < 2) {
-      closeCustomerSearch({ fromBack: true });
+      results.innerHTML = "";
       return;
     }
     try {
@@ -410,28 +400,16 @@
       const data = await res.json();
       const items = (data && data.items) || [];
       if (!items.length) {
-        if (!customerSearchOpen) {
-          customerSearchOpen = true;
-          pushAppView("customer_search");
-        }
-        results.innerHTML = `<div class="sk-empty">Kein Kunde gefunden. Manuell eintragen möglich.</div>`;
+        results.innerHTML = `<div class="sk-empty">Kein Kunde gefunden. Manuell eintragen ist moeglich.</div>`;
         return;
       }
-      if (!customerSearchOpen) {
-        customerSearchOpen = true;
-        pushAppView("customer_search");
-      }
-      results.innerHTML = items.map((it) => `<button type="button" class="sk-result-item" data-id="${it.id}" data-name="${(it.name || "").replace(/"/g, "&quot;")}">${it.name || ""} · ${it.phone || "-"}</button>`).join("");
+      results.innerHTML = items.map((it) => `<button type="button" class="sk-result-item" data-id="${it.id}" data-name="${(it.name || "").replace(/"/g, "&quot;")}">${it.name || ""} - ${it.phone || "-"}</button>`).join("");
       results.querySelectorAll(".sk-result-item").forEach((btn) => btn.addEventListener("click", () => {
         selectedCustomerId = btn.dataset.id || "";
         if (search) search.value = btn.dataset.name || "";
-        closeCustomerSearch({ fromBack: true });
+        results.innerHTML = "";
       }));
     } catch (error) {
-      if (!customerSearchOpen) {
-        customerSearchOpen = true;
-        pushAppView("customer_search");
-      }
       results.innerHTML = `<div class="sk-empty">Suche fehlgeschlagen.</div>`;
     }
   }
@@ -448,9 +426,9 @@
     const manualEmail = document.getElementById("manualEmail")?.value?.trim() || "";
     const note = document.getElementById("apptNote")?.value?.trim() || "";
     const services = chips.filter((c) => c.classList.contains("active")).map((c) => c.dataset.value);
-    if (!time) { msg.textContent = "Bitte Uhrzeit wählen."; saveBtn.disabled = false; return; }
-    if (!selectedCustomerId && !manualName) { msg.textContent = "Bitte Kunde wählen oder manuell eintragen."; saveBtn.disabled = false; return; }
-    if (!services.length) { msg.textContent = "Bitte mindestens eine Leistung auswählen."; saveBtn.disabled = false; return; }
+    if (!time) { msg.textContent = "Bitte Uhrzeit waehlen."; saveBtn.disabled = false; return; }
+    if (!selectedCustomerId && !manualName) { msg.textContent = "Bitte Kunde waehlen oder Namen manuell eintragen."; saveBtn.disabled = false; return; }
+    if (!services.length) { msg.textContent = "Bitte mindestens eine Leistung auswaehlen."; saveBtn.disabled = false; return; }
     try {
       const res = await fetch("/api/appointments", {
         method: "POST",
@@ -470,8 +448,7 @@
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "Speichern fehlgeschlagen.");
-      msg.textContent = "Termin gespeichert.";
-      window.location.href = `{{ url_for('calendar_view') }}?view=day&date=${encodeURIComponent(selectedDate)}&staff={{ staff_filter|urlencode }}{% if not is_admin_world and staff_filter != 'Alle' %}&mine=1{% endif %}`;
+      window.location.href = dayRedirectBase;
     } catch (error) {
       msg.textContent = error.message || "Fehler beim Speichern.";
       saveBtn.disabled = false;
@@ -479,50 +456,9 @@
   }
   if (saveBtn) saveBtn.addEventListener("click", saveAppointment);
 
-  document.getElementById("closeDetailModal")?.addEventListener("click", closeDetail);
-  document.querySelectorAll(".js-open-detail").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      activeDetailAppointmentId = (btn.dataset.id || "").trim();
-      document.getElementById("dCustomer").textContent = btn.dataset.customer || "Termin";
-      document.getElementById("dTime").textContent = `Uhrzeit: ${btn.dataset.time || "-"}`;
-      document.getElementById("dService").textContent = `Leistung: ${btn.dataset.service || "-"}`;
-      document.getElementById("dStaff").textContent = `Mitarbeiterin: ${btn.dataset.staff || "-"}`;
-      document.getElementById("dStatus").textContent = `Status: ${btn.dataset.status || "-"}`;
-      document.getElementById("dNotes").textContent = `Notiz: ${btn.dataset.notes || "Keine"}`;
-      const call = document.getElementById("dCall");
-      const wa = document.getElementById("dWa");
-      const edit = document.getElementById("dEdit");
-      if (call) { call.hidden = !btn.dataset.call; call.href = btn.dataset.call || "#"; }
-      if (wa) { wa.hidden = !btn.dataset.wa; wa.href = btn.dataset.wa || "#"; }
-      if (edit) edit.href = btn.dataset.edit || "#";
-      if (moveFields) moveFields.hidden = true;
-      if (moveMsg) moveMsg.textContent = "";
-      if (moveDate) moveDate.value = selectedDate;
-      if (moveTime) moveTime.value = (btn.dataset.time || "").slice(0, 5);
-      if (moveStaff) moveStaff.value = (btn.dataset.staff || "Ute");
-      openDetail();
-    });
-  });
-
-  if (moveBtn) {
-    moveBtn.addEventListener("click", () => {
-      if (!moveFields) return;
-      moveFields.hidden = !moveFields.hidden;
-      if (!moveFields.hidden) {
-        pushAppView("appointment_move");
-      } else {
-        popAppView("appointment_move");
-      }
-      if (!moveFields.hidden && moveDate && !moveDate.value) moveDate.value = selectedDate;
-    });
-  }
-
   if (moveSaveBtn) {
     moveSaveBtn.addEventListener("click", async () => {
-      if (!activeDetailAppointmentId) {
-        if (moveMsg) moveMsg.textContent = "Termin-ID fehlt.";
-        return;
-      }
+      if (!activeDetailAppointmentId) return;
       const dateValue = (moveDate?.value || "").trim();
       const timeValue = (moveTime?.value || "").trim();
       const staffValue = (moveStaff?.value || "").trim();
@@ -531,18 +467,16 @@
         return;
       }
       moveSaveBtn.disabled = true;
-      if (moveMsg) moveMsg.textContent = "";
       try {
         const res = await fetch(`/api/appointments/${encodeURIComponent(activeDetailAppointmentId)}/move`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ date: dateValue, time: timeValue, staff_name: staffValue }),
+          body: JSON.stringify({ date: dateValue, time: timeValue, staff_name: staffValue })
         });
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error(data.error || "Verschieben fehlgeschlagen.");
-        if (moveMsg) moveMsg.textContent = "Termin verschoben.";
-        window.location.href = `{{ url_for('calendar_view') }}?view=day&date=${encodeURIComponent(dateValue)}&staff={{ staff_filter|urlencode }}{% if not is_admin_world and staff_filter != 'Alle' %}&mine=1{% endif %}`;
+        window.location.href = `{{ url_for('calendar_view') }}?view=day&date=${encodeURIComponent(dateValue)}&staff=${encodeURIComponent(staffValue)}{% if not is_admin_world %}&mine=1{% endif %}`;
       } catch (error) {
         if (moveMsg) moveMsg.textContent = error.message || "Fehler beim Verschieben.";
         moveSaveBtn.disabled = false;
@@ -550,92 +484,56 @@
     });
   }
 
-  [modal, detailModal].forEach((layer) => {
-    if (!layer) return;
-    layer.addEventListener("click", (event) => {
-      if (event.target !== layer) return;
-      if (layer === modal) closeModal();
-      if (layer === detailModal) closeDetail();
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", async () => {
+      if (!activeDetailAppointmentId || !activeDetailData) return;
+      const confirmText = `Diesen Termin wirklich loeschen?\n\n${activeDetailData.time || ""}\n${activeDetailData.customer || ""}\n${activeDetailData.service || ""}`;
+      if (!window.confirm(confirmText)) return;
+      deleteBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/appointments/${encodeURIComponent(activeDetailAppointmentId)}/delete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ confirm: "yes" })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || "Loeschen fehlgeschlagen.");
+        window.location.href = dayRedirectBase;
+      } catch (error) {
+        window.alert(error.message || "Loeschen fehlgeschlagen.");
+        deleteBtn.disabled = false;
+      }
     });
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    closeLayer(modal);
+    closeLayer(detailModal);
   });
 
-  function goBackOneLevel() {
-    if (customerSearchOpen || (results && results.innerHTML.trim())) {
-      closeCustomerSearch({ fromBack: true });
-      lastBackAction = "close_customer_search";
-      return true;
-    }
-    if (manual && !manual.hidden) {
-      closeManualCustomer({ fromBack: true });
-      lastBackAction = "close_manual_customer";
-      return true;
-    }
-    if (moveFields && !moveFields.hidden) {
-      closeMoveDialog({ fromBack: true });
-      lastBackAction = "close_move_dialog";
+  window.handleAppBack = function () {
+    if (detailModal && !detailModal.hidden) {
+      closeLayer(detailModal);
       return true;
     }
     if (modal && !modal.hidden) {
-      closeModal({ fromBack: true });
-      lastBackAction = "close_appointment_modal";
+      closeLayer(modal);
       return true;
     }
-    if (detailModal && !detailModal.hidden) {
-      closeDetail({ fromBack: true });
-      lastBackAction = "close_appointment_details";
-      return true;
-    }
-    if ((modal && !modal.hidden) || (detailModal && !detailModal.hidden) || document.body.classList.contains("modal-open")) {
-      closeAllOverlays();
-      lastBackAction = "close_all_overlays";
-      return true;
-    }
-    if (document.body.classList.contains("mobile-menu-open") && typeof window.skCloseMenu === "function") {
-      window.skCloseMenu();
-      lastBackAction = "close_drawer";
-      return true;
-    }
-    if (currentView === "day" && currentAppView() === "calendar_day") {
+    if (currentView === "day") {
       window.location.href = monthBackUrl;
-      lastBackAction = "close_day_view_to_month";
       return true;
     }
-    if (window.appViewStack.length > 1) {
-      popAppView();
-      lastBackAction = "pop_internal_stack";
-      return true;
-    }
-    lastBackAction = "allow_system_back";
     return false;
-  }
-
-  window.goBackOneLevel = goBackOneLevel;
-  window.handleAppBack = function () {
-    return goBackOneLevel();
   };
+
   window.handleAndroidBackButton = function () {
     return window.handleAppBack();
   };
 
-  window.addEventListener("popstate", () => {
-    if (isHandlingBack) return;
-    isHandlingBack = true;
-    try {
-      const handled = window.handleAppBack();
-      if (!handled) {
-        popAppView();
-      }
-    } finally {
-      isHandlingBack = false;
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") return;
-    goBackOneLevel();
-  });
-
-  if (calendarMode === "book" && currentView === "day" && modal && modal.hidden) {
+  if (currentView === "day" && window.location.search.includes("mode=book") && modal && modal.hidden) {
     openModal();
   }
 })();

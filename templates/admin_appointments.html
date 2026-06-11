@@ -10,7 +10,7 @@
     </div>
     <div class="premium-top-actions compact-actions">
       <a class="premium-top-action primary" href="{{ url_for('calendar_view', view='day', staff='Alle') }}">Tag</a>
-      <a class="premium-top-action" href="{{ url_for('calendar_view', view='week', staff='Alle') }}">Woche</a>
+      <a class="premium-top-action" href="{{ url_for('calendar_view', view='month', staff='Alle') }}">Monat</a>
     </div>
   </section>
 
@@ -201,7 +201,7 @@
         <div class="premium-panel-kicker">Ausblick</div>
         <h2 class="premium-panel-title">Naechste Termine</h2>
       </div>
-      <a class="premium-inline-link" href="{{ url_for('calendar_view', view='week', staff='Alle') }}">Wochenkalender</a>
+      <a class="premium-inline-link" href="{{ url_for('calendar_view', view='month', staff='Alle') }}">Monatskalender</a>
     </div>
     <div class="premium-list">
       {% for appt in upcoming %}

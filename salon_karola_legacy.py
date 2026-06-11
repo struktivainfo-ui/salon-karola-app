@@ -1796,7 +1796,13 @@ def appointment_whatsapp_text(customer, appointment):
             when = datetime.fromisoformat(str(appointment["appointment_at"])).strftime("%d.%m.%Y um %H:%M")
         except Exception:
             when = str(appointment["appointment_at"])
-    return f"Hallo {customer_full_name(customer)}, hier ist Salon Karola. Dein Termin ist am {when}. Bitte gib uns kurz Bescheid, falls sich etwas ändert."
+    staff_name = ""
+    try:
+        staff_name = (appointment.get("staff_name") or "").strip() if appointment else ""
+    except Exception:
+        staff_name = ""
+    staff_line = f" Liebe Gruesse, {staff_name}" if staff_name else " Liebe Gruesse, Jessi und Ute"
+    return f"Hallo {customer_full_name(customer)}, hier ist Salon Karola. Wir erinnern freundlich an deinen Termin am {when}.{staff_line}"
 
 
 def comeback_whatsapp_text(customer):
@@ -2357,6 +2363,20 @@ def build_day_timeline(selected_date, staff="Alle"):
         "slots": slots,
         "open_label": f"Geoeffnet: {start_str} - {end_str} Uhr",
     }
+
+
+def quick_free_slots_for_staff(selected_date, staff_name, limit=6):
+    timeline = build_day_timeline(selected_date, staff_name)
+    if not timeline.get("open"):
+        return []
+    free_slots = []
+    for slot in timeline.get("slots") or []:
+        if slot.get("items"):
+            continue
+        free_slots.append(slot.get("time") or "")
+        if len(free_slots) >= limit:
+            break
+    return [slot for slot in free_slots if slot]
 
 
 
@@ -3055,6 +3075,8 @@ def appointments_for_day(selected_date, staff_name="Alle", limit=120, db=None):
     params.append(limit)
     rows = conn.execute(query, tuple(params)).fetchall()
     items = []
+    source_staff = staff_name if staff_name in {"Alle", "Ute", "Jessi"} else "Alle"
+    source_mine = 0 if is_admin_world_session() or source_staff == "Alle" else 1
     for row in rows:
         dt = _parse_dt_safe(row["appointment_at"])
         phone_value = customer_phone(row)
@@ -3071,11 +3093,17 @@ def appointments_for_day(selected_date, staff_name="Alle", limit=120, db=None):
                 "notes_short": ((row["notes"] or "").strip()[:90]),
                 "phone": phone_value,
                 "call_url": phone_href(phone_value),
-                "whatsapp_url": whatsapp_link(row),
+                "whatsapp_url": whatsapp_link(row, appointment_whatsapp_text(row, row)),
                 "edit_url": (
                     url_for("customer_detail", customer_id=row["customer_id"]) + f"#appointment-{row['id']}"
                     if is_admin_world_session()
-                    else url_for("staff_appointment_edit", appointment_id=row["id"])
+                    else url_for(
+                        "staff_appointment_edit",
+                        appointment_id=row["id"],
+                        date=selected_date.isoformat(),
+                        staff=source_staff,
+                        mine=source_mine,
+                    )
                 ),
                 "detail_url": url_for("customer_detail", customer_id=row["customer_id"]),
             }
@@ -3100,6 +3128,41 @@ def appointment_duplicate_exists(customer_id, appointment_at, title, staff_name,
         (customer_id, appointment_at, title or "", staff_name or "", manual_firstname or "", manual_lastname or "", manual_phone or ""),
     ).fetchone()
     return bool(row)
+
+
+def appointment_conflict_exists(appointment_id, appointment_at, staff_name, *, customer_id=None, db=None):
+    conn = db or get_db()
+    params = [appointment_id, appointment_at, staff_name or ""]
+    query = """
+        SELECT id FROM appointments
+        WHERE id <> ?
+          AND appointment_at = ?
+          AND COALESCE(staff_name, '') = ?
+    """
+    if customer_id is not None:
+        query += " AND customer_id = ?"
+        params.append(customer_id)
+    query += " LIMIT 1"
+    row = conn.execute(query, tuple(params)).fetchone()
+    return bool(row)
+
+
+def calendar_day_redirect_for(date_value, staff_name, *, mine=0):
+    safe_staff = staff_name if staff_name in {"Alle", "Ute", "Jessi"} else "Alle"
+    safe_mine = 1 if str(mine).strip().lower() in {"1", "true", "yes", "on"} else 0
+    return url_for("calendar_view", view="day", date=date_value, staff=safe_staff, mine=safe_mine)
+
+
+def appointment_delete_redirect_target(row, fallback_date=None, fallback_staff=None, fallback_mine=0):
+    if not row:
+        return url_for("staff_today")
+    appointment_at = str(row["appointment_at"] or "")
+    date_value = appointment_at[:10] if len(appointment_at) >= 10 else (fallback_date or datetime.now().date().isoformat())
+    staff_name = (row["staff_name"] or fallback_staff or "Alle").strip()
+    if staff_name not in {"Alle", "Ute", "Jessi"}:
+        staff_name = fallback_staff or "Alle"
+    mine_value = 0 if is_admin_world_session() else (1 if staff_name != "Alle" else fallback_mine)
+    return calendar_day_redirect_for(date_value, staff_name or "Alle", mine=mine_value)
 
 
 def customer_search_results(q="", limit=120, db=None):
@@ -4745,11 +4808,44 @@ def api_move_appointment(appointment_id):
     return _api_move_appointment_internal(appointment_id, allow_partial=False)
 
 
+@app.route("/api/appointments/<int:appointment_id>/delete", methods=["POST"])
+@login_required
+def api_delete_appointment(appointment_id):
+    try:
+        payload = request.get_json(silent=True) or {}
+        if str(payload.get("confirm") or "").strip().lower() not in {"yes", "true", "1"}:
+            return jsonify({"ok": False, "error": "Loeschen wurde nicht bestaetigt."}), 400
+        db = get_db()
+        row = db.execute(
+            "SELECT id, customer_id, appointment_at, staff_name, title, service_summary, manual_firstname, manual_lastname FROM appointments WHERE id = ? LIMIT 1",
+            (appointment_id,),
+        ).fetchone()
+        if not row:
+            return jsonify({"ok": False, "error": "Termin nicht gefunden."}), 404
+        db.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
+        db.commit()
+        return jsonify(
+            {
+                "ok": True,
+                "id": appointment_id,
+                "message": "Termin wurde geloescht.",
+                "appointment_at": row["appointment_at"] or "",
+                "staff_name": row["staff_name"] or "",
+            }
+        )
+    except Exception as exc:
+        try:
+            app.logger.exception("Termin loeschen fehlgeschlagen", exc_info=exc)
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": safe_user_error()}), 500
+
+
 def _api_move_appointment_internal(appointment_id, allow_partial=False):
     try:
         payload = request.get_json(silent=True) or {}
         db = get_db()
-        row = db.execute("SELECT id, appointment_at, staff_name, status FROM appointments WHERE id = ? LIMIT 1", (appointment_id,)).fetchone()
+        row = db.execute("SELECT id, customer_id, appointment_at, staff_name, status FROM appointments WHERE id = ? LIMIT 1", (appointment_id,)).fetchone()
         if not row:
             return jsonify({"ok": False, "error": "Termin nicht gefunden."}), 404
 
@@ -4768,6 +4864,8 @@ def _api_move_appointment_internal(appointment_id, allow_partial=False):
         status = (payload.get("status") or row["status"] or "geplant").strip() or "geplant"
         if status not in {"geplant", "bestaetigt", "erledigt", "nicht erschienen", "storniert"}:
             status = "geplant"
+        if appointment_conflict_exists(appointment_id, appointment_at, staff_name, customer_id=row["customer_id"], db=db):
+            return jsonify({"ok": False, "error": "Fuer diese Kundin gibt es bereits einen Termin zur gleichen Zeit."}), 409
 
         db.execute(
             """
@@ -4784,7 +4882,7 @@ def _api_move_appointment_internal(appointment_id, allow_partial=False):
             ),
         )
         db.commit()
-        return jsonify({"ok": True, "id": appointment_id, "message": "Termin wurde aktualisiert."})
+        return jsonify({"ok": True, "id": appointment_id, "message": "Termin wurde aktualisiert.", "appointment_at": appointment_at, "staff_name": staff_name})
     except Exception as exc:
         try:
             app.logger.exception("Termin verschieben fehlgeschlagen", exc_info=exc)
@@ -5040,6 +5138,9 @@ def appointment_edit(appointment_id):
         return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
 
     payload = appointment_payload_from_form(request.form, db=db)
+    if appointment_conflict_exists(appointment_id, appointment_at, payload["staff_name"], customer_id=row["customer_id"], db=db):
+        flash("Fuer diese Kundin gibt es bereits einen Termin zur gleichen Zeit.")
+        return redirect(url_for("customer_detail", customer_id=row["customer_id"]))
     db.execute(
         """
         UPDATE appointments
@@ -5120,11 +5221,18 @@ def staff_appointment_edit(appointment_id):
         flash("Termin wurde nicht gefunden.")
         return redirect(url_for("staff_today"))
 
+    requested_staff = (request.args.get("staff") or "").strip()
+    requested_date = (request.args.get("date") or "").strip()
+    requested_mine = (request.args.get("mine") or "").strip()
+    redirect_staff = requested_staff if requested_staff in {"Alle", "Ute", "Jessi"} else ((row["staff_name"] or "").strip() or "Alle")
+    redirect_date = requested_date or str(row["appointment_at"] or "")[:10] or datetime.now().date().isoformat()
+    redirect_mine = 1 if requested_mine.lower() in {"1", "true", "yes", "on"} else (0 if is_admin_world_session() or redirect_staff == "Alle" else 1)
+
     if request.method == "POST":
         appointment_at = (request.form.get("appointment_at") or "").strip()
         if not appointment_at or not _parse_dt_safe(appointment_at):
             flash("Bitte ein gültiges Datum und eine Uhrzeit auswählen.")
-            return redirect(url_for("staff_appointment_edit", appointment_id=appointment_id))
+            return redirect(url_for("staff_appointment_edit", appointment_id=appointment_id, date=redirect_date, staff=redirect_staff, mine=redirect_mine))
 
         allowed_status = {"geplant", "erledigt", "abgesagt", "verschoben", "no_show"}
         next_status = (request.form.get("status") or "geplant").strip()
@@ -5144,6 +5252,9 @@ def staff_appointment_edit(appointment_id):
             default=default_staff_for_simple_mode(db),
             db=db,
         )
+        if appointment_conflict_exists(appointment_id, appointment_at, staff_name, customer_id=row["customer_id"], db=db):
+            flash("Fuer diese Kundin gibt es bereits einen Termin zur gleichen Zeit.")
+            return redirect(url_for("staff_appointment_edit", appointment_id=appointment_id, date=redirect_date, staff=redirect_staff, mine=redirect_mine))
 
         db.execute(
             """
@@ -5166,15 +5277,52 @@ def staff_appointment_edit(appointment_id):
         )
         db.commit()
         flash("Termin wurde aktualisiert.")
-        return redirect(url_for("staff_today"))
+        next_staff = redirect_staff if redirect_staff == "Alle" else staff_name
+        next_mine = redirect_mine if next_staff != "Alle" else 0
+        return redirect(calendar_day_redirect_for(appointment_at[:10], next_staff, mine=next_mine))
 
     return render_template(
         "staff_appointment_edit.html",
         appt=row,
         service_presets=SERVICE_PRESETS,
         simple_staff_members=staff_members_for_simple_mode(db),
+        return_url=calendar_day_redirect_for(redirect_date, redirect_staff, mine=redirect_mine),
+        delete_action=url_for("staff_appointment_delete", appointment_id=appointment_id, date=redirect_date, staff=redirect_staff, mine=redirect_mine),
         current_endpoint="staff_appointment_edit",
         app_version=APP_VERSION,
+    )
+
+
+@app.route("/staff/appointment/<int:appointment_id>/delete", methods=["POST"])
+@staff_or_admin_required
+def staff_appointment_delete(appointment_id):
+    set_ui_world("staff")
+    db = get_db()
+    row = db.execute(
+        "SELECT id, customer_id, appointment_at, staff_name, title, service_summary, manual_firstname, manual_lastname FROM appointments WHERE id = ? LIMIT 1",
+        (appointment_id,),
+    ).fetchone()
+    if not row:
+        flash("Termin wurde nicht gefunden.")
+        return redirect(url_for("staff_today"))
+
+    requested_date = (request.form.get("date") or request.args.get("date") or "").strip()
+    requested_staff = (request.form.get("staff") or request.args.get("staff") or "").strip()
+    requested_mine = (request.form.get("mine") or request.args.get("mine") or "").strip()
+    if (request.form.get("confirm_delete") or "").strip().lower() != "yes":
+        flash("Loeschen wurde nicht bestaetigt.")
+        return redirect(url_for("staff_appointment_edit", appointment_id=appointment_id, date=requested_date, staff=requested_staff, mine=requested_mine))
+
+    db.execute("DELETE FROM appointments WHERE id = ?", (appointment_id,))
+    db.commit()
+    flash("Termin wurde geloescht.")
+    return redirect(
+        appointment_delete_redirect_target(
+            row,
+            fallback_date=requested_date,
+            fallback_staff=requested_staff,
+            fallback_mine=1 if requested_mine.lower() in {"1", "true", "yes", "on"} else 0,
+        )
     )
 
 
@@ -5491,7 +5639,7 @@ def appointments_hub():
         flash(flash_msg)
         if is_admin_world_session():
             return redirect(url_for("appointments_hub"))
-        return redirect(url_for("staff_today"))
+        return redirect(calendar_day_redirect_for(appointment_at[:10], payload["staff_name"], mine=1))
 
     email_sql, mobile_sql, phone_sql, _ = customer_contact_select_sql()
     if is_admin_world_session():
@@ -5677,18 +5825,23 @@ def calendar_view():
     day_items_all = appointments_for_day(selected_date, "Alle", limit=180, db=db)
     col_ute = []
     col_jessi = []
+    col_general = []
     for item in day_items_all:
         staff_name = (item.get("staff_name") or "").strip()
         if staff_name == "Ute":
             col_ute.append(item)
         elif staff_name == "Jessi":
             col_jessi.append(item)
+        else:
+            col_general.append(item)
     if staff_raw == "Ute":
         visible_columns = ["Ute"]
     elif staff_raw == "Jessi":
         visible_columns = ["Jessi"]
     else:
         visible_columns = ["Ute", "Jessi"]
+        if col_general:
+            visible_columns.append("Allgemein")
 
     hours = opening_hours_for_date(selected_date)
     opening_label = (f"Geöffnet: {hours[0]}–{hours[1]} Uhr" if hours else "Heute geschlossen")
@@ -5727,6 +5880,9 @@ def calendar_view():
         day_jessi=col_jessi,
         time_slots=time_slots,
         service_presets=SERVICE_PRESETS,
+        free_slots_ute=quick_free_slots_for_staff(selected_date, "Ute"),
+        free_slots_jessi=quick_free_slots_for_staff(selected_date, "Jessi"),
+        day_general=col_general,
     )
 
 
