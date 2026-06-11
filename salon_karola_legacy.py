@@ -4338,17 +4338,14 @@ def index():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    return redirect(url_for("admin_automation"))
+    return redirect(url_for("admin_dashboard"))
 
 
 @app.route("/admin/start")
 @admin_required
 def admin_start():
-    return render_template(
-        "admin_start.html",
-        current_endpoint="admin_start",
-        app_version=APP_VERSION,
-    )
+    # Legacy admin entrypoint: keep it as a simple alias to the main dashboard.
+    return redirect(url_for("admin_dashboard"))
 
 
 @app.route("/app/staff")
@@ -4782,6 +4779,7 @@ def admin_dashboard():
 @admin_required
 def admin_calendar_alias():
     set_ui_world("admin")
+    # Legacy alias: canonical admin calendar path is /calendar.
     return redirect(url_for("calendar_view", view=request.args.get("view") or "month", date=request.args.get("date"), staff=request.args.get("staff") or "Alle"))
 
 
@@ -4796,7 +4794,8 @@ def admin_customers_alias():
 @admin_required
 def admin_appointments_alias():
     set_ui_world("admin")
-    return redirect(url_for("calendar_view", view=request.args.get("view") or "month", date=request.args.get("date"), staff=request.args.get("staff") or "Alle"))
+    # Legacy alias: canonical admin appointment hub is /appointments.
+    return redirect(url_for("appointments_hub", appointment_at=request.args.get("appointment_at"), customer_id=request.args.get("customer_id"), staff=request.args.get("staff"), source=request.args.get("source")))
 
 
 @app.route("/admin/push")

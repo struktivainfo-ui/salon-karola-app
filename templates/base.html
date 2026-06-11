@@ -60,14 +60,14 @@
         </details>
         {% else %}
         <a class="{% if current_endpoint in ['admin_dashboard', 'dashboard_legacy'] %}active{% endif %}" href="{{ url_for('admin_dashboard') }}" data-nav-link="heute">Heute</a>
-        <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('admin_calendar_alias') }}" data-nav-link="kalender">Kalender</a>
+        <a class="{% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', staff='Alle') }}" data-nav-link="kalender">Kalender</a>
         <a class="{% if current_endpoint == 'customer_search_page' %}active{% endif %}" href="{{ url_for('admin_customers_alias') }}" data-nav-link="kunden">Kunden</a>
         <a class="{% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('admin_templates_alias') }}" data-nav-link="vorlagen">Vorlagen</a>
         <a class="{% if current_endpoint == 'admin_settings' %}active{% endif %}" href="{{ url_for('admin_settings') }}" data-nav-link="einstellungen">Einstellungen</a>
         <details class="nav-admin-group" id="navMoreGroup">
           <summary class="nav-admin-summary {% if current_endpoint in ['appointments_hub', 'customer_birthdays_page', 'push_center', 'whatsapp_hub', 'staff_management', 'database_tools', 'import_customers', 'email_logs', 'admin_automation'] %}active{% endif %}">Mehr</summary>
           <div class="nav-admin-links">
-            <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('admin_appointments_alias') }}" data-nav-link="termine">Termine</a>
+            <a class="{% if current_endpoint == 'appointments_hub' %}active{% endif %}" href="{{ url_for('appointments_hub') }}" data-nav-link="termine">Termine</a>
             <a class="{% if current_endpoint == 'customer_birthdays_page' %}active{% endif %}" href="{{ url_for('customer_birthdays_page') }}" data-nav-link="geburtstage">Geburtstage</a>
             <a class="{% if current_endpoint == 'push_center' %}active{% endif %}" href="{{ url_for('admin_push_alias') }}" data-nav-link="push">Push</a>
             <a class="{% if current_endpoint == 'whatsapp_hub' %}active{% endif %}" href="{{ url_for('whatsapp_hub') }}" data-nav-link="whatsapp">WhatsApp</a>
@@ -107,7 +107,7 @@
     <a class="mobile-app-link {% if current_endpoint in ['salon_reminders', 'customer_birthdays_page'] %}active{% endif %}" href="{{ url_for('staff_more') }}">Mehr</a>
     {% else %}
     <a class="mobile-app-link {% if current_endpoint in ['admin_dashboard', 'dashboard_legacy'] %}active{% endif %}" href="{{ url_for('admin_dashboard') }}">Heute</a>
-    <a class="mobile-app-link {% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('admin_calendar_alias') }}">Kalender</a>
+    <a class="mobile-app-link {% if current_endpoint == 'calendar_view' %}active{% endif %}" href="{{ url_for('calendar_view', view='month', staff='Alle') }}">Kalender</a>
     <a class="mobile-app-link {% if current_endpoint == 'customer_search_page' %}active{% endif %}" href="{{ url_for('admin_customers_alias') }}">Kunden</a>
     <a class="mobile-app-link {% if current_endpoint == 'templates_view' %}active{% endif %}" href="{{ url_for('admin_templates_alias') }}">Vorlagen</a>
     <a class="mobile-app-link {% if current_endpoint == 'admin_settings' %}active{% endif %}" href="{{ url_for('admin_settings') }}">Einstellungen</a>
