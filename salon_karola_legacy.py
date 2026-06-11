@@ -3963,19 +3963,6 @@ def test_service_worker():
 @admin_required
 def test_push():
     return redirect(url_for("safe_start"))
-    html = f"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test Push</title>
-<style>body{{font-family:Arial,sans-serif;background:#f4efe8;color:#1f1f1f;padding:20px}}.card{{max-width:760px;margin:0 auto;background:#fff;padding:18px;border-radius:12px}}button,a{{display:inline-block;margin:8px 8px 0 0;padding:10px 14px;border:1px solid #222;border-radius:8px;background:#fff;color:#111;text-decoration:none;font-weight:600}}pre{{background:#111;color:#f5f5f5;padding:12px;border-radius:8px;white-space:pre-wrap}}</style></head><body>
-<section class="card"><h1>Push Test</h1>
-<p>Status: bereit | Route: /test-push | Push: {"aktivierbar" if ENABLE_PUSH and not SAFE_MODE else "inaktiv"} | Service Worker: {"aktivierbar" if ENABLE_SERVICE_WORKER and not SAFE_MODE else "inaktiv"} | Firebase: {"aktivierbar" if ENABLE_FIREBASE and not SAFE_MODE else "inaktiv"} | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
-<button id="initPushBtn">Push initialisieren</button>
-<button id="sendTestPushBtn">Test Push senden</button>
-<a href="/safe-start">Zurück zu Safe-Start</a>
-<pre id="out">Warte auf Test...</pre></section>
-<script>window.__pushFlags = {{ enabled: {str(ENABLE_PUSH and not SAFE_MODE).lower()}, swEnabled: {str(ENABLE_SERVICE_WORKER and not SAFE_MODE).lower()}, firebaseEnabled: {str(ENABLE_FIREBASE and not SAFE_MODE).lower()} }};</script>
-<script src="/static/js/safe-fetch.js?v={APP_VERSION}"></script>
-<script>/* Push-Test entfernt */</script>
-</body></html>"""
-    return Response(html, mimetype="text/html")
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -6119,496 +6106,97 @@ def api_mail_status():
 @login_required
 def push_public_key():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {
-            "ok": True,
-            "public_key": "",
-            "publicKey": "",
-            "enabled": False,
-            "native_enabled": False,
-            "delivery_enabled": False,
-            "disabled": True,
-            "error": "Push ist serverseitig deaktiviert.",
-        }
-    public_key = vapid_public_key()
-    webpush_enabled = vapid_ready()
-    return {
-        "ok": True,
-        "public_key": public_key,
-        "publicKey": public_key,
-        "enabled": webpush_enabled,
-        "native_enabled": fcm_ready(),
-        "delivery_enabled": push_delivery_ready(),
-        "service_worker_required": True,
-        "service_worker_enabled": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
-        "format": "base64url",
-        "generated": bool(_get_app_setting("push:vapid_generated_at", "")),
-        "pywebpush_available": bool(webpush),
-        "error": "" if webpush_enabled else "VAPID oder pywebpush nicht bereit.",
-    }
-
+    
 
 @app.route("/api/push/status")
 @login_required
 def push_status():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    db = get_db()
-    staff_members = get_staff_members(db)
-    counts_by_staff = {}
-    for member in staff_members:
-        row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?", (member,)).fetchone()
-        counts_by_staff[member] = int(row["cnt"] or 0) if row else 0
-    total_row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
-    total_devices = int(total_row["cnt"] or 0) if total_row else 0
-    last_error_row = db.execute(
-        "SELECT last_error, updated_at FROM push_subscriptions WHERE COALESCE(last_error, '') <> '' ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 1"
-    ).fetchone()
-    last_error = (last_error_row["last_error"] if last_error_row else "") or ""
-    last_error_at = (last_error_row["updated_at"] if last_error_row else "") or ""
-
-    if not ENABLE_PUSH:
-        return {
-            "ok": True,
-            "enabled": False,
-            "device_count": 0,
-            "staff_name": _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF),
-            "disabled": True,
-            "enable_push": False,
-            "enable_service_worker": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
-            "webpush_enabled": False,
-            "native_enabled": False,
-            "pywebpush_available": bool(webpush),
-            "service_worker_required": True,
-            "service_worker_enabled": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
-            "counts_by_staff": counts_by_staff,
-            "total_devices": total_devices,
-            "last_error": last_error,
-            "last_error_at": last_error_at,
-            "error": "Push ist serverseitig deaktiviert.",
-        }
-    staff_name = _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF)
-    if staff_name == "Alle":
-        staff_name = DEFAULT_STAFF
-    enabled = push_delivery_ready()
-    count = 0
-    try:
-        row = db.execute(
-            "SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?",
-            (staff_name,),
-        ).fetchone()
-        count = int(row["cnt"] or 0) if row else 0
-    except Exception:
-        count = 0
-    return {
-        "ok": True,
-        "enabled": enabled,
-        "staff_name": staff_name,
-        "subscriptions": count,
-        "device_count": count,
-        "enable_push": bool(ENABLE_PUSH and not SAFE_MODE),
-        "enable_service_worker": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
-        "webpush_enabled": vapid_ready(),
-        "native_enabled": fcm_ready(),
-        "pywebpush_available": bool(webpush),
-        "service_worker_required": True,
-        "service_worker_enabled": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
-        "counts_by_staff": counts_by_staff,
-        "total_devices": total_devices,
-        "last_error": last_error,
-        "last_error_at": last_error_at,
-    }
-
+    
 
 @app.route("/api/push/overview")
 @admin_required
 def push_overview():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {"ok": True, "enabled": False, "webpush_enabled": False, "native_enabled": False, "generated_keys": False, "total_devices": 0, "active_devices": 0, "counts_by_staff": {}, "disabled": True}
-    db = get_db()
-    total_devices = 0
-    total_active = 0
-    try:
-        row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
-        total_devices = int(row["cnt"] or 0) if row else 0
-        row_ok = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE COALESCE(last_error, '') = ''").fetchone()
-        total_active = int(row_ok["cnt"] or 0) if row_ok else 0
-    except Exception:
-        pass
-    return {
-        "ok": True,
-        "enabled": push_delivery_ready(),
-        "webpush_enabled": vapid_ready(),
-        "native_enabled": fcm_ready(),
-        "vapid_ready": vapid_ready(),
-        "pywebpush_available": bool(webpush),
-        "service_worker_required": True,
-        "service_worker_enabled": bool(ENABLE_SERVICE_WORKER and not SAFE_MODE),
-        "generated_keys": bool(_get_app_setting("push:vapid_generated_at", "")),
-        "total_devices": total_devices,
-        "active_devices": total_active,
-        "counts_by_staff": {name: len(push_devices_for_staff(name)) for name in get_staff_members(db)},
-        "last_run_at": get_setting("automation:last_run_at", ""),
-        "last_run_summary": get_setting("automation:last_run_summary", ""),
-        "last_run_error": get_setting("automation:last_run_error", ""),
-    }
-
+    
 
 @app.route("/api/push/devices")
 @admin_required
 def push_devices():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {"ok": True, "items": [], "disabled": True}
-    db = get_db()
-    active_staff = get_staff_members(db)
-    staff_name = (request.args.get("staff_name") or "").strip()
-    if staff_name not in active_staff:
-        staff_name = None
-    return {"ok": True, "items": push_devices_for_staff(staff_name)}
-
+    
 
 @app.route("/api/push/device/<int:subscription_id>/test")
 @admin_required
 def push_test_device(subscription_id):
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {"ok": False, "error": "Push ist deaktiviert."}, 503
-    row = get_db().execute("SELECT * FROM push_subscriptions WHERE id = ?", (subscription_id,)).fetchone()
-    if not row:
-        return {"ok": False, "error": "Gerät nicht gefunden."}, 404
-    label = _push_device_label(row)
-    result = send_push_to_subscription_row(
-        row,
-        f"Test-Push für {label}",
-        f"Dieses Gerät ist für {row['staff_name'] or 'Ute'} aktiv.",
-        "/calendar",
-    )
-    _touch_push_subscription(subscription_id, last_test_at=datetime.now().isoformat(timespec="seconds"))
-    return {"ok": True, "result": result, "device_name": label}
-
+    
 
 @app.route("/api/push/devices/cleanup", methods=["POST"])
 @admin_required
 def push_cleanup_devices():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {"ok": False, "error": "Push ist deaktiviert."}, 503
-    db = get_db()
-    before_row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
-    before = int(before_row["cnt"] or 0) if before_row else 0
-    db.execute("DELETE FROM push_subscriptions WHERE COALESCE(last_error, '') <> '' OR COALESCE(fail_count, 0) >= 3")
-    db.commit()
-    after_row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions").fetchone()
-    after = int(after_row["cnt"] or 0) if after_row else 0
-    return {"ok": True, "removed": max(before - after, 0), "remaining": after}
-
+    
 
 @app.route("/api/push/device/<int:subscription_id>", methods=["DELETE"])
 @admin_required
 def push_delete_device(subscription_id):
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {"ok": False, "error": "Push ist deaktiviert."}, 503
-    db = get_db()
-    db.execute("DELETE FROM push_subscriptions WHERE id = ?", (subscription_id,))
-    db.commit()
-    return {"ok": True}
-
+    
 
 @app.route("/api/push/subscribe", methods=["POST"])
 @login_required
 def push_subscribe():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {"ok": False, "error": "Push ist deaktiviert."}, 503
-    payload = request.get_json(silent=True) or {}
-    subscription = payload.get("subscription") or {}
-    if isinstance(subscription, str):
-        try:
-            subscription = json.loads(subscription)
-        except Exception:
-            subscription = {}
-    if not isinstance(subscription, dict):
-        try:
-            subscription = dict(subscription)
-        except Exception:
-            subscription = {}
-    endpoint = (subscription.get("endpoint") or payload.get("endpoint") or "").strip()
-    keys = subscription.get("keys") or {}
-    auth_key = (keys.get("auth") or "").strip() if isinstance(keys, dict) else ""
-    p256dh_key = (keys.get("p256dh") or "").strip() if isinstance(keys, dict) else ""
-    requested_staff = payload.get("staff_name") or session.get("staff_name")
-    staff_name = _normalize_staff_name(requested_staff, default=session.get("staff_name") or DEFAULT_STAFF)
-    device_name = (payload.get("device_name") or "").strip()[:80]
-    if not endpoint or not auth_key or not p256dh_key:
-        return {"ok": False, "error": "Unvollständige Push-Subscription empfangen."}, 400
-
-    now = datetime.now().isoformat(timespec="seconds")
-    db = get_db()
-    if device_name:
-        db.execute(
-            """
-            DELETE FROM push_subscriptions
-            WHERE endpoint <> ?
-              AND staff_name = ?
-              AND COALESCE(device_name, '') = ?
-              AND COALESCE(user_agent, '') = ?
-            """,
-            (endpoint, staff_name, device_name, request.headers.get("User-Agent", "")[:500]),
-        )
-    db.execute(
-        """
-        INSERT INTO push_subscriptions(endpoint, subscription_json, provider, staff_name, device_name, user_agent, created_at, updated_at, last_seen_at, last_error, fail_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(endpoint) DO UPDATE SET
-            subscription_json = excluded.subscription_json,
-            provider = excluded.provider,
-            staff_name = excluded.staff_name,
-            device_name = excluded.device_name,
-            user_agent = excluded.user_agent,
-            updated_at = excluded.updated_at,
-            last_seen_at = excluded.last_seen_at,
-            last_error = '',
-            fail_count = 0
-        """,
-        (endpoint, json.dumps(subscription), "webpush", staff_name, device_name, request.headers.get("User-Agent", "")[:500], now, now, now, "", 0),
-    )
-    db.commit()
-    row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?", (staff_name,)).fetchone()
-    return {
-        "ok": True,
-        "staff_name": staff_name,
-        "device_name": device_name,
-        "device_count": int(row["cnt"] or 0) if row else 0,
-        "provider": "webpush",
-        "message": "Push aktiviert.",
-    }
-
+    
 
 @app.route("/api/push/native-subscribe", methods=["POST"])
 @login_required
 def push_native_subscribe():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {"ok": False, "error": "Push ist deaktiviert."}, 503
-    payload = request.get_json(silent=True) or {}
-    token = (payload.get("token") or "").strip()
-    if not token:
-        return {"ok": False, "error": "FCM-Token fehlt."}, 400
-    requested_staff = payload.get("staff_name") or session.get("staff_name")
-    staff_name = _normalize_staff_name(requested_staff, default=session.get("staff_name") or DEFAULT_STAFF)
-    device_name = (payload.get("device_name") or "").strip()[:80]
-    platform = (payload.get("platform") or "android").strip()[:40] or "android"
-    endpoint = f"fcm:{token}"
-    now = datetime.now().isoformat(timespec="seconds")
-    user_agent = request.headers.get("User-Agent", "")[:500]
-    db = get_db()
-    if device_name:
-        db.execute(
-            """
-            DELETE FROM push_subscriptions
-            WHERE endpoint <> ?
-              AND provider = 'fcm'
-              AND staff_name = ?
-              AND COALESCE(device_name, '') = ?
-            """,
-            (endpoint, staff_name, device_name),
-        )
-    db.execute(
-        """
-        INSERT INTO push_subscriptions(endpoint, subscription_json, provider, staff_name, device_name, user_agent, created_at, updated_at, last_seen_at, last_error, fail_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(endpoint) DO UPDATE SET
-            subscription_json = excluded.subscription_json,
-            provider = excluded.provider,
-            staff_name = excluded.staff_name,
-            device_name = excluded.device_name,
-            user_agent = excluded.user_agent,
-            updated_at = excluded.updated_at,
-            last_seen_at = excluded.last_seen_at,
-            last_error = '',
-            fail_count = 0
-        """,
-        (endpoint, json.dumps({"token": token, "platform": platform, "source": "capacitor"}), "fcm", staff_name, device_name, user_agent, now, now, now, "", 0),
-    )
-    db.commit()
-    row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE staff_name = ?", (staff_name,)).fetchone()
-    return {"ok": True, "staff_name": staff_name, "device_name": device_name, "device_count": int(row["cnt"] or 0) if row else 0, "provider": "fcm", "native_enabled": fcm_ready()}
-
+    
 
 @app.route("/api/push/unsubscribe", methods=["POST"])
 @login_required
 def push_unsubscribe():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {"ok": True, "disabled": True}
-    payload = request.get_json(silent=True) or {}
-    endpoint = ((payload.get("subscription") or {}).get("endpoint") or payload.get("endpoint") or "").strip()
-    token = (payload.get("token") or "").strip()
-    if not endpoint and token:
-        endpoint = f"fcm:{token}"
-    if endpoint:
-        db = get_db()
-        db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
-        db.commit()
-    return {"ok": True}
-
+    
 
 @app.route("/api/fcm/register", methods=["POST"])
 @login_required
 def fcm_register():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {"ok": False, "error": "Push ist deaktiviert."}, 503
-    payload = request.get_json(silent=True) or {}
-    token = (payload.get("token") or "").strip()
-    if not token:
-        return {"ok": False, "error": "FCM-Token fehlt."}, 400
-    requested_staff = payload.get("staff_name") or session.get("staff_name")
-    staff_name = _normalize_staff_name(requested_staff, default=session.get("staff_name") or DEFAULT_STAFF)
-    device_name = (payload.get("device_label") or payload.get("device_name") or "").strip()[:80]
-    platform = (payload.get("platform") or "android").strip()[:40] or "android"
-    role = "admin" if staff_name == "Sven" else "staff"
-    endpoint = f"fcm:{token}"
-    now = datetime.now().isoformat(timespec="seconds")
-    user_agent = request.headers.get("User-Agent", "")[:500]
-    db = get_db()
-    db.execute(
-        """
-        INSERT INTO push_subscriptions(endpoint, subscription_json, provider, staff_name, device_name, user_agent, created_at, updated_at, last_seen_at, last_error, fail_count)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(endpoint) DO UPDATE SET
-            subscription_json = excluded.subscription_json,
-            provider = excluded.provider,
-            staff_name = excluded.staff_name,
-            device_name = excluded.device_name,
-            user_agent = excluded.user_agent,
-            updated_at = excluded.updated_at,
-            last_seen_at = excluded.last_seen_at,
-            last_error = '',
-            fail_count = 0
-        """,
-        (endpoint, json.dumps({"token": token, "platform": platform, "role": role, "source": "fcm-api"}), "fcm", staff_name, device_name, user_agent, now, now, now, "", 0),
-    )
-    db.commit()
-    return {"ok": True, "staff_name": staff_name, "role": role, "provider": "fcm", "platform": platform}
-
+    
 
 @app.route("/api/fcm/unregister", methods=["POST"])
 @login_required
 def fcm_unregister():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    payload = request.get_json(silent=True) or {}
-    token = (payload.get("token") or "").strip()
-    if not token:
-        return {"ok": False, "error": "FCM-Token fehlt."}, 400
-    endpoint = f"fcm:{token}"
-    db = get_db()
-    db.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,))
-    db.commit()
-    return {"ok": True}
-
+    
 
 @app.route("/api/fcm/status")
 @admin_required
 def fcm_status():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    db = get_db()
-    counts = {}
-    for staff_name in get_staff_members(db):
-        row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE provider = 'fcm' AND staff_name = ?", (staff_name,)).fetchone()
-        counts[staff_name] = int(row["cnt"] or 0) if row else 0
-    total_row = db.execute("SELECT COUNT(*) AS cnt FROM push_subscriptions WHERE provider = 'fcm'").fetchone()
-    last_error_row = db.execute(
-        "SELECT last_error, updated_at FROM push_subscriptions WHERE provider = 'fcm' AND COALESCE(last_error, '') <> '' ORDER BY COALESCE(updated_at, created_at) DESC LIMIT 1"
-    ).fetchone()
-    return {
-        "ok": True,
-        "enable_firebase": bool(ENABLE_FIREBASE),
-        "firebase_ready": bool(fcm_ready()),
-        "project_id": firebase_project_id(),
-        "total_devices": int(total_row["cnt"] or 0) if total_row else 0,
-        "counts_by_staff": counts,
-        "last_error": (last_error_row["last_error"] if last_error_row else "") or "",
-        "last_error_at": (last_error_row["updated_at"] if last_error_row else "") or "",
-    }
-
+    
 
 @app.route("/api/fcm/test", methods=["POST"])
 @admin_required
 def fcm_test():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {"ok": False, "error": "Push ist deaktiviert."}, 503
-    payload = request.get_json(silent=True) or {}
-    staff_name = _normalize_staff_name(payload.get("staff_name") or "Alle", default=DEFAULT_STAFF)
-    title = (payload.get("title") or "Salon Karola Test-Push").strip()
-    body = (payload.get("body") or "Dies ist ein Test der Android-FCM-Zustellung.").strip()
-    url = (payload.get("url") or "/calendar").strip() or "/calendar"
-    result = webpush_send_to_all_staff(title, body, url) if staff_name == "Alle" else webpush_send_to_staff(staff_name, title, body, url)
-    sent = int(result.get("sent", 0) or 0)
-    errors = result.get("errors", []) or []
-    if sent > 0:
-        return {"ok": True, "sent": sent, "errors": errors}
-    return {"ok": False, "error": "FCM-Test konnte nicht zugestellt werden.", "details": errors, "sent": sent}, 502
-
+    
 
 @app.route("/api/push/ping")
 @login_required
 def push_ping():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    if not ENABLE_PUSH:
-        return {"ok": False, "error": "Push ist deaktiviert.", "enabled": False}, 503
-    staff_name = _normalize_staff_name(request.args.get("staff_name"), default=DEFAULT_STAFF)
-    actor_name = _normalize_staff_name(session.get("staff_name"), default=DEFAULT_STAFF)
-    if staff_name == "Alle":
-        result = webpush_send_to_all_staff(
-            "Salon Karola Test-Push",
-            f"Test-Push von {actor_name} an alle registrierten Geräte.",
-            "/calendar",
-        )
-        devices = push_devices_for_staff(None)
-        device_count = len(devices)
-    else:
-        devices = push_devices_for_staff(staff_name)
-        device_count = len(devices)
-        result = webpush_send_to_staff(
-            staff_name,
-            f"Salon Karola Test-Push für {staff_name}",
-            f"Test-Push von {actor_name} an {staff_name}.",
-            "/calendar",
-        )
-    return {"ok": True, "result": result, "enabled": push_delivery_ready(), "webpush_enabled": vapid_ready(), "native_enabled": fcm_ready(), "devices": devices, "device_count": device_count}
-
+    
 
 @app.route("/api/push/test", methods=["POST"])
 @login_required
 def push_test():
     return {"ok": False, "removed": True, "error": "Push-Benachrichtigungen sind nicht Bestandteil dieser App."}, 410
-    payload = request.get_json(silent=True) or {}
-    staff_name = _normalize_staff_name(payload.get("staff_name") or request.args.get("staff_name"), default=DEFAULT_STAFF)
-    if not ENABLE_PUSH:
-        return {"ok": False, "error": "Push ist deaktiviert."}, 503
-    if staff_name == "Alle":
-        result = webpush_send_to_all_staff(
-            "Salon Karola Test-Push",
-            f"Test-Push von {_normalize_staff_name(session.get('staff_name'), default=DEFAULT_STAFF)} an alle registrierten Geräte.",
-            "/calendar",
-        )
-    else:
-        result = webpush_send_to_staff(
-            staff_name,
-            f"Salon Karola Test-Push für {staff_name}",
-            f"Test-Push an {staff_name}.",
-            "/calendar",
-        )
-    sent = int(result.get("sent", 0) or 0)
-    errors = result.get("errors", []) or []
-    if sent > 0:
-        return {"ok": True, "sent": sent, "errors": errors}
-    return {"ok": False, "error": "Push konnte nicht zugestellt werden.", "details": errors, "sent": sent}, 502
-
+    
 
 @app.route("/push")
 @admin_required
