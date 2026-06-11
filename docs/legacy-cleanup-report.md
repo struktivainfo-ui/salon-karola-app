@@ -68,3 +68,30 @@ Nach `legacy_archive/templates/` verschoben:
 
 - Separater Entscheidungs-Schritt fuer die verbleibenden Legacy-Templates `templates/calendar.html`, `templates/appointments.html`, `templates/admin_appointments.html` und `templates/staff_new_appointment.html`
 - Danach gezielter CSRF-/POST-Sicherheitscheck fuer sensible Formulare und Admin-Aktionen
+
+## Kontrollierter git-rm-Schritt
+
+Entfernt am 2026-06-11:
+
+- `legacy_archive/templates/admin_start.html`
+
+Warum entfernt:
+
+- bereits archivierte Legacy-Datei ohne aktive Flask-Render-Nutzung
+- Route `/admin/start` bleibt erhalten, rendert die Datei aber nicht mehr, sondern redirectet auf `/admin/dashboard`
+- keine Referenz in JavaScript, Service Worker, Manifest, PWA, Android/Capacitor oder aktiven Templates gefunden
+- moderne Hauptpfade fuer Admin und Mitarbeiter sind vorhanden
+
+Durchgefuehrte Pruefungen:
+
+- `git status`
+- Referenzsuche in Python, `render_template`, Templates, JavaScript, Service Worker, Manifest, `www`, Android und Capacitor
+- `python -m compileall .`
+- Flask-Testclient fuer Hauptpfade `Heute`, `Kalender`, `Termine`, `Kunden`, `Vorlagen`, `Admin`
+- erneute Kontrolle von `git status` und Cache-/Manifest-Referenzen
+
+Sicherheits- und Datenhinweis:
+
+- keine Kundendaten geaendert
+- keine Datenbank geaendert
+- keine `.env`-Dateien geaendert
