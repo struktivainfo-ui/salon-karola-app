@@ -8,7 +8,7 @@ services:
     startCommand: gunicorn app:app --workers 1 --threads 2 --timeout 120
     disk:
       name: salon-karola-data
-      mountPath: /var/data
+      mountPath: /opt/render/project/src/data
       sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
@@ -16,9 +16,9 @@ services:
       - key: APP_TIMEZONE
         value: Europe/Berlin
       - key: DATABASE_PATH
-        value: /var/data/salon_karola.db
+        value: /opt/render/project/src/data/salon_karola.db
       - key: BACKUP_DIR
-        value: /var/data/backups
+        value: /opt/render/project/src/data/backups
       - key: SMTP_USE_TLS
         value: true
       - key: EMAIL_PROVIDER

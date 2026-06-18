@@ -50,8 +50,9 @@
       <div>
         <div class="premium-panel-kicker">Ergebnisse</div>
         <h2 class="premium-panel-title">Suchtreffer</h2>
+        <div class="premium-page-subtitle">Angezeigt: {{ shown_customers }} von {{ total_customers }} Kontakten{% if shown_customers >= customer_search_limit %} (Limit {{ customer_search_limit }}){% endif %}</div>
       </div>
-      <span class="premium-badge">{{ customers|length }}</span>
+      <span class="premium-badge">{{ total_customers }}</span>
     </div>
     <div class="premium-card-grid premium-space-top">
       {% for customer in customers %}

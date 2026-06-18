@@ -19,6 +19,14 @@ function isSameOrigin(urlString) {
   }
 }
 
+function isNeverCachePath(pathname) {
+  return (
+    pathname.startsWith("/api/customers") ||
+    pathname.startsWith("/admin/customers") ||
+    pathname.startsWith("/staff/customers")
+  );
+}
+
 async function safePrecache() {
   const cache = await caches.open(CACHE_NAME);
   await Promise.allSettled(
@@ -68,7 +76,7 @@ self.addEventListener("fetch", (event) => {
   if (!isSameOrigin(event.request.url)) return;
 
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith("/api/")) return;
+  if (url.pathname.startsWith("/api/") || isNeverCachePath(url.pathname)) return;
 
   if (event.request.mode === "navigate") {
     event.respondWith((async () => {
@@ -82,7 +90,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (!url.pathname.startsWith("/static/") && url.pathname !== "/manifest.webmanifest" && url.pathname !== "/manifest.json") {
+  if (
+    !url.pathname.startsWith("/static/") &&
+    url.pathname !== "/manifest.webmanifest" &&
+    url.pathname !== "/manifest.json"
+  ) {
     return;
   }
 

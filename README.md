@@ -27,10 +27,10 @@ Die Anwendung buendelt die wichtigsten internen Arbeitsablaeufe in einer geschue
 
 ## Deployment auf Render
 1. Repository mit Render verbinden.
-2. Persistent Disk anlegen und unter `/var/data` mounten.
+2. Persistent Disk anlegen und unter `/opt/render/project/src/data` mounten.
 3. Environment Variables setzen:
    `SECRET_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` und bei Bedarf SMTP-Zugangsdaten.
-4. `DATABASE_PATH=/var/data/salon_karola.db` und `BACKUP_DIR=/var/data/backups` setzen.
+4. `DATABASE_PATH=/opt/render/project/src/data/salon_karola.db` und `BACKUP_DIR=/opt/render/project/src/data/backups` setzen.
 5. Start Command verwenden:
    `gunicorn app:app --workers 1 --threads 2 --timeout 120`
 

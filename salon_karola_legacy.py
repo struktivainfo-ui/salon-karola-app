@@ -83,17 +83,56 @@ except Exception:
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
+KNOWN_RENDER_DISK_MOUNTS = [
+    Path("/opt/render/project/src/data"),
+    Path("/var/data"),
+]
+
+
+def known_render_disk_mounts():
+    mounts = []
+    seen = set()
+    for mount in KNOWN_RENDER_DISK_MOUNTS:
+        text = str(mount)
+        if text in seen:
+            continue
+        seen.add(text)
+        mounts.append(mount)
+    return mounts
+
+
+def _normalized_path_text(path_like):
+    try:
+        path = Path(path_like).resolve(strict=False)
+    except Exception:
+        path = Path(path_like)
+    text = str(path).replace("\\", "/").rstrip("/")
+    if text.startswith("//"):
+        text = "/" + text.lstrip("/")
+    return text or "/"
+
+
+def detect_render_disk_mount(path_like):
+    path_text = _normalized_path_text(path_like)
+    for mount in known_render_disk_mounts():
+        mount_text = _normalized_path_text(mount)
+        if path_text == mount_text or path_text.startswith(mount_text + "/"):
+            return mount
+    return None
+
 
 def _resolve_database_path():
     explicit = (os.getenv("DATABASE_PATH") or "").strip()
     if explicit:
         return Path(explicit)
 
-    # Render fallback: prefer mounted persistent disk if no explicit DATABASE_PATH was provided.
-    render_disk_default = Path("/var/data/salon_karola.db")
     running_on_render = bool((os.getenv("RENDER") or "").strip() or (os.getenv("RENDER_EXTERNAL_URL") or "").strip())
-    if running_on_render and render_disk_default.parent.exists():
-        return render_disk_default
+    if running_on_render:
+        for mount in known_render_disk_mounts():
+            if mount.exists():
+                return mount / "salon_karola.db"
+        # Never fall back to a project-root SQLite file in Render-like environments.
+        return known_render_disk_mounts()[0] / "salon_karola.db"
 
     return BASE_DIR / "salon_karola.db"
 
@@ -126,15 +165,21 @@ def persistence_diagnosis():
     explicit_db_path = bool((os.getenv("DATABASE_PATH") or "").strip())
     explicit_backup_dir = bool((os.getenv("BACKUP_DIR") or "").strip())
     running_on_render = bool((os.getenv("RENDER") or "").strip() or (os.getenv("RENDER_EXTERNAL_URL") or "").strip())
-    render_persistent_disk = str(db_dir).startswith("/var/data")
-    backup_on_persistent_disk = str(backup_dir).startswith("/var/data")
+    active_mount = detect_render_disk_mount(db_path)
+    backup_mount = detect_render_disk_mount(backup_dir)
+    render_persistent_disk = bool(active_mount)
+    backup_on_persistent_disk = bool(backup_mount)
+    absolute_database_path = db_path.is_absolute()
 
-    if running_on_render and not render_persistent_disk:
+    if running_on_render and (not absolute_database_path):
         level = "Risiko vorhanden"
-        note = "Render erkannt, aber Datenbank liegt nicht auf /var/data (Persistent Disk)."
+        note = "Render erkannt, aber DATABASE_PATH ist nicht absolut."
+    elif running_on_render and not render_persistent_disk:
+        level = "Risiko vorhanden"
+        note = "Render erkannt, aber Datenbank liegt nicht in einem bekannten Persistent-Disk-Mount."
     elif running_on_render and render_persistent_disk:
         level = "Sicher dauerhaft gespeichert"
-        note = "Render Persistent Disk aktiv (/var/data)."
+        note = f"Render Persistent Disk aktiv ({active_mount})."
     elif explicit_db_path:
         level = "Sicher dauerhaft gespeichert"
         note = "Expliziter DATABASE_PATH gesetzt."
@@ -148,8 +193,12 @@ def persistence_diagnosis():
         "running_on_render": running_on_render,
         "database_path_explicit": explicit_db_path,
         "backup_dir_explicit": explicit_backup_dir,
+        "database_path_absolute": absolute_database_path,
         "database_dir": str(db_dir),
         "backup_dir": str(backup_dir),
+        "known_render_disk_mounts": [str(item) for item in known_render_disk_mounts()],
+        "detected_render_disk_mount": str(active_mount) if active_mount else "",
+        "backup_render_disk_mount": str(backup_mount) if backup_mount else "",
         "render_persistent_disk_path": render_persistent_disk,
         "backup_on_persistent_disk": backup_on_persistent_disk,
     }
@@ -171,11 +220,19 @@ def ensure_persistent_storage_ready(require_writable=False):
 
     db_dir = DB_PATH.parent
     backup_dir = BACKUP_DIR
+    db_mount = detect_render_disk_mount(DB_PATH)
+    backup_mount = detect_render_disk_mount(backup_dir)
 
-    if not str(DB_PATH).startswith("/var/data/"):
-        raise RuntimeError("Produktivschutz: DATABASE_PATH muss auf Render unter /var/data liegen.")
-    if not str(backup_dir).startswith("/var/data/"):
-        raise RuntimeError("Produktivschutz: BACKUP_DIR muss auf Render unter /var/data liegen.")
+    if not DB_PATH.is_absolute():
+        raise RuntimeError("Produktivschutz: DATABASE_PATH muss in produktionsähnlicher Umgebung absolut sein.")
+    if not db_mount:
+        mounts = ", ".join(str(item) for item in known_render_disk_mounts())
+        raise RuntimeError(f"Produktivschutz: DATABASE_PATH muss auf Render innerhalb eines bekannten Persistent-Disk-Mounts liegen ({mounts}).")
+    if not backup_dir.is_absolute():
+        raise RuntimeError("Produktivschutz: BACKUP_DIR muss in produktionsähnlicher Umgebung absolut sein.")
+    if not backup_mount:
+        mounts = ", ".join(str(item) for item in known_render_disk_mounts())
+        raise RuntimeError(f"Produktivschutz: BACKUP_DIR muss auf Render innerhalb eines bekannten Persistent-Disk-Mounts liegen ({mounts}).")
     if not db_dir.exists():
         raise RuntimeError("Render-Disk-Pfad nicht gefunden: Datenbankordner existiert nicht.")
     if require_writable:
@@ -281,7 +338,168 @@ def json_no_store(payload, status=200):
     return apply_no_cache_headers(response)
 
 
-APP_VERSION = "Salon Karola App 2026-06-11-customer-count-sync-1"
+def secret_key_status():
+    secret_key = os.getenv("SECRET_KEY")
+    flask_secret_key = os.getenv("FLASK_SECRET_KEY")
+    source = ""
+    configured = False
+    if secret_key:
+        source = "SECRET_KEY"
+        configured = True
+    elif flask_secret_key:
+        source = "FLASK_SECRET_KEY"
+        configured = True
+    elif _secret_key == "dev-only-insecure-key-change-me":
+        source = "development-fallback"
+    return {
+        "configured": configured,
+        "source": source or "missing",
+        "production_like_runtime": production_like_runtime(),
+        "render_start_blocked_when_missing": production_like_runtime() and not configured,
+    }
+
+
+def latest_customer_rows(limit=10, db=None):
+    conn = db or get_db()
+    latest_created_select = "created_at" if customer_has_column("created_at") else "'' AS created_at"
+    latest_order_sql = "ORDER BY COALESCE(created_at, '') DESC, _id DESC" if customer_has_column("created_at") else "ORDER BY _id DESC"
+    rows = conn.execute(
+        f"""
+        SELECT _id, _firstname, _name, _mail, {latest_created_select}
+        FROM _Customers
+        WHERE {visible_customer_condition('_Customers')}
+        {latest_order_sql}
+        LIMIT ?
+        """,
+        (max(1, int(limit)),),
+    ).fetchall()
+    items = []
+    for row in rows:
+        items.append(
+            {
+                "id": row["_id"],
+                "firstname": row["_firstname"] or "",
+                "lastname": row["_name"] or "",
+                "name": customer_full_name(row),
+                "email": row["_mail"] or "",
+                "created_at": row["created_at"] or "",
+            }
+        )
+    return items
+
+
+def customer_audit_snapshot(db=None, latest_limit=25, duplicate_limit=25):
+    conn = db or get_db()
+    raw_row = conn.execute("SELECT COUNT(*) AS cnt FROM _Customers").fetchone()
+    visible_count = saved_customer_count(db=conn)
+    latest_items = latest_customer_rows(limit=latest_limit, db=conn)
+    mobile_sql = customer_mobile_reference("_Customers") or "''"
+    phone_sql = customer_personal_phone_reference("_Customers") or "''"
+    duplicates = conn.execute(
+        f"""
+        SELECT
+            LOWER(TRIM(COALESCE(_firstname, ''))) AS firstname_key,
+            LOWER(TRIM(COALESCE(_name, ''))) AS lastname_key,
+            LOWER(TRIM(COALESCE({mobile_sql}, {phone_sql}, ''))) AS phone_key,
+            LOWER(TRIM(COALESCE(_mail, ''))) AS email_key,
+            COUNT(*) AS cnt,
+            GROUP_CONCAT(_id) AS ids
+        FROM _Customers
+        WHERE {visible_customer_condition('_Customers')}
+        GROUP BY firstname_key, lastname_key, phone_key, email_key
+        HAVING COUNT(*) > 1
+        ORDER BY cnt DESC, lastname_key ASC, firstname_key ASC
+        LIMIT ?
+        """,
+        (max(1, int(duplicate_limit)),),
+    ).fetchall()
+    duplicate_items = []
+    for row in duplicates:
+        duplicate_items.append(
+            {
+                "firstname": row["firstname_key"] or "",
+                "lastname": row["lastname_key"] or "",
+                "phone": row["phone_key"] or "",
+                "email": row["email_key"] or "",
+                "count": int(row["cnt"] or 0),
+                "ids": [part for part in str(row["ids"] or "").split(",") if part],
+            }
+        )
+    return {
+        "raw_customer_rows": int(raw_row["cnt"] or 0) if raw_row else 0,
+        "visible_customer_count": int(visible_count or 0),
+        "hidden_customer_rows": max(0, int((raw_row["cnt"] or 0) if raw_row else 0) - int(visible_count or 0)),
+        "latest_customers": latest_items,
+        "duplicate_candidates": duplicate_items,
+        "duplicate_group_count": len(duplicate_items),
+        "csv_export_url": url_for("export_customers"),
+    }
+
+
+def database_candidates_snapshot():
+    candidates = []
+    seen = set()
+    possible_paths = [DB_PATH, BASE_DIR / "salon_karola.db"]
+    try:
+        if BACKUP_DIR.exists():
+            possible_paths.extend(sorted(BACKUP_DIR.glob("*.sqlite"), reverse=True)[:5])
+    except Exception:
+        pass
+
+    for raw_path in possible_paths:
+        try:
+            path = Path(raw_path).resolve()
+        except Exception:
+            path = Path(raw_path)
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        info = {
+            "path": key,
+            "exists": path.exists(),
+            "size_bytes": path.stat().st_size if path.exists() else 0,
+            "customer_count": None,
+            "appointment_count": None,
+            "within_known_render_disk_mount": bool(detect_render_disk_mount(path)),
+            "detected_render_disk_mount": str(detect_render_disk_mount(path) or ""),
+        }
+        if path.exists():
+            try:
+                with sqlite3.connect(path) as conn:
+                    tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")}
+                    if "_Customers" in tables:
+                        info["customer_count"] = int(
+                            conn.execute(
+                                "SELECT COUNT(*) FROM _Customers WHERE COALESCE(_name, '') <> ?",
+                                (MANUAL_PLACEHOLDER_LASTNAME,),
+                            ).fetchone()[0]
+                        )
+                    if "appointments" in tables:
+                        info["appointment_count"] = int(conn.execute("SELECT COUNT(*) FROM appointments").fetchone()[0])
+                    info["target_count_matches_402"] = info["customer_count"] == 402
+            except Exception as exc:
+                info["error"] = str(exc)
+        candidates.append(info)
+    return candidates
+
+
+def active_database_target_status(db=None, target_count=402):
+    conn = db or get_db()
+    visible_count = saved_customer_count(db=conn)
+    return {
+        "target_customer_count": int(target_count),
+        "active_customer_count": int(visible_count or 0),
+        "target_count_matches": int(visible_count or 0) == int(target_count),
+        "warning": (
+            f"Aktive DB hat nur {int(visible_count or 0)} sichtbare Kontakte; Zielbestand sind {int(target_count)}."
+            if int(visible_count or 0) < int(target_count)
+            else ""
+        ),
+    }
+
+
+APP_VERSION = "Salon Karola App 2026-06-18-render-disk-guard-1"
 # -*- coding: utf-8 -*-
 
 def env_bool(name, default=False):
@@ -3457,13 +3675,19 @@ def diagnose():
     request_url_root = request.url_root.rstrip("/")
     app_server_url = configured_app_server_url().rstrip("/")
     user_agent = request.headers.get("User-Agent", "")
+    secret_status = secret_key_status()
     diagnostics = {
         "app_version": APP_VERSION,
         "server_time": datetime.now().isoformat(timespec="seconds"),
+        "secret_key": secret_status,
         "database_path": str(DB_PATH),
+        "database_path_absolute": DB_PATH.is_absolute(),
+        "database_within_render_disk_mount": bool(detect_render_disk_mount(DB_PATH)),
+        "detected_render_disk_mount": str(detect_render_disk_mount(DB_PATH) or ""),
         "database_exists": DB_PATH.exists(),
         "database_size_bytes": (DB_PATH.stat().st_size if DB_PATH.exists() else 0),
         "persistence": persistence_diagnosis(),
+        "database_candidates": [],
         "storage_backends": {
             "customers": "SQLite",
             "appointments": "SQLite",
@@ -3530,8 +3754,12 @@ def diagnose():
         "mail_last_error": "",
         "mail_last_error_at": "",
         "customer_api_url": f"{request_url_root}{url_for('customer_search_alias')}",
+        "customer_count_api_url": f"{request_url_root}{url_for('customer_count_api')}",
+        "customer_latest_api_url": f"{request_url_root}{url_for('customer_latest_api')}",
         "customer_api_reachable": False,
         "customer_api_cache_control": "no-store, no-cache, must-revalidate, max-age=0",
+        "customer_audit": {},
+        "active_database_target_status": {},
     }
     try:
         db = get_db()
@@ -3539,26 +3767,24 @@ def diagnose():
         row_customers = db.execute("SELECT COUNT(*) AS cnt FROM _Customers").fetchone()
         row_appointments = db.execute("SELECT COUNT(*) AS cnt FROM appointments").fetchone()
         diagnostics["customer_count"] = saved_customer_count(db=db)
+        diagnostics["customer_count_raw"] = int(row_customers["cnt"] or 0) if row_customers else 0
         diagnostics["appointment_count"] = int(row_appointments["cnt"] or 0) if row_appointments else 0
-        latest_created_select = "created_at" if customer_has_column("created_at") else "'' AS created_at"
-        latest_order_sql = "ORDER BY COALESCE(created_at, '') DESC, _id DESC" if customer_has_column("created_at") else "ORDER BY _id DESC"
-        row_latest_customer = db.execute(
-            f"""
-            SELECT _id, _firstname, _name, {latest_created_select}
-            FROM _Customers
-            WHERE {visible_customer_condition('_Customers')}
-            {latest_order_sql}
-            LIMIT 1
-            """
-        ).fetchone()
-        if row_latest_customer:
-            diagnostics["latest_customer_name"] = customer_full_name(row_latest_customer)
-            diagnostics["latest_customer_created_at"] = row_latest_customer["created_at"] or ""
-            diagnostics["latest_customer_search_hint"] = diagnostics["latest_customer_name"]
+        latest_rows = latest_customer_rows(limit=1, db=db)
+        if latest_rows:
+            diagnostics["latest_customer_name"] = latest_rows[0]["name"]
+            diagnostics["latest_customer_created_at"] = latest_rows[0]["created_at"]
+            diagnostics["latest_customer_search_hint"] = latest_rows[0]["name"]
+        diagnostics["customer_audit"] = customer_audit_snapshot(db=db, latest_limit=10, duplicate_limit=25)
+        diagnostics["database_candidates"] = database_candidates_snapshot()
+        diagnostics["active_database_target_status"] = active_database_target_status(db=db, target_count=402)
         diagnostics["customer_api_reachable"] = True
     except Exception as exc:
         diagnostics["database_reachable"] = False
         diagnostics["database_error"] = str(exc)
+        try:
+            diagnostics["database_candidates"] = database_candidates_snapshot()
+        except Exception:
+            diagnostics["database_candidates"] = []
     try:
         diagnostics["scheduler_running"] = bool(getattr(scheduler, "running", False))
     except Exception:
@@ -3656,6 +3882,8 @@ def diagnose():
       <a class="btn" href="/safe-start">Sicherer Start</a>
       <a class="btn" href="/login">Zur Anmeldung</a>
       <a class="btn" href="/admin/icon-check">Icon-Check</a>
+      <a class="btn" href="/admin/customer-audit">Kontakt-Audit</a>
+      <a class="btn" href="/export/customers.csv">CSV-Export</a>
       <a class="btn" href="#" onclick="location.reload();return false;">Erneut laden</a>
       <a class="btn" href="#" id="diagResetCache">App-Cache zurücksetzen</a>
       <a class="btn" href="/admin/customers?q={quote((diagnostics.get("latest_customer_search_hint") or "").strip())}">Kunden-Sync testen</a>
@@ -3685,6 +3913,7 @@ def diagnose():
     <pre id="diagServer">{payload}</pre>
     <pre id="diagClient"></pre>
   </section>
+  <script src="/static/js/safe-fetch.js?v={APP_VERSION}"></script>
   <script>
     (function () {{
       var lines = [];
@@ -3712,8 +3941,29 @@ def diagnose():
         lines.push("Bottom Nav vorhanden: " + (document.querySelector(".mobile-app-dock") ? "ja" : "nein"));
         lines.push("Mobile Drawer vorhanden: " + (document.getElementById("mainNavLinks") ? "ja" : "nein"));
         lines.push("Cache Storage verfügbar: " + (("caches" in window) ? "ja" : "nein"));
+        lines.push("Aktuelle URL: " + window.location.href);
       }} catch (e) {{
         lines.push("Client Push-Check Fehler: " + String(e));
+      }}
+      try {{
+        if (typeof window.safeFetch === "function") {{
+          window.safeFetch("/api/customers/count?_ts=" + Date.now(), {{ credentials: "same-origin", cache: "no-store", timeoutMs: 12000 }}).then(function (result) {{
+            lines.push("API /api/customers/count erreichbar: " + (result.ok ? "ja" : "nein"));
+            lines.push("API count payload: " + (result.ok && result.data ? JSON.stringify(result.data) : (result.error || "unbekannt")));
+            document.getElementById("diagClient").textContent = lines.join("\\n");
+          }});
+          window.safeFetch("/api/customers/latest?_ts=" + Date.now(), {{ credentials: "same-origin", cache: "no-store", timeoutMs: 12000 }}).then(function (result) {{
+            lines.push("API /api/customers/latest erreichbar: " + (result.ok ? "ja" : "nein"));
+            if (result.ok && result.data && Array.isArray(result.data.items) && result.data.items.length) {{
+              lines.push("Neuester Kunde laut API: " + ((result.data.items[0].name || "?") + " | " + (result.data.items[0].created_at || "ohne created_at")));
+            }}
+            document.getElementById("diagClient").textContent = lines.join("\\n");
+          }});
+        }} else {{
+          lines.push("safeFetch verfügbar: nein");
+        }}
+      }} catch (e) {{
+        lines.push("Kunden-API Diagnosefehler: " + String(e));
       }}
       try {{
         if ("serviceWorker" in navigator) {{
@@ -4502,7 +4752,8 @@ def customer_search_page():
     elif sort == "recent":
         order_sql = "MAX(a.appointment_at) DESC, COALESCE(c._name, '') COLLATE NOCASE, COALESCE(c._firstname, '') COLLATE NOCASE"
 
-    limit = 300 if is_admin_world else 20
+    total_customers = saved_customer_count(db=db)
+    limit = 1000 if is_admin_world else 20
     if not is_admin_world and not q:
         customers = []
     else:
@@ -4517,6 +4768,9 @@ def customer_search_page():
         tag=tag,
         sort=sort,
         tags=tags,
+        total_customers=total_customers,
+        shown_customers=len(customers),
+        customer_search_limit=limit,
         current_endpoint="customer_search_page",
         app_version=APP_VERSION,
     )
@@ -4722,6 +4976,21 @@ def admin_settings():
     )
 
 
+@app.route("/admin/customer-audit")
+@admin_required
+def admin_customer_audit():
+    set_ui_world("admin")
+    db = get_db()
+    audit = customer_audit_snapshot(db=db, latest_limit=25, duplicate_limit=25)
+    return render_template(
+        "customer_audit.html",
+        audit=audit,
+        total_customers=audit["visible_customer_count"],
+        current_endpoint="customer_search_page",
+        app_version=APP_VERSION,
+    )
+
+
 @app.route("/api/customers/quick-search")
 @login_required
 def customer_quick_search():
@@ -4745,6 +5014,44 @@ def customer_quick_search():
             }
         )
     return json_no_store({"ok": True, "items": items})
+
+
+@app.route("/api/customers/count")
+@login_required
+def customer_count_api():
+    db = get_db()
+    audit = customer_audit_snapshot(db=db, latest_limit=1, duplicate_limit=1)
+    target_status = active_database_target_status(db=db, target_count=402)
+    payload = {
+        "ok": True,
+        "count": audit["visible_customer_count"],
+        "raw_customer_rows": audit["raw_customer_rows"],
+        "hidden_customer_rows": audit["hidden_customer_rows"],
+        "database_path": str(DB_PATH),
+        "database_path_absolute": DB_PATH.is_absolute(),
+        "database_within_render_disk_mount": bool(detect_render_disk_mount(DB_PATH)),
+        "detected_render_disk_mount": str(detect_render_disk_mount(DB_PATH) or ""),
+        "target_count_matches_402": target_status["target_count_matches"],
+        "target_customer_count": target_status["target_customer_count"],
+        "warning": target_status["warning"],
+        "app_version": APP_VERSION,
+    }
+    return json_no_store(payload)
+
+
+@app.route("/api/customers/latest")
+@login_required
+def customer_latest_api():
+    db = get_db()
+    items = latest_customer_rows(limit=10, db=db)
+    payload = {
+        "ok": True,
+        "count": len(items),
+        "items": items,
+        "database_path": str(DB_PATH),
+        "app_version": APP_VERSION,
+    }
+    return json_no_store(payload)
 
 
 @app.route("/api/customers/search")
@@ -4773,7 +5080,22 @@ def customer_search_alias():
                 "mobile": mobile,
             }
         )
-    return json_no_store({"ok": True, "items": items})
+    return json_no_store(
+        {
+            "ok": True,
+            "items": items,
+            "query": q,
+            "limit": limit,
+            "database_path": str(DB_PATH),
+            "app_version": APP_VERSION,
+        }
+    )
+
+
+@app.route("/api/customers")
+@login_required
+def customer_search_collection_api():
+    return customer_search_alias()
 
 
 @app.route("/api/calendar/month")
@@ -6523,6 +6845,8 @@ def boot_app():
             app.logger.error("Produktivschutz beim Start: %s", exc)
         except Exception:
             pass
+        if production_like_runtime():
+            raise
     init_db()
     ensure_default_admin(force_reset=False)
     if False:
