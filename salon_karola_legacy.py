@@ -390,9 +390,10 @@ def latest_customer_rows(limit=10, db=None):
 
 def customer_audit_snapshot(db=None, latest_limit=25, duplicate_limit=25):
     conn = db or get_db()
-    raw_row = conn.execute("SELECT COUNT(*) AS cnt FROM _Customers").fetchone()
-    visible_count = saved_customer_count(db=conn)
+    count_stats = exact_customer_counts(db=conn)
     latest_items = latest_customer_rows(limit=latest_limit, db=conn)
+    hidden_items = desktop_hidden_customer_rows(db=conn)
+    all_rows = all_customer_debug_rows(db=conn)
     mobile_sql = customer_mobile_reference("_Customers") or "''"
     phone_sql = customer_personal_phone_reference("_Customers") or "''"
     duplicates = conn.execute(
@@ -426,10 +427,14 @@ def customer_audit_snapshot(db=None, latest_limit=25, duplicate_limit=25):
             }
         )
     return {
-        "raw_customer_rows": int(raw_row["cnt"] or 0) if raw_row else 0,
-        "visible_customer_count": int(visible_count or 0),
-        "hidden_customer_rows": max(0, int((raw_row["cnt"] or 0) if raw_row else 0) - int(visible_count or 0)),
+        "raw_customer_rows": count_stats["total_customers"],
+        "visible_customer_count": count_stats["desktop_visible_customers"],
+        "hidden_customer_rows": count_stats["desktop_hidden_customers"],
+        "count_stats": count_stats,
         "latest_customers": latest_items,
+        "empty_name_customers": [row for row in all_rows if row["empty_name"]][:20],
+        "without_phone_customers": [row for row in all_rows if not row["has_phone"]][:20],
+        "desktop_hidden_customers": hidden_items[:20],
         "duplicate_candidates": duplicate_items,
         "duplicate_group_count": len(duplicate_items),
         "csv_export_url": url_for("export_customers"),
@@ -497,6 +502,109 @@ def active_database_target_status(db=None, target_count=402):
             else ""
         ),
     }
+
+
+CUSTOMER_ACTIVE_COLUMN_CANDIDATES = ["is_active", "active", "status_active"]
+CUSTOMER_DELETED_COLUMN_CANDIDATES = ["is_deleted", "deleted", "deleted_flag", "soft_deleted"]
+CUSTOMER_ARCHIVED_COLUMN_CANDIDATES = ["archived", "is_archived", "archived_flag", "archived_at"]
+CUSTOMER_UPDATED_AT_COLUMN_CANDIDATES = ["updated_at", "modified_at", "last_updated_at"]
+
+
+def _row_flag_value(row, column_names):
+    for column_name in column_names:
+        if column_name in row.keys():
+            value = row[column_name]
+            if value is None:
+                continue
+            if isinstance(value, (int, float)):
+                return bool(value)
+            raw = str(value).strip().lower()
+            if raw in {"1", "true", "yes", "ja", "active", "archived", "deleted"}:
+                return True
+            if raw in {"0", "false", "no", "nein", ""}:
+                return False
+            return True
+    return False
+
+
+def _row_first_value(row, column_names):
+    for column_name in column_names:
+        if column_name in row.keys():
+            return row[column_name]
+    return ""
+
+
+def all_customer_debug_rows(db=None):
+    conn = db or get_db()
+    mobile_sql = customer_mobile_reference("c") or "''"
+    phone_sql = customer_personal_phone_reference("c") or "''"
+    rows = conn.execute(
+        f"""
+        SELECT c.*,
+               COALESCE({mobile_sql}, '') AS mobile_phone,
+               COALESCE({phone_sql}, '') AS phone_phone
+        FROM _Customers c
+        ORDER BY COALESCE(c._name, '') COLLATE NOCASE ASC,
+                 COALESCE(c._firstname, '') COLLATE NOCASE ASC,
+                 c._id ASC
+        """
+    ).fetchall()
+    items = []
+    for row in rows:
+        firstname = (row["_firstname"] or "").strip() if "_firstname" in row.keys() else ""
+        lastname = (row["_name"] or "").strip() if "_name" in row.keys() else ""
+        phone = ((row["mobile_phone"] or "").strip() if "mobile_phone" in row.keys() else "") or ((row["phone_phone"] or "").strip() if "phone_phone" in row.keys() else "")
+        is_deleted = _row_flag_value(row, CUSTOMER_DELETED_COLUMN_CANDIDATES)
+        is_archived = _row_flag_value(row, CUSTOMER_ARCHIVED_COLUMN_CANDIDATES)
+        has_explicit_active = any(column_name in row.keys() for column_name in CUSTOMER_ACTIVE_COLUMN_CANDIDATES)
+        explicit_active = _row_flag_value(row, CUSTOMER_ACTIVE_COLUMN_CANDIDATES) if has_explicit_active else True
+        visible_in_desktop_list = lastname != MANUAL_PLACEHOLDER_LASTNAME
+        item = {
+            "id": row["_id"],
+            "name": customer_full_name(row),
+            "firstname": firstname,
+            "lastname": lastname,
+            "phone": phone,
+            "email": (row["_mail"] or "").strip() if "_mail" in row.keys() and row["_mail"] else "",
+            "created_at": (_row_first_value(row, ["created_at"]) or ""),
+            "updated_at": (_row_first_value(row, CUSTOMER_UPDATED_AT_COLUMN_CANDIDATES) or ""),
+            "is_active": bool(explicit_active and not is_deleted and not is_archived),
+            "is_deleted": bool(is_deleted),
+            "archived": bool(is_archived),
+            "source": "manual_placeholder" if lastname == MANUAL_PLACEHOLDER_LASTNAME else "database",
+            "empty_name": not bool((firstname + lastname).strip()),
+            "has_phone": bool(phone),
+            "visible_in_desktop_list": bool(visible_in_desktop_list),
+        }
+        items.append(item)
+    return items
+
+
+def exact_customer_counts(db=None):
+    rows = all_customer_debug_rows(db=db)
+    total_customers = len(rows)
+    active_customers = sum(1 for row in rows if row["is_active"])
+    archived_customers = sum(1 for row in rows if row["archived"])
+    deleted_flag_customers = sum(1 for row in rows if row["is_deleted"])
+    customers_with_empty_name = sum(1 for row in rows if row["empty_name"])
+    customers_with_phone = sum(1 for row in rows if row["has_phone"])
+    customers_without_phone = total_customers - customers_with_phone
+    desktop_visible_customers = sum(1 for row in rows if row["visible_in_desktop_list"])
+    return {
+        "total_customers": total_customers,
+        "active_customers": active_customers,
+        "archived_customers": archived_customers,
+        "deleted_flag_customers": deleted_flag_customers,
+        "customers_with_empty_name": customers_with_empty_name,
+        "customers_with_phone": customers_with_phone,
+        "customers_without_phone": customers_without_phone,
+        "desktop_visible_customers": desktop_visible_customers,
+        "desktop_hidden_customers": total_customers - desktop_visible_customers,
+    }
+
+
+def desktop_hidden_customer_rows(db=None):
+    return [row for row in all_customer_debug_rows(db=db) if not row["visible_in_desktop_list"]]
 
 
 APP_VERSION = "Salon Karola App 2026-06-18-render-disk-guard-1"
@@ -3697,6 +3805,11 @@ def diagnose():
         },
         "database_reachable": False,
         "customer_count": "n/a",
+        "total_customers": "n/a",
+        "active_customers": "n/a",
+        "archived_customers": "n/a",
+        "deleted_flag_customers": "n/a",
+        "empty_name_customers": "n/a",
         "appointment_count": "n/a",
         "latest_customer_name": "",
         "latest_customer_created_at": "",
@@ -3756,8 +3869,10 @@ def diagnose():
         "customer_api_url": f"{request_url_root}{url_for('customer_search_alias')}",
         "customer_count_api_url": f"{request_url_root}{url_for('customer_count_api')}",
         "customer_latest_api_url": f"{request_url_root}{url_for('customer_latest_api')}",
+        "customer_debug_list_api_url": f"{request_url_root}{url_for('customer_debug_list_api')}",
         "customer_api_reachable": False,
         "customer_api_cache_control": "no-store, no-cache, must-revalidate, max-age=0",
+        "customer_api_cache_control_active": True,
         "customer_audit": {},
         "active_database_target_status": {},
     }
@@ -3766,7 +3881,13 @@ def diagnose():
         diagnostics["database_reachable"] = True
         row_customers = db.execute("SELECT COUNT(*) AS cnt FROM _Customers").fetchone()
         row_appointments = db.execute("SELECT COUNT(*) AS cnt FROM appointments").fetchone()
-        diagnostics["customer_count"] = saved_customer_count(db=db)
+        count_stats = exact_customer_counts(db=db)
+        diagnostics["customer_count"] = count_stats["desktop_visible_customers"]
+        diagnostics["total_customers"] = count_stats["total_customers"]
+        diagnostics["active_customers"] = count_stats["active_customers"]
+        diagnostics["archived_customers"] = count_stats["archived_customers"]
+        diagnostics["deleted_flag_customers"] = count_stats["deleted_flag_customers"]
+        diagnostics["empty_name_customers"] = count_stats["customers_with_empty_name"]
         diagnostics["customer_count_raw"] = int(row_customers["cnt"] or 0) if row_customers else 0
         diagnostics["appointment_count"] = int(row_appointments["cnt"] or 0) if row_appointments else 0
         latest_rows = latest_customer_rows(limit=1, db=db)
@@ -4752,7 +4873,7 @@ def customer_search_page():
     elif sort == "recent":
         order_sql = "MAX(a.appointment_at) DESC, COALESCE(c._name, '') COLLATE NOCASE, COALESCE(c._firstname, '') COLLATE NOCASE"
 
-    total_customers = saved_customer_count(db=db)
+    count_stats = exact_customer_counts(db=db)
     limit = 1000 if is_admin_world else 20
     if not is_admin_world and not q:
         customers = []
@@ -4768,7 +4889,12 @@ def customer_search_page():
         tag=tag,
         sort=sort,
         tags=tags,
-        total_customers=total_customers,
+        total_customers=count_stats["total_customers"],
+        active_customers=count_stats["active_customers"],
+        desktop_visible_customers=count_stats["desktop_visible_customers"],
+        archived_customers=count_stats["archived_customers"],
+        deleted_flag_customers=count_stats["deleted_flag_customers"],
+        empty_name_customers=count_stats["customers_with_empty_name"],
         shown_customers=len(customers),
         customer_search_limit=limit,
         current_endpoint="customer_search_page",
@@ -5022,15 +5148,26 @@ def customer_count_api():
     db = get_db()
     audit = customer_audit_snapshot(db=db, latest_limit=1, duplicate_limit=1)
     target_status = active_database_target_status(db=db, target_count=402)
+    count_stats = exact_customer_counts(db=db)
     payload = {
         "ok": True,
-        "count": audit["visible_customer_count"],
+        "count": count_stats["desktop_visible_customers"],
+        "total_customers": count_stats["total_customers"],
+        "active_customers": count_stats["active_customers"],
+        "archived_customers": count_stats["archived_customers"],
+        "deleted_flag_customers": count_stats["deleted_flag_customers"],
+        "customers_with_empty_name": count_stats["customers_with_empty_name"],
+        "customers_with_phone": count_stats["customers_with_phone"],
+        "customers_without_phone": count_stats["customers_without_phone"],
+        "desktop_visible_customers": count_stats["desktop_visible_customers"],
+        "desktop_hidden_customers": count_stats["desktop_hidden_customers"],
         "raw_customer_rows": audit["raw_customer_rows"],
         "hidden_customer_rows": audit["hidden_customer_rows"],
         "database_path": str(DB_PATH),
         "database_path_absolute": DB_PATH.is_absolute(),
         "database_within_render_disk_mount": bool(detect_render_disk_mount(DB_PATH)),
         "detected_render_disk_mount": str(detect_render_disk_mount(DB_PATH) or ""),
+        "db_size": (DB_PATH.stat().st_size if DB_PATH.exists() else 0),
         "target_count_matches_402": target_status["target_count_matches"],
         "target_customer_count": target_status["target_customer_count"],
         "warning": target_status["warning"],
@@ -5096,6 +5233,35 @@ def customer_search_alias():
 @login_required
 def customer_search_collection_api():
     return customer_search_alias()
+
+
+@app.route("/api/customers/debug-list")
+@admin_required
+def customer_debug_list_api():
+    db = get_db()
+    rows = all_customer_debug_rows(db=db)
+    desktop_hidden = [row for row in rows if not row["visible_in_desktop_list"]]
+    payload = {
+        "ok": True,
+        "route_usage": {
+            "desktop_list_route": "/admin/customers",
+            "mobile_list_route": "/staff/customers",
+            "desktop_search_mode": "server-rendered SQL query",
+            "mobile_live_search_api": "/api/customers/quick-search",
+            "shared_search_api": "/api/customers/search",
+        },
+        "database_path": str(DB_PATH),
+        "app_version": APP_VERSION,
+        "counts": exact_customer_counts(db=db),
+        "items": rows,
+        "latest_20": rows[-20:],
+        "empty_name_customers": [row for row in rows if row["empty_name"]][:20],
+        "without_phone_customers": [row for row in rows if not row["has_phone"]][:20],
+        "desktop_hidden_customers": desktop_hidden[:20],
+        "missing_from_desktop_ids": [row["id"] for row in desktop_hidden],
+        "missing_from_desktop_customers": desktop_hidden[:20],
+    }
+    return json_no_store(payload)
 
 
 @app.route("/api/calendar/month")

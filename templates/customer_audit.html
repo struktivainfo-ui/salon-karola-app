@@ -16,24 +16,24 @@
 
   <section class="premium-stat-grid">
     <article class="premium-stat-card premium-stat-card-primary">
-      <div class="premium-stat-label">Sichtbare Kontakte</div>
-      <div class="premium-stat-value">{{ audit.visible_customer_count }}</div>
-      <div class="premium-stat-foot">Zielbestand prüfen</div>
+      <div class="premium-stat-label">Desktop sichtbar</div>
+      <div class="premium-stat-value">{{ audit.count_stats.desktop_visible_customers }}</div>
+      <div class="premium-stat-foot">aktive Listenansicht</div>
     </article>
     <article class="premium-stat-card">
-      <div class="premium-stat-label">Rohzeilen</div>
-      <div class="premium-stat-value">{{ audit.raw_customer_rows }}</div>
-      <div class="premium-stat-foot">inkl. technischer Platzhalter</div>
+      <div class="premium-stat-label">Gesamt</div>
+      <div class="premium-stat-value">{{ audit.count_stats.total_customers }}</div>
+      <div class="premium-stat-foot">alle DB-Kontakte</div>
     </article>
     <article class="premium-stat-card">
-      <div class="premium-stat-label">Versteckt</div>
-      <div class="premium-stat-value">{{ audit.hidden_customer_rows }}</div>
-      <div class="premium-stat-foot">nicht automatisch löschen</div>
+      <div class="premium-stat-label">Ohne Namen</div>
+      <div class="premium-stat-value">{{ audit.count_stats.customers_with_empty_name }}</div>
+      <div class="premium-stat-foot">nur Diagnose</div>
     </article>
     <article class="premium-stat-card">
-      <div class="premium-stat-label">Dubletten-Gruppen</div>
-      <div class="premium-stat-value">{{ audit.duplicate_group_count }}</div>
-      <div class="premium-stat-foot">nur Hinweis, keine Auto-Korrektur</div>
+      <div class="premium-stat-label">Ohne Telefon</div>
+      <div class="premium-stat-value">{{ audit.count_stats.customers_without_phone }}</div>
+      <div class="premium-stat-foot">nur Diagnose</div>
     </article>
   </section>
 
@@ -64,22 +64,68 @@
     <article class="premium-panel">
       <div class="premium-panel-head">
         <div>
-          <div class="premium-panel-kicker">Dubletten</div>
+          <div class="premium-panel-kicker">Desktop blendet aus</div>
+          <h2 class="premium-panel-title">Fehlende Kontakte</h2>
+        </div>
+      </div>
+      <div class="premium-list">
+        {% for row in audit.desktop_hidden_customers %}
+        <div class="premium-list-item">
+          <div class="premium-list-row">
+            <strong>{{ row.name }}</strong>
+            <span class="premium-badge">#{{ row.id }}</span>
+          </div>
+          <div class="premium-list-sub">Quelle: {{ row.source }} | Aktiv: {{ 'ja' if row.is_active else 'nein' }} | Gelöscht: {{ 'ja' if row.is_deleted else 'nein' }}</div>
+          <div class="premium-list-meta">Telefon: {{ row.phone or 'leer' }} | E-Mail: {{ row.email or 'leer' }}</div>
+        </div>
+        {% else %}
+        <div class="premium-list-empty">Kein Kontakt wird aktuell von der Desktop-Liste ausgeblendet.</div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="premium-grid-2 premium-space-top">
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Leere Namen</div>
           <h2 class="premium-panel-title">Manuell prüfen</h2>
         </div>
       </div>
       <div class="premium-list">
-        {% for row in audit.duplicate_candidates %}
+        {% for row in audit.empty_name_customers %}
         <div class="premium-list-item">
           <div class="premium-list-row">
-            <strong>{{ row.lastname or 'Ohne Nachname' }}{% if row.firstname %}, {{ row.firstname }}{% endif %}</strong>
-            <span class="premium-badge">{{ row.count }}x</span>
+            <strong>#{{ row.id }}</strong>
+            <span class="premium-badge">{{ row.source }}</span>
           </div>
           <div class="premium-list-sub">Telefon: {{ row.phone or 'leer' }} | E-Mail: {{ row.email or 'leer' }}</div>
-          <div class="premium-list-meta">IDs: {{ row.ids|join(', ') }}</div>
         </div>
         {% else %}
-        <div class="premium-list-empty">Keine Dubletten-Gruppen erkannt.</div>
+        <div class="premium-list-empty">Keine Kontakte ohne Namen gefunden.</div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="premium-panel">
+      <div class="premium-panel-head">
+        <div>
+          <div class="premium-panel-kicker">Ohne Telefon</div>
+          <h2 class="premium-panel-title">Manuell prüfen</h2>
+        </div>
+      </div>
+      <div class="premium-list">
+        {% for row in audit.without_phone_customers %}
+        <div class="premium-list-item">
+          <div class="premium-list-row">
+            <strong>{{ row.name }}</strong>
+            <span class="premium-badge">#{{ row.id }}</span>
+          </div>
+          <div class="premium-list-sub">{{ row.email or 'Keine E-Mail' }}</div>
+        </div>
+        {% else %}
+        <div class="premium-list-empty">Keine Kontakte ohne Telefonnummer gefunden.</div>
         {% endfor %}
       </div>
     </article>

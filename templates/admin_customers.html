@@ -50,9 +50,9 @@
       <div>
         <div class="premium-panel-kicker">Ergebnisse</div>
         <h2 class="premium-panel-title">Suchtreffer</h2>
-        <div class="premium-page-subtitle">Angezeigt: {{ shown_customers }} von {{ total_customers }} Kontakten{% if shown_customers >= customer_search_limit %} (Limit {{ customer_search_limit }}){% endif %}</div>
+        <div class="premium-page-subtitle">{{ desktop_visible_customers }} in der Desktop-Liste sichtbar von {{ total_customers }} gesamt | aktive Statuslogik: {{ active_customers }}{% if archived_customers or deleted_flag_customers or empty_name_customers %} | archiviert: {{ archived_customers }} | gelöscht-Flag: {{ deleted_flag_customers }} | ohne Namen: {{ empty_name_customers }}{% endif %}{% if shown_customers >= customer_search_limit %} | Listenlimit {{ customer_search_limit }}{% endif %}</div>
       </div>
-      <span class="premium-badge">{{ total_customers }}</span>
+      <span class="premium-badge">{{ desktop_visible_customers }}/{{ total_customers }}</span>
     </div>
     <div class="premium-card-grid premium-space-top">
       {% for customer in customers %}
