@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Neue Kundenkarte – Salon Karola{% endblock %}
+{% block title %}Informationen zum Salon Karola{% endblock %}
 {% block content %}
 <section class="qr-customer-page" aria-labelledby="qrCustomerTitle">
   <div class="qr-customer-brand">
@@ -8,7 +8,7 @@
 
   <header class="qr-customer-head">
     <p class="qr-customer-kicker">Salon Karola</p>
-    <h1 id="qrCustomerTitle">Neue Kundenkarte – Salon Karola</h1>
+    <h1 id="qrCustomerTitle">Informationen zum Salon Karola</h1>
     <p>Bitte füllen Sie kurz Ihre Daten aus, damit wir Ihre Termine und Wünsche besser verwalten können.</p>
   </header>
 
@@ -77,15 +77,11 @@
 
     <label class="qr-check">
       <input type="checkbox" name="privacy_consent" value="yes" required {% if form.privacy_consent %}checked{% endif %}>
-      <span>Ich bin einverstanden, dass Salon Karola meine Daten zur Termin- und Kundenverwaltung speichert.</span>
+      <span>Ich bin einverstanden, dass Salon Karola meine angegebenen Daten zur Termin- und Kundenverwaltung speichert.</span>
     </label>
     <label class="qr-check">
       <input type="checkbox" name="whatsapp_contact_allowed" value="yes" {% if form.whatsapp_contact_allowed %}checked{% endif %}>
       <span>Ich bin einverstanden, dass Salon Karola mich bei Terminfragen per WhatsApp kontaktieren darf.</span>
-    </label>
-    <label class="qr-check">
-      <input type="checkbox" name="marketing_contact_allowed" value="yes" {% if form.marketing_contact_allowed %}checked{% endif %}>
-      <span>Ich möchte gelegentlich Informationen zu Aktionen oder Neuigkeiten erhalten.</span>
     </label>
 
     <label class="qr-honeypot" aria-hidden="true" tabindex="-1">

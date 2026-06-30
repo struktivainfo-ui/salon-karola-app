@@ -2371,7 +2371,6 @@ def validate_qr_customer_form(form):
         "notes": clean_public_multiline(form.get("notes"), 1000),
         "privacy_consent": form.get("privacy_consent") == "yes",
         "whatsapp_contact_allowed": form.get("whatsapp_contact_allowed") == "yes",
-        "marketing_contact_allowed": form.get("marketing_contact_allowed") == "yes",
     }
     errors = []
     if not data["firstname"]:
@@ -2415,7 +2414,6 @@ def insert_qr_customer(db, data):
         "created_via": "QR Kundenkarte",
         "privacy_consent_at": now,
         "whatsapp_contact_allowed": 1 if data["whatsapp_contact_allowed"] else 0,
-        "marketing_contact_allowed": 1 if data["marketing_contact_allowed"] else 0,
     }
     existing_columns = customer_columns()
     columns = [column for column in values if column in existing_columns]
