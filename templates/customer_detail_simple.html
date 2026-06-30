@@ -31,6 +31,7 @@
       <div><strong>Mobil</strong><span>{{ row_value(customer, 'Customer_Mobiltelefon') or 'Nicht gespeichert' }}</span></div>
       <div><strong>E-Mail</strong><span>{{ customer['_mail'] or 'Nicht gespeichert' }}</span></div>
       <div><strong>Geburtstag</strong><span>{{ customer['_birthdate'] or 'Nicht gespeichert' }}</span></div>
+      <div class="full"><strong>Adresse</strong><span>{{ customer['Customer_Adresse'] or 'Nicht gespeichert' }}{% if customer['Customer_Postleitzahl'] or customer['Customer_Stadt'] %}<br>{{ customer['Customer_Postleitzahl'] or '' }} {{ customer['Customer_Stadt'] or '' }}{% endif %}</span></div>
       <div class="full"><strong>Notizen</strong><span>{{ customer['_notes'] or 'Keine Notiz vorhanden' }}</span></div>
     </div>
   </section>
@@ -55,11 +56,11 @@
           <label><span>Mobil</span><input type="text" name="mobile" value="{{ row_value(customer, 'Customer_Mobiltelefon') or '' }}"></label>
           <label><span>E-Mail</span><input type="email" name="mail" value="{{ customer['_mail'] or '' }}"></label>
           <label><span>Geburtstag</span><input type="date" name="birthdate" value="{{ customer['_birthdate'] or '' }}"></label>
+          <label class="full"><span>Straße / Hausnummer</span><input type="text" name="address" value="{{ customer['Customer_Adresse'] or '' }}"></label>
+          <label><span>Postleitzahl</span><input type="text" name="zip" value="{{ customer['Customer_Postleitzahl'] or '' }}"></label>
+          <label><span>Stadt</span><input type="text" name="city" value="{{ customer['Customer_Stadt'] or '' }}"></label>
           <label class="full"><span>Notizen</span><textarea name="notes">{{ customer['_notes'] or '' }}</textarea></label>
         </div>
-        <input type="hidden" name="address" value="{{ customer['Customer_Adresse'] or '' }}">
-        <input type="hidden" name="zip" value="{{ customer['Customer_Postleitzahl'] or '' }}">
-        <input type="hidden" name="city" value="{{ customer['Customer_Stadt'] or '' }}">
         <input type="hidden" name="tags" value="{{ tags_text or '' }}">
         <button type="submit" class="simple-save-button">Speichern</button>
       </form>

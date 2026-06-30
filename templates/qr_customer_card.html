@@ -48,6 +48,27 @@
         <span>Geburtstag</span>
         <input type="date" name="birthdate" value="{{ form.birthdate or '' }}">
       </label>
+    </div>
+
+    <section class="qr-form-section" aria-labelledby="qrAddressTitle">
+      <h2 id="qrAddressTitle">Adresse</h2>
+      <div class="qr-field-grid qr-address-grid">
+        <label class="qr-field-wide">
+          <span>Straße / Hausnummer</span>
+          <input type="text" name="address" autocomplete="street-address" value="{{ form.address or '' }}">
+        </label>
+        <label>
+          <span>Postleitzahl</span>
+          <input type="text" name="zip" autocomplete="postal-code" inputmode="text" value="{{ form.zip or '' }}">
+        </label>
+        <label>
+          <span>Stadt</span>
+          <input type="text" name="city" autocomplete="address-level2" value="{{ form.city or '' }}">
+        </label>
+      </div>
+    </section>
+
+    <div class="qr-field-grid">
       <label class="qr-field-wide">
         <span>Notizen / Wünsche / Besonderheiten</span>
         <textarea name="notes" rows="4">{{ form.notes or '' }}</textarea>

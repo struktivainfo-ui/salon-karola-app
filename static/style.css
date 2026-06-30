@@ -7367,6 +7367,25 @@ body.endpoint-qr_customer_card::after {
   grid-column: 1 / -1;
 }
 
+.qr-form-section {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+  border-top: 1px solid #eadbbf;
+}
+
+.qr-form-section h2 {
+  margin: 0;
+  color: #17110b;
+  font-size: 1.08rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.qr-address-grid {
+  align-items: end;
+}
+
 .qr-customer-form label {
   display: grid;
   gap: 7px;
@@ -7427,6 +7446,11 @@ body.endpoint-qr_customer_card::after {
   font-weight: 850;
   cursor: pointer;
   box-shadow: 0 10px 24px rgba(23, 17, 11, 0.22);
+}
+
+.endpoint-qr_customer_card .qr-submit {
+  background: #17110b;
+  color: #f6d879;
 }
 
 .qr-submit:active {

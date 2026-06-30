@@ -5,6 +5,7 @@
   "description": "Android wrapper for the Salon Karola App hosted on Render.",
   "main": "index.js",
   "scripts": {
+    "build": "python -m py_compile app.py wsgi.py salon_karola_legacy.py",
     "cap:sync": "npx cap sync",
     "cap:copy": "npx cap copy",
     "cap:open:android": "npx cap open android",

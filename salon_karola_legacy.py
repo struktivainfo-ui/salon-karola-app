@@ -2354,6 +2354,10 @@ def find_customer_by_phone_key(db, phone_key):
     return None
 
 
+def clean_postal_code(value):
+    return re.sub(r"[^0-9A-Za-z -]", "", (value or "").strip())[:20]
+
+
 def validate_qr_customer_form(form):
     data = {
         "firstname": clean_public_text(form.get("firstname"), 80),
@@ -2361,6 +2365,9 @@ def validate_qr_customer_form(form):
         "phone": clean_customer_phone(form.get("phone")),
         "mail": clean_public_text(form.get("mail"), 120),
         "birthdate": (form.get("birthdate") or "").strip(),
+        "address": clean_public_text(form.get("address"), 160),
+        "zip": clean_postal_code(form.get("zip")),
+        "city": clean_public_text(form.get("city"), 100),
         "notes": clean_public_multiline(form.get("notes"), 1000),
         "privacy_consent": form.get("privacy_consent") == "yes",
         "whatsapp_contact_allowed": form.get("whatsapp_contact_allowed") == "yes",
@@ -2382,6 +2389,8 @@ def validate_qr_customer_form(form):
             datetime.strptime(data["birthdate"], "%Y-%m-%d")
         except ValueError:
             errors.append("Bitte geben Sie ein gueltiges Geburtsdatum ein oder lassen Sie das Feld frei.")
+    if data["zip"] and not re.match(r"^[0-9A-Za-z -]{1,20}$", data["zip"]):
+        errors.append("Bitte geben Sie eine gueltige Postleitzahl ein oder lassen Sie das Feld frei.")
     if not data["privacy_consent"]:
         errors.append("Bitte bestaetigen Sie die Datenschutz-Einwilligung.")
     return data, errors
@@ -2396,11 +2405,11 @@ def insert_qr_customer(db, data):
         "_mail": data["mail"],
         "_birthdate": data["birthdate"] or None,
         "_notes": data["notes"],
-        "Customer_Adresse": "",
+        "Customer_Adresse": data["address"],
         phone_column: data["phone"],
         "Customer_Mobiltelefon": data["phone"],
-        "Customer_Postleitzahl": "",
-        "Customer_Stadt": "",
+        "Customer_Postleitzahl": data["zip"],
+        "Customer_Stadt": data["city"],
         "created_at": now,
         "source": "qr_form",
         "created_via": "QR Kundenkarte",
@@ -2417,6 +2426,29 @@ def insert_qr_customer(db, data):
         [values[column] for column in columns],
     )
     return cur.lastrowid
+
+
+def update_qr_customer_address(db, customer_id, data):
+    values = {
+        "Customer_Adresse": data.get("address", ""),
+        "Customer_Postleitzahl": data.get("zip", ""),
+        "Customer_Stadt": data.get("city", ""),
+    }
+    existing_columns = customer_columns()
+    assignments = []
+    params = []
+    for column, value in values.items():
+        if column in existing_columns and value:
+            assignments.append(f'"{column}" = ?')
+            params.append(value)
+    if not assignments:
+        return False
+    params.append(customer_id)
+    db.execute(
+        f"UPDATE _Customers SET {', '.join(assignments)} WHERE _id = ?",
+        params,
+    )
+    return True
 
 
 def whatsapp_link(customer, text=None):
@@ -5778,7 +5810,10 @@ def qr_customer_card():
             if not errors:
                 db = get_db()
                 phone_key = customer_phone_match_key(form_data["phone"])
-                if find_customer_by_phone_key(db, phone_key):
+                existing_customer = find_customer_by_phone_key(db, phone_key)
+                if existing_customer:
+                    if update_qr_customer_address(db, existing_customer["_id"], form_data):
+                        db.commit()
                     duplicate_message = "Ihre Daten sind bereits bei uns vorhanden. Vielen Dank."
                 else:
                     insert_qr_customer(db, form_data)
