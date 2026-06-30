@@ -5,7 +5,7 @@ services:
     plan: starter
     autoDeployTrigger: commit
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --workers 1 --threads 2 --timeout 120
+    startCommand: gunicorn wsgi:application --workers 1 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT
     disk:
       name: salon-karola-data
       mountPath: /opt/render/project/src/data

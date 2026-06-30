@@ -121,6 +121,63 @@ def detect_render_disk_mount(path_like):
     return None
 
 
+def validate_runtime_database(*, require_customers_table=False):
+    db_path = DB_PATH
+    issues = []
+    placeholder_lastname = "__MANUELLER_TERMIN__"
+
+    if production_like_runtime() and not db_path.is_absolute():
+        issues.append("DATABASE_PATH ist nicht absolut.")
+
+    if production_like_runtime() and not detect_render_disk_mount(db_path):
+        mounts = ", ".join(str(item) for item in known_render_disk_mounts())
+        issues.append(f"DATABASE_PATH liegt nicht in einem bekannten Render-Disk-Mount ({mounts}).")
+
+    if production_like_runtime() and not db_path.exists():
+        issues.append("Produktive Datenbankdatei wurde nicht gefunden.")
+
+    if issues:
+        raise RuntimeError("Produktivschutz: " + " ".join(issues))
+
+    if not db_path.exists():
+        return {
+            "database_exists": False,
+            "database_readable": False,
+            "is_sqlite": False,
+            "has_customers_table": False,
+            "customer_count": None,
+            "database_size_bytes": 0,
+        }
+
+    try:
+        uri = f"file:{db_path.as_posix()}?mode=ro"
+        with sqlite3.connect(uri, uri=True) as conn:
+            tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()}
+            has_customers_table = "_Customers" in tables
+            if require_customers_table and not has_customers_table:
+                raise RuntimeError("Produktive Datenbank ist lesbar, aber Tabelle _Customers fehlt.")
+            customer_count = None
+            if has_customers_table:
+                customer_count = int(
+                    conn.execute(
+                        "SELECT COUNT(*) FROM _Customers WHERE COALESCE(_name, '') <> ?",
+                        (placeholder_lastname,),
+                    ).fetchone()[0]
+                )
+            return {
+                "database_exists": True,
+                "database_readable": True,
+                "is_sqlite": True,
+                "has_customers_table": has_customers_table,
+                "customer_count": customer_count,
+                "database_size_bytes": db_path.stat().st_size if db_path.exists() else 0,
+            }
+    except sqlite3.DatabaseError as exc:
+        raise RuntimeError(f"Produktive Datenbank ist keine lesbare SQLite-Datei: {exc}") from exc
+    except sqlite3.Error as exc:
+        raise RuntimeError(f"Produktive Datenbank konnte nicht gelesen werden: {exc}") from exc
+
+
 def _resolve_database_path():
     explicit = (os.getenv("DATABASE_PATH") or "").strip()
     if explicit:
@@ -290,18 +347,34 @@ app.config["SESSION_COOKIE_SECURE"] = production_like_runtime()
 
 def log_storage_context_once():
     try:
+        snapshot = validate_runtime_database(require_customers_table=False)
         app.logger.info(
-            "Storage-Kontext: render=%s production_like=%s db_path=%s db_exists=%s db_dir_exists=%s backup_dir=%s backup_dir_exists=%s",
+            "App-Startkontext: render=%s production_like=%s secret_key_present=%s db_path=%s db_exists=%s db_readable=%s customers_table=%s customer_count=%s db_dir_exists=%s backup_dir=%s backup_dir_exists=%s port=%s",
             running_on_render(),
             production_like_runtime(),
+            bool((os.getenv("SECRET_KEY") or os.getenv("FLASK_SECRET_KEY"))),
             str(DB_PATH),
-            DB_PATH.exists(),
+            snapshot.get("database_exists"),
+            snapshot.get("database_readable"),
+            snapshot.get("has_customers_table"),
+            snapshot.get("customer_count"),
             DB_PATH.parent.exists(),
             str(BACKUP_DIR),
             BACKUP_DIR.exists(),
+            (os.getenv("PORT") or "").strip() or "n/a",
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        try:
+            app.logger.warning(
+                "App-Startkontext konnte nicht vollständig gelesen werden: secret_key_present=%s db_path=%s db_exists=%s port=%s error=%s",
+                bool((os.getenv("SECRET_KEY") or os.getenv("FLASK_SECRET_KEY"))),
+                str(DB_PATH),
+                DB_PATH.exists(),
+                (os.getenv("PORT") or "").strip() or "n/a",
+                exc,
+            )
+        except Exception:
+            pass
 
 
 log_storage_context_once()
@@ -647,6 +720,9 @@ AUTO_BACKUP_KEEP = int(os.getenv("AUTO_BACKUP_KEEP", "21"))
 scheduler = BackgroundScheduler(timezone=APP_TIMEZONE)
 AUTOMATION_MIN_INTERVAL_SECONDS = int(os.getenv("AUTOMATION_MIN_INTERVAL_SECONDS", "300"))
 _BOOT_DONE = False
+QR_CUSTOMER_RATE_LIMIT = {}
+QR_CUSTOMER_RATE_LIMIT_WINDOW_SECONDS = 10 * 60
+QR_CUSTOMER_RATE_LIMIT_MAX_POSTS = int(os.getenv("QR_CUSTOMER_RATE_LIMIT_MAX_POSTS", "8"))
 
 
 # ---------- Auth ----------
@@ -1082,7 +1158,10 @@ def find_passkey_by_credential_id(db, credential_id):
 # ---------- Database helpers ----------
 def get_db():
     if "db" not in g:
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if production_like_runtime():
+            validate_runtime_database(require_customers_table=True)
+        else:
+            DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         g.db = sqlite3.connect(DB_PATH)
         g.db.row_factory = sqlite3.Row
     return g.db
@@ -1261,7 +1340,10 @@ def customer_contact_select_sql(prefix=""):
 # ---------- Setup ----------
 # ---------- Setup ----------
 def init_db():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if production_like_runtime():
+        validate_runtime_database(require_customers_table=True)
+    else:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
@@ -1428,6 +1510,11 @@ def init_db():
             "TEXT",
             fill_sql="UPDATE _Customers SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL OR created_at = ''",
         )
+        add_column_if_missing("_Customers", "source", "TEXT DEFAULT ''")
+        add_column_if_missing("_Customers", "created_via", "TEXT DEFAULT ''")
+        add_column_if_missing("_Customers", "privacy_consent_at", "TEXT DEFAULT ''")
+        add_column_if_missing("_Customers", "whatsapp_contact_allowed", "INTEGER NOT NULL DEFAULT 0")
+        add_column_if_missing("_Customers", "marketing_contact_allowed", "INTEGER NOT NULL DEFAULT 0")
 
         add_column_if_missing("appointments", "status", "TEXT DEFAULT 'geplant'")
         add_column_if_missing("appointments", "staff_name", "TEXT DEFAULT 'Ute'")
@@ -2205,6 +2292,131 @@ def normalized_phone_number(raw_value):
 def phone_href(value):
     number = normalized_phone_number(value)
     return f"tel:{number}" if number else ""
+
+
+def customer_phone_match_key(raw_value):
+    normalized = normalized_phone_number(raw_value)
+    source = normalized or (raw_value or "")
+    return "".join(ch for ch in source if ch.isdigit())
+
+
+def clean_public_text(value, max_length):
+    value = re.sub(r"\s+", " ", (value or "").strip())
+    return value[:max_length]
+
+
+def clean_public_multiline(value, max_length):
+    value = (value or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    value = re.sub(r"\n{3,}", "\n\n", value)
+    return value[:max_length]
+
+
+def clean_customer_phone(value):
+    value = re.sub(r"[^0-9+() /.-]", "", (value or "").strip())
+    value = re.sub(r"\s+", " ", value)
+    return value[:80]
+
+
+def public_client_key():
+    forwarded_for = (request.headers.get("X-Forwarded-For") or "").split(",", 1)[0].strip()
+    return forwarded_for or request.remote_addr or "unknown"
+
+
+def public_qr_rate_limited():
+    now = datetime.now()
+    cutoff = now - timedelta(seconds=QR_CUSTOMER_RATE_LIMIT_WINDOW_SECONDS)
+    client_key = public_client_key()
+    recent = [stamp for stamp in QR_CUSTOMER_RATE_LIMIT.get(client_key, []) if stamp >= cutoff]
+    if len(recent) >= QR_CUSTOMER_RATE_LIMIT_MAX_POSTS:
+        QR_CUSTOMER_RATE_LIMIT[client_key] = recent
+        return True
+    recent.append(now)
+    QR_CUSTOMER_RATE_LIMIT[client_key] = recent
+    return False
+
+
+def find_customer_by_phone_key(db, phone_key):
+    if not phone_key:
+        return None
+    phone_column = customer_personal_phone_column()
+    rows = db.execute(
+        f"""
+        SELECT _id, Customer_Mobiltelefon, "{phone_column}" AS personal_phone
+        FROM _Customers
+        WHERE {visible_customer_condition('_Customers')}
+        """
+    ).fetchall()
+    for row in rows:
+        if customer_phone_match_key(row["Customer_Mobiltelefon"]) == phone_key:
+            return row
+        if customer_phone_match_key(row["personal_phone"]) == phone_key:
+            return row
+    return None
+
+
+def validate_qr_customer_form(form):
+    data = {
+        "firstname": clean_public_text(form.get("firstname"), 80),
+        "name": clean_public_text(form.get("name"), 80),
+        "phone": clean_customer_phone(form.get("phone")),
+        "mail": clean_public_text(form.get("mail"), 120),
+        "birthdate": (form.get("birthdate") or "").strip(),
+        "notes": clean_public_multiline(form.get("notes"), 1000),
+        "privacy_consent": form.get("privacy_consent") == "yes",
+        "whatsapp_contact_allowed": form.get("whatsapp_contact_allowed") == "yes",
+        "marketing_contact_allowed": form.get("marketing_contact_allowed") == "yes",
+    }
+    errors = []
+    if not data["firstname"]:
+        errors.append("Bitte geben Sie Ihren Vornamen ein.")
+    if not data["name"]:
+        errors.append("Bitte geben Sie Ihren Nachnamen ein.")
+    if not data["phone"]:
+        errors.append("Bitte geben Sie Ihre Telefonnummer ein.")
+    elif len(customer_phone_match_key(data["phone"])) < 7:
+        errors.append("Bitte geben Sie eine gueltige Telefonnummer ein.")
+    if data["mail"] and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", data["mail"]):
+        errors.append("Bitte geben Sie eine gueltige E-Mail-Adresse ein oder lassen Sie das Feld frei.")
+    if data["birthdate"]:
+        try:
+            datetime.strptime(data["birthdate"], "%Y-%m-%d")
+        except ValueError:
+            errors.append("Bitte geben Sie ein gueltiges Geburtsdatum ein oder lassen Sie das Feld frei.")
+    if not data["privacy_consent"]:
+        errors.append("Bitte bestaetigen Sie die Datenschutz-Einwilligung.")
+    return data, errors
+
+
+def insert_qr_customer(db, data):
+    now = datetime.now().isoformat(timespec="seconds")
+    phone_column = customer_personal_phone_column()
+    values = {
+        "_name": data["name"],
+        "_firstname": data["firstname"],
+        "_mail": data["mail"],
+        "_birthdate": data["birthdate"] or None,
+        "_notes": data["notes"],
+        "Customer_Adresse": "",
+        phone_column: data["phone"],
+        "Customer_Mobiltelefon": data["phone"],
+        "Customer_Postleitzahl": "",
+        "Customer_Stadt": "",
+        "created_at": now,
+        "source": "qr_form",
+        "created_via": "QR Kundenkarte",
+        "privacy_consent_at": now,
+        "whatsapp_contact_allowed": 1 if data["whatsapp_contact_allowed"] else 0,
+        "marketing_contact_allowed": 1 if data["marketing_contact_allowed"] else 0,
+    }
+    existing_columns = customer_columns()
+    columns = [column for column in values if column in existing_columns]
+    placeholders = ", ".join("?" for _ in columns)
+    quoted_columns = ", ".join(f'"{column}"' for column in columns)
+    cur = db.execute(
+        f"INSERT INTO _Customers({quoted_columns}) VALUES ({placeholders})",
+        [values[column] for column in columns],
+    )
+    return cur.lastrowid
 
 
 def whatsapp_link(customer, text=None):
@@ -5548,6 +5760,43 @@ def customer_inactive_page():
     )
 
 
+@app.route("/qr-kundenkarte", methods=["GET", "POST"])
+@app.route("/neukunde", methods=["GET", "POST"])
+def qr_customer_card():
+    form_data = {}
+    errors = []
+    success_message = ""
+    duplicate_message = ""
+
+    if request.method == "POST":
+        if request.form.get("website", "").strip():
+            success_message = "Vielen Dank! Ihre Daten wurden erfolgreich an Salon Karola übermittelt."
+        elif public_qr_rate_limited():
+            errors.append("Bitte versuchen Sie es in ein paar Minuten erneut.")
+        else:
+            form_data, errors = validate_qr_customer_form(request.form)
+            if not errors:
+                db = get_db()
+                phone_key = customer_phone_match_key(form_data["phone"])
+                if find_customer_by_phone_key(db, phone_key):
+                    duplicate_message = "Ihre Daten sind bereits bei uns vorhanden. Vielen Dank."
+                else:
+                    insert_qr_customer(db, form_data)
+                    db.commit()
+                    success_message = "Vielen Dank! Ihre Daten wurden erfolgreich an Salon Karola übermittelt."
+                    form_data = {}
+
+    return render_template(
+        "qr_customer_card.html",
+        form=form_data,
+        errors=errors,
+        success_message=success_message,
+        duplicate_message=duplicate_message,
+        current_endpoint="qr_customer_card",
+        app_version=APP_VERSION,
+    )
+
+
 @app.route("/customer/new", methods=["GET", "POST"])
 @login_required
 def customer_new():
@@ -7006,6 +7255,7 @@ def inject_globals():
 def boot_app():
     try:
         ensure_persistent_storage_ready(require_writable=False)
+        runtime_db = validate_runtime_database(require_customers_table=True)
     except Exception as exc:
         try:
             app.logger.error("Produktivschutz beim Start: %s", exc)
@@ -7013,7 +7263,19 @@ def boot_app():
             pass
         if production_like_runtime():
             raise
+        runtime_db = {"customer_count": None}
     init_db()
+    try:
+        app.logger.info(
+            "Boot abgeschlossen: secret_key_present=%s db_path=%s db_exists=%s customer_count=%s port=%s",
+            bool((os.getenv("SECRET_KEY") or os.getenv("FLASK_SECRET_KEY"))),
+            str(DB_PATH),
+            DB_PATH.exists(),
+            runtime_db.get("customer_count"),
+            (os.getenv("PORT") or "").strip() or "n/a",
+        )
+    except Exception:
+        pass
     ensure_default_admin(force_reset=False)
     if False:
         try:

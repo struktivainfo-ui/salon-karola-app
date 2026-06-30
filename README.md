@@ -13,10 +13,16 @@ Die Anwendung buendelt die wichtigsten internen Arbeitsablaeufe in einer geschue
 - Monats- und Tageskalender fuer den Salonbetrieb
 - getrennte Admin- und Mitarbeiteransicht
 - Kontakt- und Kundendatenpflege
+- oeffentliche QR-Kundenkarte fuer neue Kundendaten ohne Login
 - Terminanlage, Terminbearbeitung und Statuspflege
 - Mail-Vorlagen fuer Geburtstage und Terminerinnerungen
 - Android-App-Anbindung fuer den internen Zugriff
 - Import-, Backup- und Diagnosehilfen fuer den Betrieb
+
+## QR-Kundenkarte
+QR-Code-Ziel: `[Domain]/qr-kundenkarte`
+
+Die Seite `/qr-kundenkarte` ist oeffentlich erreichbar und erfasst ausschliesslich neue Kundendaten. Bestehende Kundendaten werden dort niemals angezeigt.
 
 ## Projektstruktur
 - `salon_karola/`: neue Paketoberflaeche fuer App-Struktur, Services, Routes und Hilfsimporte

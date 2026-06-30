@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}Neue Kundenkarte – Salon Karola{% endblock %}
+{% block content %}
+<section class="qr-customer-page" aria-labelledby="qrCustomerTitle">
+  <div class="qr-customer-brand">
+    <img src="{{ url_for('static', filename='salon-karola-original-logo.jpg') }}" alt="Salon Karola">
+  </div>
+
+  <header class="qr-customer-head">
+    <p class="qr-customer-kicker">Salon Karola</p>
+    <h1 id="qrCustomerTitle">Neue Kundenkarte – Salon Karola</h1>
+    <p>Bitte füllen Sie kurz Ihre Daten aus, damit wir Ihre Termine und Wünsche besser verwalten können.</p>
+  </header>
+
+  {% if success_message or duplicate_message %}
+  <section class="qr-customer-result" aria-live="polite">
+    <h2>{{ success_message or duplicate_message }}</h2>
+    <p>Für Termine rufen Sie uns bitte direkt im Salon an: <a href="tel:+4970516344">07051-6344</a>.</p>
+  </section>
+  {% else %}
+  {% if errors %}
+  <div class="qr-customer-errors" role="alert">
+    {% for error in errors %}
+    <p>{{ error }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" class="qr-customer-form" novalidate>
+    <div class="qr-field-grid">
+      <label>
+        <span>Vorname *</span>
+        <input type="text" name="firstname" autocomplete="given-name" required value="{{ form.firstname or '' }}">
+      </label>
+      <label>
+        <span>Nachname *</span>
+        <input type="text" name="name" autocomplete="family-name" required value="{{ form.name or '' }}">
+      </label>
+      <label>
+        <span>Telefonnummer *</span>
+        <input type="tel" name="phone" autocomplete="tel" required value="{{ form.phone or '' }}">
+      </label>
+      <label>
+        <span>E-Mail</span>
+        <input type="email" name="mail" autocomplete="email" value="{{ form.mail or '' }}">
+      </label>
+      <label>
+        <span>Geburtstag</span>
+        <input type="date" name="birthdate" value="{{ form.birthdate or '' }}">
+      </label>
+      <label class="qr-field-wide">
+        <span>Notizen / Wünsche / Besonderheiten</span>
+        <textarea name="notes" rows="4">{{ form.notes or '' }}</textarea>
+      </label>
+    </div>
+
+    <label class="qr-check">
+      <input type="checkbox" name="privacy_consent" value="yes" required {% if form.privacy_consent %}checked{% endif %}>
+      <span>Ich bin einverstanden, dass Salon Karola meine Daten zur Termin- und Kundenverwaltung speichert.</span>
+    </label>
+    <label class="qr-check">
+      <input type="checkbox" name="whatsapp_contact_allowed" value="yes" {% if form.whatsapp_contact_allowed %}checked{% endif %}>
+      <span>Ich bin einverstanden, dass Salon Karola mich bei Terminfragen per WhatsApp kontaktieren darf.</span>
+    </label>
+    <label class="qr-check">
+      <input type="checkbox" name="marketing_contact_allowed" value="yes" {% if form.marketing_contact_allowed %}checked{% endif %}>
+      <span>Ich möchte gelegentlich Informationen zu Aktionen oder Neuigkeiten erhalten.</span>
+    </label>
+
+    <label class="qr-honeypot" aria-hidden="true" tabindex="-1">
+      <span>Website</span>
+      <input type="text" name="website" autocomplete="off" tabindex="-1">
+    </label>
+
+    <button type="submit" class="qr-submit">Daten übermitteln</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

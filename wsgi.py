@@ -1,5 +1,4 @@
-from salon_karola import boot_app, create_app
+from app import app as application
+from salon_karola import boot_app
 
-app = create_app()
 boot_app()
-application = app
