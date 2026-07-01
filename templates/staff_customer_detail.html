@@ -115,6 +115,41 @@
   </section>
   {% endif %}
 
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Termin</div>
+        <h2 class="simple-section-title">N&auml;chster Termin</h2>
+      </div>
+      <a class="simple-action-button" href="{{ url_for('staff_new_appointment', customer_id=customer['_id']) }}">Termin anlegen</a>
+    </div>
+    {% if next_appointment %}
+    <div class="simple-detail-grid next-appointment-box">
+      <div>
+        <strong>Datum</strong>
+        <span>{{ next_appointment.date }}</span>
+      </div>
+      <div>
+        <strong>Uhrzeit</strong>
+        <span>{{ next_appointment.time }} Uhr</span>
+      </div>
+      <div>
+        <strong>Mitarbeiterin</strong>
+        <span>{{ next_appointment.staff }}</span>
+      </div>
+      <div class="full">
+        <strong>Leistung / Notiz</strong>
+        <span>{{ next_appointment.service }}</span>
+      </div>
+      <div class="full">
+        <a class="simple-action-button" href="{{ next_appointment.calendar_url }}">Im Kalender &ouml;ffnen</a>
+      </div>
+    </div>
+    {% else %}
+    <div class="simple-empty">Kein kommender Termin hinterlegt.</div>
+    {% endif %}
+  </section>
+
   <section class="simple-panel simple-edit-panel" id="kunde-bearbeiten">
     <details>
       <summary class="simple-details-summary">

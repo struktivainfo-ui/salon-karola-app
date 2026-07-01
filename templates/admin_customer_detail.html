@@ -96,6 +96,37 @@
   </section>
   {% endif %}
 
+  {% if customer %}
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Termin</div>
+        <h2 class="premium-panel-title">N&auml;chster Termin</h2>
+      </div>
+      <a class="premium-button secondary" href="#termin-hinzufuegen">Termin anlegen</a>
+    </div>
+    {% if next_appointment %}
+    <div class="next-appointment-box premium-space-top">
+      <div>
+        <strong>{{ next_appointment.date }}</strong>
+        <span>{{ next_appointment.time }} Uhr</span>
+      </div>
+      <div>
+        <strong>Mitarbeiterin</strong>
+        <span>{{ next_appointment.staff }}</span>
+      </div>
+      <div class="full">
+        <strong>Leistung / Notiz</strong>
+        <span>{{ next_appointment.service }}</span>
+      </div>
+      <a class="premium-button secondary" href="{{ next_appointment.calendar_url }}">Im Kalender &ouml;ffnen</a>
+    </div>
+    {% else %}
+    <div class="premium-list-empty premium-space-top">Kein kommender Termin hinterlegt.</div>
+    {% endif %}
+  </section>
+  {% endif %}
+
   <section class="premium-panel premium-space-top">
     <div class="premium-panel-head">
       <div>

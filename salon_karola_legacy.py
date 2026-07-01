@@ -1426,7 +1426,7 @@ def bonus_card_context(customer):
     }
 
 
-def public_bonus_card_context(customer):
+def public_bonus_card_context(customer, next_appointment=None):
     first_name = ((_row_value(customer, "_firstname") or "").strip())[:80]
     try:
         visits = int(_row_value(customer, "bonus_visits", default=0) or 0)
@@ -1441,6 +1441,7 @@ def public_bonus_card_context(customer):
         "target": BONUS_CARD_TARGET_VISITS,
         "reward_available": visits >= BONUS_CARD_TARGET_VISITS,
         "stamp_slots": list(range(1, BONUS_CARD_TARGET_VISITS + 1)),
+        "next_appointment": public_appointment_context(next_appointment),
     }
 
 
@@ -1873,6 +1874,7 @@ def init_db():
         add_column_if_missing("appointments", "service_summary", "TEXT DEFAULT ''")
         add_column_if_missing("appointments", "duration_minutes", "INTEGER DEFAULT 30")
         add_column_if_missing("appointments", "processing_minutes", "INTEGER DEFAULT 0")
+        add_column_if_missing("appointments", "source", "TEXT DEFAULT ''")
         add_column_if_missing("bonus_stamps", "stamped_by", "TEXT DEFAULT ''")
         add_column_if_missing("bonus_stamps", "source", "TEXT DEFAULT 'internal_app'")
         add_column_if_missing("bonus_stamps", "voided", "INTEGER NOT NULL DEFAULT 0")
@@ -5359,6 +5361,17 @@ def staff_day_view(date_value):
 def staff_new_appointment():
     set_ui_world("staff")
     if request.method == "GET":
+        customer_id = (request.args.get("customer_id") or "").strip()
+        if customer_id.isdigit():
+            return redirect(
+                url_for(
+                    "appointments_hub",
+                    customer_id=customer_id,
+                    source="customer_profile",
+                    appointment_at=request.args.get("appointment_at"),
+                    staff=request.args.get("staff"),
+                )
+            )
         at_raw = (request.args.get("appointment_at") or "").strip()
         staff = (request.args.get("staff") or default_staff_for_simple_mode(get_db())).strip() or "Ute"
         parsed = _parse_dt_safe(at_raw)
@@ -6202,7 +6215,7 @@ def bonus_card_public(token):
     if token:
         customer = get_db().execute(
             f"""
-            SELECT _firstname, bonus_visits
+            SELECT _id, _firstname, bonus_visits
             FROM _Customers
             WHERE bonus_card_token = ?
               AND {visible_customer_condition('_Customers')}
@@ -6211,10 +6224,11 @@ def bonus_card_public(token):
             (token,),
         ).fetchone()
 
+    next_appointment = customer_next_appointment(get_db(), customer["_id"]) if customer else None
     status_code = 200 if customer else 404
     return render_template(
         "bonus_card_public.html",
-        bonus_card=public_bonus_card_context(customer) if customer else None,
+        bonus_card=public_bonus_card_context(customer, next_appointment=next_appointment) if customer else None,
         confirm_qr_url=bonus_confirm_qr_url(token) if customer else "",
         confirm_url=bonus_confirm_url(token) if customer else "",
         current_endpoint="bonus_card_public",
@@ -6336,14 +6350,7 @@ def customer_detail(customer_id):
     tags_text = ", ".join(
         r["tag"] for r in db.execute("SELECT tag FROM customer_tags WHERE customer_id = ? ORDER BY tag", (customer_id,)).fetchall()
     )
-    next_appt = None
-    for appt in appointments:
-        try:
-            if appt["appointment_at"] and datetime.fromisoformat(str(appt["appointment_at"])) >= datetime.now():
-                next_appt = appt
-                break
-        except Exception:
-            continue
+    next_appt = customer_next_appointment(db, customer_id)
 
     return render_template(
         "admin_customer_detail.html" if is_admin_world_session() else "staff_customer_detail.html",
@@ -6358,6 +6365,7 @@ def customer_detail(customer_id):
         wa_review_link=whatsapp_link(customer, communication_template_text("review_request", customer=customer)),
         customer_status=customer_activity_status(appointments[0]["appointment_at"]) if appointments else "neu",
         bonus_card=bonus_card_detail_context(db, customer),
+        next_appointment=internal_appointment_context(next_appt),
         current_endpoint="customer_detail",
         app_version=APP_VERSION,
         simple_staff_members=staff_members_for_simple_mode(db),
@@ -6480,8 +6488,8 @@ def appointment_new(customer_id):
         return redirect(url_for("customer_detail", customer_id=customer_id))
     db.execute(
         """
-        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at, service_codes, service_summary, duration_minutes, processing_minutes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at, service_codes, service_summary, duration_minutes, processing_minutes, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             customer_id,
@@ -6498,6 +6506,7 @@ def appointment_new(customer_id):
             payload["service_summary"],
             payload["duration_minutes"],
             payload["processing_minutes"],
+            "customer_profile",
         ),
     )
     db.commit()
@@ -6765,6 +6774,86 @@ def parse_iso_date(value):
     return _parse_date(value)
 
 
+APPOINTMENT_CANCELLED_STATUSES = {
+    "abgesagt",
+    "storniert",
+    "gel\u00f6scht",
+    "geloescht",
+    "cancelled",
+    "canceled",
+}
+
+
+def customer_next_appointment(db, customer_id):
+    if not customer_id:
+        return None
+    now_value = datetime.now().isoformat(timespec="minutes")
+    rows = db.execute(
+        """
+        SELECT *
+        FROM appointments
+        WHERE customer_id = ?
+          AND appointment_at IS NOT NULL
+          AND TRIM(appointment_at) <> ''
+          AND appointment_at >= ?
+        ORDER BY appointment_at ASC
+        LIMIT 20
+        """,
+        (customer_id, now_value),
+    ).fetchall()
+    for row in rows:
+        status = ((row["status"] if "status" in row.keys() else "") or "").strip().lower()
+        if status in APPOINTMENT_CANCELLED_STATUSES:
+            continue
+        return row
+    return None
+
+
+def appointment_service_label(appointment, *, include_notes=False):
+    if not appointment:
+        return ""
+    keys = appointment.keys() if hasattr(appointment, "keys") else []
+    service_summary = ((appointment["service_summary"] if "service_summary" in keys else "") or "").strip()
+    title = ((appointment["title"] if "title" in keys else "") or "").strip()
+    notes = ((appointment["notes"] if include_notes and "notes" in keys else "") or "").strip()
+    label = service_summary or (title if title and title != "Salon-Termin" else "")
+    if include_notes and notes and notes != label:
+        return " - ".join(part for part in [label, notes] if part)
+    return label
+
+
+def public_appointment_context(appointment):
+    if not appointment:
+        return None
+    dt_value = _parse_dt_safe(appointment["appointment_at"])
+    if not dt_value:
+        return None
+    staff_name = ((appointment["staff_name"] if "staff_name" in appointment.keys() else "") or "").strip()
+    return {
+        "when": f"{weekday_name_de(dt_value.date())}, {dt_value.day}. {month_name_de(dt_value.month)} {dt_value.year} um {dt_value.strftime('%H:%M')} Uhr",
+        "staff": staff_name if staff_name in {"Jessi", "Ute"} else "",
+        "service": appointment_service_label(appointment, include_notes=False),
+    }
+
+
+def internal_appointment_context(appointment):
+    if not appointment:
+        return None
+    dt_value = _parse_dt_safe(appointment["appointment_at"])
+    if not dt_value:
+        return None
+    staff_name = ((appointment["staff_name"] if "staff_name" in appointment.keys() else "") or "").strip()
+    staff_filter = staff_name if staff_name in {"Jessi", "Ute"} else "Alle"
+    return {
+        "id": appointment["id"],
+        "date": dt_value.strftime("%d.%m.%Y"),
+        "time": dt_value.strftime("%H:%M"),
+        "staff": staff_name if staff_name in {"Jessi", "Ute"} else "nicht festgelegt",
+        "service": appointment_service_label(appointment, include_notes=True) or "Termin",
+        "calendar_url": url_for("calendar_view", view="day", date=dt_value.date().isoformat(), staff=staff_filter, mine=0 if is_admin_world_session() else 1),
+    }
+
+
 def _calendar_event_dict(appt):
     status = appt["status"] or "geplant"
     try:
@@ -6916,7 +7005,7 @@ def _calendar_nav_date(selected_date, view, step):
 def appointments_hub():
     db = get_db()
 
-    if request.method == "GET":
+    if request.method == "GET" and not (request.args.get("customer_id") or "").strip().isdigit():
         # Legacy query-string variants now resolve into the canonical
         # calendar flow instead of rendering legacy appointment templates.
         at_raw = (request.args.get("appointment_at") or "").strip()
@@ -6977,8 +7066,8 @@ def appointments_hub():
 
         db.execute(
             """
-            INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at, manual_firstname, manual_lastname, manual_phone, manual_email, service_codes, service_summary, duration_minutes, processing_minutes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO appointments(customer_id, title, appointment_at, notes, reminder_hours, created_at, status, staff_name, created_by, updated_at, manual_firstname, manual_lastname, manual_phone, manual_email, service_codes, service_summary, duration_minutes, processing_minutes, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 customer_id,
@@ -6999,6 +7088,7 @@ def appointments_hub():
                 payload["service_summary"],
                 payload["duration_minutes"],
                 payload["processing_minutes"],
+                (request.form.get("source") or "").strip(),
             ),
         )
         db.commit()
@@ -7042,6 +7132,7 @@ def appointments_hub():
     prefill_source = (request.args.get("source") or "manual").strip()
     prefill_payload = {
         "customer_id": (request.args.get("customer_id") or "").strip(),
+        "customer_name": "",
         "selected_services": "",
         "service_summary": "",
         "appointment_at": prefill_at,
@@ -7058,6 +7149,14 @@ def appointments_hub():
         "duration_minutes": 30,
         "processing_minutes": 0,
     }
+    if prefill_payload["customer_id"].isdigit():
+        prefill_customer = db.execute(
+            "SELECT _firstname, _name FROM _Customers WHERE _id = ? LIMIT 1",
+            (int(prefill_payload["customer_id"]),),
+        ).fetchone()
+        if prefill_customer:
+            prefill_payload["customer_name"] = customer_full_name(prefill_customer)
+            prefill_source = "customer_profile" if prefill_source == "manual" else prefill_source
     ping_token = (request.args.get("ping") or "").strip()
     if ping_token:
         ping = get_appointment_ping(ping_token, mark_used=True, db=db)

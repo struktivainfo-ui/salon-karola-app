@@ -7807,6 +7807,46 @@ body.endpoint-bonus_card_public::after {
   color: rgba(255, 248, 231, 0.8);
 }
 
+.bonuscard-appointment {
+  display: grid;
+  gap: 7px;
+  padding: 16px;
+  border: 1px solid #eadbbf;
+  border-radius: 18px;
+  background: #fffdf8;
+  text-align: center;
+}
+
+.bonuscard-appointment h2 {
+  margin: 0;
+  color: #17110b;
+  font-size: 1.16rem;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.bonuscard-appointment p {
+  margin: 0;
+  color: #5f4a2d;
+  line-height: 1.42;
+}
+
+.bonuscard-appointment .bonuscard-appointment-time {
+  color: #17110b;
+  font-size: 1.12rem;
+  font-weight: 900;
+}
+
+.bonuscard-appointment small {
+  color: #6f5a39;
+  line-height: 1.5;
+}
+
+.bonuscard-appointment a {
+  color: #17110b;
+  font-weight: 900;
+}
+
 .bonuscard-card-foot {
   display: grid;
   gap: 16px;
@@ -7847,6 +7887,36 @@ body.endpoint-bonus_card_public::after {
   padding: 30px 22px;
 }
 
+.next-appointment-box {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.next-appointment-box > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid rgba(214, 176, 46, 0.18);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+}
+
+.next-appointment-box .full {
+  grid-column: 1 / -1;
+}
+
+.next-appointment-box strong {
+  color: rgba(247, 214, 106, 0.78);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.next-appointment-box span {
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 520px) {
   .endpoint-bonus_card_public .app-main {
     padding: 14px 12px 24px;
@@ -7884,5 +7954,9 @@ body.endpoint-bonus_card_public::after {
 
   .bonus-mini-stamps {
     grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .next-appointment-box {
+    grid-template-columns: 1fr;
   }
 }

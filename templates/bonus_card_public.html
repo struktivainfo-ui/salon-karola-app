@@ -51,6 +51,23 @@
             <span>Bitte im Salon beim n&auml;chsten Besuch vorzeigen.</span>
           </div>
           {% endif %}
+
+          <section class="bonuscard-appointment" aria-labelledby="bonusNextAppointmentTitle">
+            <h2 id="bonusNextAppointmentTitle">Ihr n&auml;chster Termin</h2>
+            {% if bonus_card.next_appointment %}
+            <p class="bonuscard-appointment-time">{{ bonus_card.next_appointment.when }}</p>
+            {% if bonus_card.next_appointment.staff %}
+            <p>bei {{ bonus_card.next_appointment.staff }}</p>
+            {% endif %}
+            {% if bonus_card.next_appointment.service %}
+            <p>{{ bonus_card.next_appointment.service }}</p>
+            {% endif %}
+            <small>Bei Fragen oder &Auml;nderungen bitte direkt im Salon anrufen: <a href="tel:+4970516344">07051-6344</a>.</small>
+            {% else %}
+            <p>Aktuell ist kein n&auml;chster Termin hinterlegt.</p>
+            <small>F&uuml;r Termine bitte direkt im Salon anrufen: <a href="tel:+4970516344">07051-6344</a>.</small>
+            {% endif %}
+          </section>
         </section>
 
         <footer class="bonuscard-card-foot">

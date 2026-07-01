@@ -44,7 +44,7 @@
         </div>
 
         <div id="existingCustomerBlock" class="simple-step-card">
-          <input type="text" id="simpleCustomerSearch" placeholder="Name oder Telefonnummer suchen" autocomplete="off">
+          <input type="text" id="simpleCustomerSearch" placeholder="Name oder Telefonnummer suchen" autocomplete="off" value="{{ prefill_payload['customer_name'] }}">
           <input type="hidden" name="customer_id" id="simpleCustomerId" value="{{ prefill_payload['customer_id'] }}">
           <div class="simple-selected-customer" id="simpleSelectedCustomer" hidden></div>
           <div class="simple-live-results" id="simpleCustomerResults"></div>
@@ -323,7 +323,7 @@ document.addEventListener("DOMContentLoaded", function () {
   updateStaff(staffField.value || "{{ simple_default_staff }}");
   updateMode();
   if (customerIdField.value) {
-    customerSearch.value = "Ausgewählter Kunde";
+    customerSearch.value = {{ (prefill_payload['customer_name'] or 'Ausgewählter Kunde')|tojson }};
   }
   renderSelectedCustomerCard();
   renderStep();
