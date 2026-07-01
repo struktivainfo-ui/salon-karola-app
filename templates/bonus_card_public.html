@@ -21,8 +21,9 @@
         <header class="bonuscard-card-head">
           <div class="bonuscard-brand-mark">SK</div>
           <p class="bonuscard-brand">Salon Karola</p>
+          <p class="bonuscard-location">Calw-Wimberg</p>
           <h1 id="bonuscardTitle">Digitale Bonuscard</h1>
-          <p>Nach 12 best&auml;tigten Besuchen erhalten Sie 10 &euro; Bonus auf den n&auml;chsten Salonbesuch.</p>
+          <p>Nach 12 best&auml;tigten Besuchen erhalten Sie 10 &euro; Bonus auf Ihren n&auml;chsten Salonbesuch.</p>
         </header>
 
         {% if bonus_card %}
@@ -71,14 +72,13 @@
         </section>
 
         <footer class="bonuscard-card-foot">
-          <p>Zum Stempeln bitte im Salon vorzeigen.</p>
-          <p class="bonuscard-save-tip">Tipp: Speichern Sie diese Bonuscard als Favorit oder auf dem Startbildschirm, damit Sie sie beim n&auml;chsten Besuch schnell wiederfinden.</p>
           {% if confirm_qr_url %}
           <div class="bonuscard-qr-box">
             <strong>Zum Stempeln bitte im Salon vorzeigen</strong>
             <img src="{{ confirm_qr_url }}" alt="QR-Code zur internen Bonusbesuch-Best&auml;tigung">
           </div>
           {% endif %}
+          <p class="bonuscard-save-tip">Tipp: Speichern Sie diese Bonuscard als Favorit oder auf dem Startbildschirm, damit Sie sie beim n&auml;chsten Besuch schnell wiederfinden.</p>
         </footer>
         {% else %}
         <section class="bonuscard-card-body bonuscard-not-found" role="status">
