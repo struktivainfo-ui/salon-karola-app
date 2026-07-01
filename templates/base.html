@@ -6,14 +6,25 @@
   <meta name="theme-color" content="#0f172a" />
   <meta name="background-color" content="#0f172a" />
   <meta name="application-name" content="Salon Karola" />
+  {% if not suppress_pwa_install %}
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Salon Karola" />
+  {% endif %}
   <script src="{{ url_for('static', filename='js/crash-guard.js', v=app_version) }}"></script>
   <script src="{{ url_for('static', filename='js/safe-fetch.js', v=app_version) }}"></script>
   <title>{% block title %}Salon Karola App{% endblock %}</title>
+  {% if suppress_pwa_install %}
+  <script>
+    window.addEventListener("beforeinstallprompt", function (event) {
+      try { event.preventDefault(); } catch (error) {}
+      window.__skPublicInstallPromptSuppressed = true;
+    });
+  </script>
+  {% else %}
   <link rel="manifest" href="/manifest.json" />
+  {% endif %}
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}" />
   <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}" />
   <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/icon-512.png') }}" />

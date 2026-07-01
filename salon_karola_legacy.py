@@ -7253,6 +7253,7 @@ def inject_globals():
     ui_world = current_ui_world()
     endpoint_name = request.endpoint or ""
     sw_manual_page = endpoint_name == "test_service_worker"
+    suppress_pwa_install = endpoint_name == "qr_customer_card" or request.path in {"/qr-kundenkarte", "/neukunde"}
     return {
         "admin_name": session.get("admin_name"),
         "logged_in_staff": session.get("staff_name") or get_default_staff(),
@@ -7279,9 +7280,10 @@ def inject_globals():
         "service_presets": SERVICE_PRESETS,
         "safe_mode": SAFE_MODE,
         "enable_scheduler": ENABLE_SCHEDULER and not SAFE_MODE,
-        "enable_service_worker": ENABLE_SERVICE_WORKER and not SAFE_MODE,
+        "enable_service_worker": ENABLE_SERVICE_WORKER and not SAFE_MODE and not suppress_pwa_install,
         "allow_auto_service_worker_boot": False,
         "allow_manual_service_worker_controls": sw_manual_page,
+        "suppress_pwa_install": suppress_pwa_install,
     }
 
 
