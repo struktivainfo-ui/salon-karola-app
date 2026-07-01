@@ -39,6 +39,13 @@
         <strong>{{ customer_full_name(customer) }}</strong>
         <span>{{ phone or 'Keine Nummer gespeichert' }}</span>
         <small>{{ customer['_mail'] or 'Keine E-Mail gespeichert' }}</small>
+        {% if customer.bonus_list %}
+        <small class="bonus-list-inline">
+          Bonus: {{ customer.bonus_list.visits }}/{{ customer.bonus_list.target }}
+          {% if customer.bonus_list.today_stamped %} | Heute da{% endif %}
+          {% if customer.bonus_list.reward_available %} | 10 &euro; verf&uuml;gbar{% endif %}
+        </small>
+        {% endif %}
       </button>
       <div class="simple-card-actions">
         {% if phone %}
@@ -193,6 +200,14 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!result.ok) throw new Error(result.error || "Suche fehlgeschlagen");
       const payload = result.data || {};
       const items = payload.items || [];
+      function bonusLine(item) {
+        const bonus = item.bonus || null;
+        if (!bonus) return "";
+        const parts = [`Bonus: ${bonus.visits}/${bonus.target}`];
+        if (bonus.today_stamped) parts.push("Heute da");
+        if (bonus.reward_available) parts.push("10 € verfügbar");
+        return `<small class="bonus-list-inline">${parts.join(" | ")}</small>`;
+      }
       results.innerHTML = items.map((item) => `
       <article class="simple-live-result">
         <button
@@ -208,6 +223,7 @@ document.addEventListener("DOMContentLoaded", function () {
         >
           <strong>${item.name || "Kunde"}</strong>
           <span>${item.phone || "Keine Nummer gespeichert"}</span>
+          ${bonusLine(item)}
         </button>
         <div class="simple-card-actions">
           ${actionLink(item.call_url, "Anrufen", "Telefon fehlt")}

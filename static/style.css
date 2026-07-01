@@ -2606,6 +2606,95 @@ thead th {
   min-height: 1.2em;
 }
 
+.bonus-mini-stamps {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(8px, 1fr));
+  gap: 6px;
+  width: 100%;
+}
+
+.bonus-mini-stamps span {
+  aspect-ratio: 1;
+  border: 1px solid rgba(214, 176, 46, 0.32);
+  border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+}
+
+.bonus-mini-stamps span.is-filled {
+  border-color: transparent;
+  background: linear-gradient(145deg, #f8df82, #c99b24);
+  box-shadow: 0 6px 14px rgba(185, 143, 34, 0.2);
+}
+
+.bonus-internal-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bonus-internal-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid rgba(214, 176, 46, 0.18);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+}
+
+.bonus-internal-summary strong {
+  color: rgba(247, 214, 106, 0.78);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.bonus-internal-alert {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(246, 216, 121, 0.14);
+  color: #f6d879;
+  font-weight: 850;
+}
+
+.bonus-internal-alert.muted {
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.78);
+}
+
+.bonus-list-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.bonus-list-badges span,
+.bonus-list-inline {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid rgba(214, 176, 46, 0.22);
+  border-radius: 999px;
+  color: #f3e6b2;
+  background: rgba(255,255,255,0.03);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.simple-customer-main .bonus-list-inline,
+.simple-live-result .bonus-list-inline {
+  color: #5a4219;
+  background: #fff7df;
+  border-color: #ead18a;
+}
+
+.premium-button:disabled,
+.simple-action-button.disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .premium-top-action:hover,
 .premium-button:hover,
 .premium-inline-link:hover,
@@ -7719,6 +7808,8 @@ body.endpoint-bonus_card_public::after {
 }
 
 .bonuscard-card-foot {
+  display: grid;
+  gap: 16px;
   padding: 0 22px 24px;
 }
 
@@ -7728,6 +7819,28 @@ body.endpoint-bonus_card_public::after {
   color: #5f4a2d;
   line-height: 1.5;
   text-align: center;
+}
+
+.bonuscard-qr-box {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #eadbbf;
+  border-radius: 18px;
+  background: #fffdf8;
+}
+
+.bonuscard-qr-box strong {
+  color: #17110b;
+  text-align: center;
+}
+
+.bonuscard-qr-box img {
+  width: min(210px, 68vw);
+  height: auto;
+  border-radius: 12px;
+  background: #fff;
 }
 
 .bonuscard-not-found {
@@ -7763,5 +7876,13 @@ body.endpoint-bonus_card_public::after {
 
   .bonuscard-stamp span {
     font-size: 0.78rem;
+  }
+
+  .bonus-internal-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .bonus-mini-stamps {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }

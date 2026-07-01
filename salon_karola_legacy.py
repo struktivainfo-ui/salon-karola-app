@@ -1292,6 +1292,7 @@ BONUS_CARD_TOKEN_BYTES = 24
 BONUS_CARD_TARGET_VISITS = 12
 BONUS_CARD_CRM_BASE_URL = "https://salon-karola-crm.onrender.com/bonuscard"
 BONUS_CARD_PUBLIC_BASE_URL = "https://salonkarola.de/bonuscard"
+BONUS_CONFIRM_CRM_BASE_URL = "https://salon-karola-crm.onrender.com/admin/bonus/confirm"
 
 
 def _connection_table_columns(conn, table_name):
@@ -1410,6 +1411,7 @@ def bonus_card_context(customer):
         visits = int(_row_value(customer, "bonus_visits", default=0) or 0)
     except (TypeError, ValueError):
         visits = 0
+    visits = min(max(visits, 0), BONUS_CARD_TARGET_VISITS)
     try:
         rewards = int(_row_value(customer, "bonus_rewards_redeemed", default=0) or 0)
     except (TypeError, ValueError):
@@ -1440,6 +1442,171 @@ def public_bonus_card_context(customer):
         "reward_available": visits >= BONUS_CARD_TARGET_VISITS,
         "stamp_slots": list(range(1, BONUS_CARD_TARGET_VISITS + 1)),
     }
+
+
+def bonus_confirm_url(token):
+    if not token:
+        return ""
+    return f"{BONUS_CONFIRM_CRM_BASE_URL}/{token}"
+
+
+def bonus_confirm_qr_url(token):
+    confirm_url = bonus_confirm_url(token)
+    if not confirm_url:
+        return ""
+    return f"https://api.qrserver.com/v1/create-qr-code/?size=320x320&data={quote(confirm_url, safe='')}"
+
+
+def bonus_today():
+    return datetime.now().date().isoformat()
+
+
+def bonus_actor_name():
+    return (session.get("staff_name") or session.get("admin_name") or "Salon Karola").strip()
+
+
+def bonus_today_stamp_row(db, customer_id, visit_date=None):
+    visit_date = visit_date or bonus_today()
+    return db.execute(
+        """
+        SELECT *
+        FROM bonus_stamps
+        WHERE customer_id = ?
+          AND visit_date = ?
+          AND COALESCE(voided, 0) = 0
+        LIMIT 1
+        """,
+        (customer_id, visit_date),
+    ).fetchone()
+
+
+def bonus_card_detail_context(db, customer):
+    context = bonus_card_context(customer)
+    customer_id = customer["_id"]
+    today_stamp = bonus_today_stamp_row(db, customer_id)
+    context.update(
+        {
+            "filled_stamps": min(max(context["visits"], 0), BONUS_CARD_TARGET_VISITS),
+            "stamp_slots": list(range(1, BONUS_CARD_TARGET_VISITS + 1)),
+            "today_stamped": bool(today_stamp),
+            "status_text": "Heute bereits gestempelt" if today_stamp else "Heute noch kein Stempel",
+            "reward_available": context["visits"] >= BONUS_CARD_TARGET_VISITS,
+            "can_stamp_today": not today_stamp and context["visits"] < BONUS_CARD_TARGET_VISITS,
+            "confirm_url": bonus_confirm_url(context["token"]),
+        }
+    )
+    return context
+
+
+def bonus_list_context_for_customer(db, customer):
+    try:
+        visits = int(_row_value(customer, "bonus_visits", default=0) or 0)
+    except (TypeError, ValueError):
+        visits = 0
+    visits = max(0, visits)
+    return {
+        "visits": min(visits, BONUS_CARD_TARGET_VISITS),
+        "target": BONUS_CARD_TARGET_VISITS,
+        "today_stamped": bool(bonus_today_stamp_row(db, customer["_id"])),
+        "reward_available": visits >= BONUS_CARD_TARGET_VISITS,
+    }
+
+
+def attach_bonus_list_context(db, customers):
+    for customer in customers:
+        try:
+            customer["bonus_list"] = bonus_list_context_for_customer(db, customer)
+        except TypeError:
+            pass
+    return customers
+
+
+def load_bonus_customer_by_token(db, token):
+    token = (token or "").strip()[:180]
+    if not token:
+        return None
+    return db.execute(
+        f"""
+        SELECT *
+        FROM _Customers
+        WHERE bonus_card_token = ?
+          AND {visible_customer_condition('_Customers')}
+        LIMIT 1
+        """,
+        (token,),
+    ).fetchone()
+
+
+def confirm_bonus_visit(db, customer, *, stamped_by=None):
+    customer_id = customer["_id"]
+    today = bonus_today()
+    if bonus_today_stamp_row(db, customer_id, today):
+        return False, "F\u00fcr diesen Kunden wurde heute bereits ein Stempel vergeben."
+    try:
+        visits = int(_row_value(customer, "bonus_visits", default=0) or 0)
+    except (TypeError, ValueError):
+        visits = 0
+    if visits >= BONUS_CARD_TARGET_VISITS:
+        return False, "10 \u20ac Bonus verf\u00fcgbar"
+
+    now = datetime.now().isoformat(timespec="seconds")
+    try:
+        db.execute(
+            """
+            INSERT INTO bonus_stamps(customer_id, stamped_at, visit_date, stamped_by, source, voided, note)
+            VALUES (?, ?, ?, ?, ?, 0, ?)
+            """,
+            (customer_id, now, today, stamped_by or bonus_actor_name(), "internal_app", ""),
+        )
+    except sqlite3.IntegrityError:
+        return False, "F\u00fcr diesen Kunden wurde heute bereits ein Stempel vergeben."
+    db.execute(
+        """
+        UPDATE _Customers
+        SET bonus_visits = MIN(COALESCE(bonus_visits, 0) + 1, ?)
+        WHERE _id = ?
+        """,
+        (BONUS_CARD_TARGET_VISITS, customer_id),
+    )
+    return True, "Besuch best\u00e4tigt. Der Kunde hat heute einen Stempel erhalten."
+
+
+def correct_bonus_visit(db, customer_id, *, stamped_by=None):
+    row = db.execute(
+        """
+        SELECT id
+        FROM bonus_stamps
+        WHERE customer_id = ?
+          AND COALESCE(voided, 0) = 0
+        ORDER BY stamped_at DESC, id DESC
+        LIMIT 1
+        """,
+        (customer_id,),
+    ).fetchone()
+    if row:
+        note = f"Korrektur -1 durch {stamped_by or bonus_actor_name()} am {datetime.now().isoformat(timespec='seconds')}"
+        db.execute("UPDATE bonus_stamps SET voided = 1, note = ? WHERE id = ?", (note, row["id"]))
+    db.execute(
+        """
+        UPDATE _Customers
+        SET bonus_visits = MAX(COALESCE(bonus_visits, 0) - 1, 0)
+        WHERE _id = ?
+        """,
+        (customer_id,),
+    )
+
+
+def redeem_bonus_reward(db, customer_id):
+    db.execute(
+        """
+        UPDATE _Customers
+        SET bonus_rewards_redeemed = COALESCE(bonus_rewards_redeemed, 0) + 1,
+            bonus_visits = 0
+        WHERE _id = ?
+          AND COALESCE(bonus_visits, 0) >= ?
+        """,
+        (customer_id, BONUS_CARD_TARGET_VISITS),
+    )
 
 
 CUSTOMER_PERSONAL_PHONE_ALIASES = [
@@ -1553,6 +1720,21 @@ def init_db():
             CREATE TABLE IF NOT EXISTS app_settings (
                 key TEXT PRIMARY KEY,
                 value TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bonus_stamps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                customer_id INTEGER NOT NULL,
+                stamped_at TEXT NOT NULL,
+                visit_date TEXT NOT NULL,
+                stamped_by TEXT DEFAULT '',
+                source TEXT DEFAULT 'internal_app',
+                voided INTEGER NOT NULL DEFAULT 0,
+                note TEXT DEFAULT '',
+                FOREIGN KEY(customer_id) REFERENCES _Customers(_id)
             )
             """
         )
@@ -1691,6 +1873,10 @@ def init_db():
         add_column_if_missing("appointments", "service_summary", "TEXT DEFAULT ''")
         add_column_if_missing("appointments", "duration_minutes", "INTEGER DEFAULT 30")
         add_column_if_missing("appointments", "processing_minutes", "INTEGER DEFAULT 0")
+        add_column_if_missing("bonus_stamps", "stamped_by", "TEXT DEFAULT ''")
+        add_column_if_missing("bonus_stamps", "source", "TEXT DEFAULT 'internal_app'")
+        add_column_if_missing("bonus_stamps", "voided", "INTEGER NOT NULL DEFAULT 0")
+        add_column_if_missing("bonus_stamps", "note", "TEXT DEFAULT ''")
         add_column_if_missing(
             "push_subscriptions",
             "provider",
@@ -1719,6 +1905,14 @@ def init_db():
             CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_bonus_card_token
             ON _Customers(bonus_card_token)
             WHERE bonus_card_token IS NOT NULL AND TRIM(bonus_card_token) <> ''
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_bonus_stamps_customer ON bonus_stamps(customer_id, stamped_at)")
+        conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_bonus_stamps_customer_visit_active
+            ON bonus_stamps(customer_id, visit_date)
+            WHERE COALESCE(voided, 0) = 0
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_push_staff ON push_subscriptions(staff_name)")
@@ -5288,7 +5482,8 @@ def customer_search_page():
         customers = []
     else:
         base_query += f" GROUP BY c._id ORDER BY {order_sql} LIMIT {limit}"
-        customers = db.execute(base_query, params).fetchall()
+        customers = [dict(row) for row in db.execute(base_query, params).fetchall()]
+        attach_bonus_list_context(db, customers)
     tags = db.execute("SELECT tag, COUNT(*) AS cnt FROM customer_tags GROUP BY tag ORDER BY tag").fetchall()
     template_name = "admin_customers.html" if is_admin_world else "staff_customer_search.html"
     return render_template(
@@ -5532,10 +5727,12 @@ def customer_quick_search():
     q = request.args.get("q", "").strip()
     in_admin_world = is_admin_world_session()
     items = []
+    db = get_db()
     for row in customer_search_results(q, limit=12):
         mobile = (row["mobile_phone"] or "").strip() if "mobile_phone" in row.keys() else ""
         phone = (row["phone_phone"] or "").strip() if "phone_phone" in row.keys() else ""
         primary_phone = mobile or phone
+        bonus_list = bonus_list_context_for_customer(db, row)
         items.append(
             {
                 "id": row["_id"],
@@ -5546,6 +5743,7 @@ def customer_quick_search():
                 "new_appointment_url": (url_for("appointments_hub", customer_id=row["_id"]) if in_admin_world else url_for("staff_new_appointment", customer_id=row["_id"])),
                 "call_url": phone_href(primary_phone) if primary_phone else "",
                 "whatsapp_url": whatsapp_link(row),
+                "bonus": bonus_list,
             }
         )
     return json_no_store({"ok": True, "items": items})
@@ -6017,9 +6215,37 @@ def bonus_card_public(token):
     return render_template(
         "bonus_card_public.html",
         bonus_card=public_bonus_card_context(customer) if customer else None,
+        confirm_qr_url=bonus_confirm_qr_url(token) if customer else "",
+        confirm_url=bonus_confirm_url(token) if customer else "",
         current_endpoint="bonus_card_public",
         app_version=APP_VERSION,
     ), status_code
+
+
+@app.route("/admin/bonus/confirm/<token>", methods=["GET", "POST"])
+@login_required
+def bonus_confirm(token):
+    db = get_db()
+    customer = load_bonus_customer_by_token(db, token)
+    if not customer:
+        flash("Diese Bonuscard wurde nicht gefunden.")
+        return redirect(url_for("customer_search_page"))
+
+    if request.method == "POST":
+        success, message = confirm_bonus_visit(db, customer, stamped_by=bonus_actor_name())
+        db.commit()
+        flash(message)
+        return redirect(url_for("bonus_confirm", token=token))
+
+    customer = load_bonus_customer_by_token(db, token)
+    bonus_card = bonus_card_detail_context(db, customer)
+    return render_template(
+        "bonus_confirm.html",
+        customer=customer,
+        bonus_card=bonus_card,
+        current_endpoint="bonus_confirm",
+        app_version=APP_VERSION,
+    )
 
 
 @app.route("/customer/new", methods=["GET", "POST"])
@@ -6131,11 +6357,60 @@ def customer_detail(customer_id):
         wa_birthday_link=whatsapp_link(customer, communication_template_text("birthday_message", customer=customer)),
         wa_review_link=whatsapp_link(customer, communication_template_text("review_request", customer=customer)),
         customer_status=customer_activity_status(appointments[0]["appointment_at"]) if appointments else "neu",
-        bonus_card=bonus_card_context(customer),
+        bonus_card=bonus_card_detail_context(db, customer),
         current_endpoint="customer_detail",
         app_version=APP_VERSION,
         simple_staff_members=staff_members_for_simple_mode(db),
     )
+
+
+@app.route("/customer/<int:customer_id>/bonus/stamp", methods=["POST"])
+@login_required
+def customer_bonus_stamp(customer_id):
+    db = get_db()
+    customer = db.execute("SELECT * FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
+    if not customer:
+        flash("Kontakt nicht gefunden.")
+        return redirect(url_for("customer_search_page"))
+    success, message = confirm_bonus_visit(db, customer, stamped_by=bonus_actor_name())
+    db.commit()
+    flash(message)
+    return redirect(url_for("customer_detail", customer_id=customer_id))
+
+
+@app.route("/customer/<int:customer_id>/bonus/correct", methods=["POST"])
+@login_required
+def customer_bonus_correct(customer_id):
+    db = get_db()
+    customer = db.execute("SELECT _id FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
+    if not customer:
+        flash("Kontakt nicht gefunden.")
+        return redirect(url_for("customer_search_page"))
+    correct_bonus_visit(db, customer_id, stamped_by=bonus_actor_name())
+    db.commit()
+    flash("Korrektur -1 wurde gespeichert.")
+    return redirect(url_for("customer_detail", customer_id=customer_id))
+
+
+@app.route("/customer/<int:customer_id>/bonus/redeem", methods=["POST"])
+@login_required
+def customer_bonus_redeem(customer_id):
+    db = get_db()
+    customer = db.execute("SELECT * FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
+    if not customer:
+        flash("Kontakt nicht gefunden.")
+        return redirect(url_for("customer_search_page"))
+    try:
+        visits = int(_row_value(customer, "bonus_visits", default=0) or 0)
+    except (TypeError, ValueError):
+        visits = 0
+    if visits >= BONUS_CARD_TARGET_VISITS:
+        redeem_bonus_reward(db, customer_id)
+        db.commit()
+        flash("Bonus wurde eingel\u00f6st und die Bonuscard neu gestartet.")
+    else:
+        flash("10 \u20ac Bonus verf\u00fcgbar")
+    return redirect(url_for("customer_detail", customer_id=customer_id))
 
 
 @app.route("/api/customer/<int:customer_id>/summary")

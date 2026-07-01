@@ -65,6 +65,13 @@
           <div class="premium-contact-meta">{{ customer['_mail'] or 'Keine E-Mail' }}</div>
           <div class="premium-contact-meta">{{ customer_phone(customer) or 'Keine Nummer' }}</div>
           <div class="premium-contact-meta">{{ customer['Customer_Stadt'] or 'Kein Ort' }}</div>
+          {% if customer.bonus_list %}
+          <div class="bonus-list-badges">
+            <span>Bonus: {{ customer.bonus_list.visits }}/{{ customer.bonus_list.target }}</span>
+            {% if customer.bonus_list.today_stamped %}<span>Heute da</span>{% endif %}
+            {% if customer.bonus_list.reward_available %}<span>10 &euro; verf&uuml;gbar</span>{% endif %}
+          </div>
+          {% endif %}
         </article>
       </a>
       {% else %}

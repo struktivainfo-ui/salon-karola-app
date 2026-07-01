@@ -55,6 +55,12 @@
 
         <footer class="bonuscard-card-foot">
           <p>Zum Stempeln bitte im Salon vorzeigen.</p>
+          {% if confirm_qr_url %}
+          <div class="bonuscard-qr-box">
+            <strong>Zum Stempeln bitte im Salon vorzeigen</strong>
+            <img src="{{ confirm_qr_url }}" alt="QR-Code zur internen Bonusbesuch-Best&auml;tigung">
+          </div>
+          {% endif %}
         </footer>
         {% else %}
         <section class="bonuscard-card-body bonuscard-not-found" role="status">

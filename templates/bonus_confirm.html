@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Bonusbesuch best&auml;tigen &middot; Salon Karola App{% endblock %}
+{% block content %}
+<section class="premium-shell bonus-confirm-shell">
+  <section class="premium-page-head">
+    <div>
+      <div class="premium-page-kicker">Digitale Bonuscard</div>
+      <h1 class="premium-page-title">Bonusbesuch best&auml;tigen</h1>
+      <div class="premium-page-subtitle">Interne Best&auml;tigung f&uuml;r Salon Karola.</div>
+    </div>
+    <div class="premium-top-actions">
+      <a class="premium-top-action" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">Kundenkarte</a>
+    </div>
+  </section>
+
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Kunde</div>
+        <h2 class="premium-panel-title">{{ customer_full_name(customer) }}</h2>
+      </div>
+      <span class="premium-badge">Bonus: {{ bonus_card.visits }}/{{ bonus_card.target }}</span>
+    </div>
+
+    <div class="bonus-internal-summary premium-space-top">
+      <div>
+        <strong>Kunde</strong>
+        <span>{{ customer_full_name(customer) }}</span>
+      </div>
+      <div>
+        <strong>Aktueller Stand</strong>
+        <span>{{ bonus_card.visits }}/{{ bonus_card.target }}</span>
+      </div>
+      <div>
+        <strong>Status</strong>
+        <span>{{ bonus_card.status_text }}</span>
+      </div>
+    </div>
+
+    <div class="bonus-mini-stamps premium-space-top" aria-label="{{ bonus_card.filled_stamps }} von {{ bonus_card.target }} Stempeln">
+      {% for slot in bonus_card.stamp_slots %}
+      <span class="{% if slot <= bonus_card.filled_stamps %}is-filled{% endif %}"></span>
+      {% endfor %}
+    </div>
+
+    {% if bonus_card.reward_available %}
+    <div class="bonus-internal-alert premium-space-top">10 &euro; Bonus verf&uuml;gbar</div>
+    {% endif %}
+
+    {% if bonus_card.today_stamped %}
+    <div class="bonus-internal-alert muted premium-space-top">F&uuml;r diesen Kunden wurde heute bereits ein Stempel vergeben.</div>
+    {% endif %}
+
+    <div class="premium-button-row customer-save-row premium-space-top">
+      {% if bonus_card.can_stamp_today %}
+      <form method="post">
+        <button type="submit" class="premium-button">Besuch heute best&auml;tigen</button>
+      </form>
+      {% else %}
+      <button type="button" class="premium-button secondary" disabled>Besuch heute best&auml;tigen</button>
+      {% endif %}
+    </div>
+  </section>
+</section>
+{% endblock %}

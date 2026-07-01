@@ -42,6 +42,27 @@
       <span class="premium-badge">Bonus: {{ bonus_card.visits }}/{{ bonus_card.target }}</span>
     </div>
     <div class="bonuscard-preview premium-space-top">
+      <div class="bonus-internal-summary">
+        <div>
+          <strong>Status</strong>
+          <span>{{ bonus_card.status_text }}</span>
+        </div>
+        <div>
+          <strong>Stand</strong>
+          <span>{{ bonus_card.visits }}/{{ bonus_card.target }}</span>
+        </div>
+        {% if bonus_card.reward_available %}
+        <div>
+          <strong>Bonus</strong>
+          <span>10 &euro; Bonus verf&uuml;gbar</span>
+        </div>
+        {% endif %}
+      </div>
+      <div class="bonus-mini-stamps" aria-label="{{ bonus_card.filled_stamps }} von {{ bonus_card.target }} Stempeln">
+        {% for slot in bonus_card.stamp_slots %}
+        <span class="{% if slot <= bonus_card.filled_stamps %}is-filled{% endif %}"></span>
+        {% endfor %}
+      </div>
       <div>
         <strong>Pers&ouml;nlicher Bonuscard-Link vorbereitet</strong>
         <label class="bonuscard-link-label">Interner CRM-Link</label>
@@ -51,8 +72,26 @@
       </div>
       <div class="premium-button-row compact">
         <button type="button" class="premium-button secondary js-bonuscard-copy" data-copy="{{ bonus_card.public_link }}">Bonuscard-Link kopieren</button>
+        {% if bonus_card.can_stamp_today %}
+        <form method="post" action="{{ url_for('customer_bonus_stamp', customer_id=customer['_id']) }}" class="inline-form premium-inline-form">
+          <button type="submit" class="premium-button">Besuch heute best&auml;tigen</button>
+        </form>
+        {% else %}
+        <button type="button" class="premium-button secondary" disabled>Besuch heute best&auml;tigen</button>
+        {% endif %}
+        <form method="post" action="{{ url_for('customer_bonus_correct', customer_id=customer['_id']) }}" class="inline-form premium-inline-form">
+          <button type="submit" class="premium-button secondary">Korrektur -1</button>
+        </form>
+        {% if bonus_card.reward_available %}
+        <form method="post" action="{{ url_for('customer_bonus_redeem', customer_id=customer['_id']) }}" class="inline-form premium-inline-form">
+          <button type="submit" class="premium-button">Bonus eingel&ouml;st</button>
+        </form>
+        {% endif %}
         <span class="bonuscard-copy-status" aria-live="polite"></span>
       </div>
+      {% if bonus_card.today_stamped %}
+      <div class="bonus-internal-alert muted">F&uuml;r diesen Kunden wurde heute bereits ein Stempel vergeben.</div>
+      {% endif %}
     </div>
   </section>
   {% endif %}
