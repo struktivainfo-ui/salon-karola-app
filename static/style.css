@@ -2571,6 +2571,41 @@ thead th {
   box-shadow: none;
 }
 
+.bonuscard-preview {
+  display: grid;
+  gap: 12px;
+}
+
+.bonuscard-link-label {
+  display: block;
+  margin: 14px 0 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(247, 214, 106, 0.72);
+}
+
+.bonuscard-link-input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid rgba(214, 176, 46, 0.24);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  color: inherit;
+  font: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bonuscard-copy-status {
+  align-self: center;
+  color: rgba(247, 214, 106, 0.86);
+  font-size: 0.9rem;
+  min-height: 1.2em;
+}
+
 .premium-top-action:hover,
 .premium-button:hover,
 .premium-inline-link:hover,

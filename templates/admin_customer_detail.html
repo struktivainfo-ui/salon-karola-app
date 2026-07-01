@@ -32,6 +32,31 @@
   </section>
   {% endif %}
 
+  {% if customer and bonus_card %}
+  <section class="premium-panel premium-space-top">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Bonus</div>
+        <h2 class="premium-panel-title">Digitale Bonuscard</h2>
+      </div>
+      <span class="premium-badge">Bonus: {{ bonus_card.visits }}/{{ bonus_card.target }}</span>
+    </div>
+    <div class="bonuscard-preview premium-space-top">
+      <div>
+        <strong>Pers&ouml;nlicher Bonuscard-Link vorbereitet</strong>
+        <label class="bonuscard-link-label">Interner CRM-Link</label>
+        <input class="bonuscard-link-input" type="text" value="{{ bonus_card.crm_link }}" readonly onclick="this.select()">
+        <label class="bonuscard-link-label">Sp&auml;tere &ouml;ffentliche Adresse</label>
+        <input class="bonuscard-link-input" type="text" value="{{ bonus_card.public_link }}" readonly onclick="this.select()">
+      </div>
+      <div class="premium-button-row compact">
+        <button type="button" class="premium-button secondary js-bonuscard-copy" data-copy="{{ bonus_card.public_link }}">Bonuscard-Link kopieren</button>
+        <span class="bonuscard-copy-status" aria-live="polite"></span>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   <section class="premium-panel premium-space-top">
     <div class="premium-panel-head">
       <div>
@@ -250,6 +275,39 @@
 </section>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+  async function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const helper = document.createElement("textarea");
+    helper.value = text;
+    helper.setAttribute("readonly", "");
+    helper.style.position = "fixed";
+    helper.style.opacity = "0";
+    document.body.appendChild(helper);
+    helper.select();
+    document.execCommand("copy");
+    document.body.removeChild(helper);
+  }
+
+  document.querySelectorAll(".js-bonuscard-copy").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const status = button.parentElement ? button.parentElement.querySelector(".bonuscard-copy-status") : null;
+      try {
+        await copyText(button.dataset.copy || "");
+        button.textContent = "Link kopiert";
+        if (status) status.textContent = "Kopiert.";
+        window.setTimeout(() => {
+          button.textContent = "Bonuscard-Link kopieren";
+          if (status) status.textContent = "";
+        }, 1800);
+      } catch (error) {
+        if (status) status.textContent = "Bitte Link manuell kopieren.";
+      }
+    });
+  });
+
   function syncStaffPills(selectId, value) {
     document.querySelectorAll('.staff-pill[data-target="' + selectId + '"]').forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.value === value);

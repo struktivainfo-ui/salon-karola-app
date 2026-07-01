@@ -50,6 +50,32 @@
     </div>
   </section>
 
+  {% if bonus_card %}
+  <section class="simple-panel">
+    <div class="simple-panel-head">
+      <div>
+        <div class="simple-kicker">Bonus</div>
+        <h2 class="simple-section-title">Digitale Bonuscard</h2>
+      </div>
+      <span class="simple-status-pill">Bonus: {{ bonus_card.visits }}/{{ bonus_card.target }}</span>
+    </div>
+    <div class="simple-detail-grid bonuscard-preview">
+      <div class="full">
+        <strong>Pers&ouml;nlicher Bonuscard-Link vorbereitet</strong>
+        <span>{{ bonus_card.crm_link }}</span>
+      </div>
+      <div class="full">
+        <strong>Sp&auml;tere &ouml;ffentliche Adresse</strong>
+        <input class="bonuscard-link-input" type="text" value="{{ bonus_card.public_link }}" readonly onclick="this.select()">
+      </div>
+    </div>
+    <div class="simple-action-row simple-detail-actions">
+      <button type="button" class="simple-action-button js-bonuscard-copy" data-copy="{{ bonus_card.public_link }}">Bonuscard-Link kopieren</button>
+      <span class="bonuscard-copy-status" aria-live="polite"></span>
+    </div>
+  </section>
+  {% endif %}
+
   <section class="simple-panel simple-edit-panel" id="kunde-bearbeiten">
     <details>
       <summary class="simple-details-summary">
@@ -100,4 +126,41 @@
     </div>
   </section>
 </section>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  async function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const helper = document.createElement("textarea");
+    helper.value = text;
+    helper.setAttribute("readonly", "");
+    helper.style.position = "fixed";
+    helper.style.opacity = "0";
+    document.body.appendChild(helper);
+    helper.select();
+    document.execCommand("copy");
+    document.body.removeChild(helper);
+  }
+
+  document.querySelectorAll(".js-bonuscard-copy").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const row = button.closest(".simple-action-row");
+      const status = row ? row.querySelector(".bonuscard-copy-status") : null;
+      try {
+        await copyText(button.dataset.copy || "");
+        button.textContent = "Link kopiert";
+        if (status) status.textContent = "Kopiert.";
+        window.setTimeout(() => {
+          button.textContent = "Bonuscard-Link kopieren";
+          if (status) status.textContent = "";
+        }, 1800);
+      } catch (error) {
+        if (status) status.textContent = "Bitte Link manuell kopieren.";
+      }
+    });
+  });
+});
+</script>
 {% endblock %}

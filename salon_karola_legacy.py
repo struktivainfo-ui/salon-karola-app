@@ -1288,6 +1288,142 @@ def customer_has_column(column_name):
     return column_name in customer_columns()
 
 
+BONUS_CARD_TOKEN_BYTES = 24
+BONUS_CARD_TARGET_VISITS = 12
+BONUS_CARD_CRM_BASE_URL = "https://salon-karola-crm.onrender.com/bonuscard"
+BONUS_CARD_PUBLIC_BASE_URL = "https://salonkarola.de/bonuscard"
+
+
+def _connection_table_columns(conn, table_name):
+    return [row[1] for row in conn.execute(f'PRAGMA table_info("{table_name}")').fetchall()]
+
+
+def _bonus_card_columns_ready(conn):
+    columns = set(_connection_table_columns(conn, "_Customers"))
+    return {
+        "bonus_card_token",
+        "bonus_visits",
+        "bonus_rewards_redeemed",
+        "bonus_card_created_at",
+    }.issubset(columns)
+
+
+def generate_bonus_card_token():
+    return secrets.token_urlsafe(BONUS_CARD_TOKEN_BYTES)
+
+
+def bonus_card_token_exists(conn, token, exclude_customer_id=None):
+    if not token:
+        return False
+    params = [token]
+    exclusion = ""
+    if exclude_customer_id is not None:
+        exclusion = " AND _id <> ?"
+        params.append(exclude_customer_id)
+    row = conn.execute(
+        f"SELECT 1 FROM _Customers WHERE bonus_card_token = ?{exclusion} LIMIT 1",
+        params,
+    ).fetchone()
+    return row is not None
+
+
+def unique_bonus_card_token(conn, exclude_customer_id=None):
+    for _ in range(20):
+        token = generate_bonus_card_token()
+        if not bonus_card_token_exists(conn, token, exclude_customer_id=exclude_customer_id):
+            return token
+    raise RuntimeError("Konnte keinen eindeutigen Bonuscard-Token erzeugen.")
+
+
+def ensure_customer_bonus_card(conn, customer_id):
+    if not customer_id or not _bonus_card_columns_ready(conn):
+        return ""
+    row = conn.execute(
+        """
+        SELECT bonus_card_token, bonus_visits, bonus_rewards_redeemed, bonus_card_created_at
+        FROM _Customers
+        WHERE _id = ?
+        LIMIT 1
+        """,
+        (customer_id,),
+    ).fetchone()
+    if not row:
+        return ""
+
+    token = row["bonus_card_token"] if isinstance(row, sqlite3.Row) else row[0]
+    visits = row["bonus_visits"] if isinstance(row, sqlite3.Row) else row[1]
+    rewards = row["bonus_rewards_redeemed"] if isinstance(row, sqlite3.Row) else row[2]
+    created_at = row["bonus_card_created_at"] if isinstance(row, sqlite3.Row) else row[3]
+
+    assignments = []
+    params = []
+    if not (token or "").strip() or bonus_card_token_exists(conn, token, exclude_customer_id=customer_id):
+        token = unique_bonus_card_token(conn, exclude_customer_id=customer_id)
+        assignments.append("bonus_card_token = ?")
+        params.append(token)
+    if visits is None:
+        assignments.append("bonus_visits = ?")
+        params.append(0)
+    if rewards is None:
+        assignments.append("bonus_rewards_redeemed = ?")
+        params.append(0)
+    if not (created_at or "").strip():
+        assignments.append("bonus_card_created_at = ?")
+        params.append(datetime.now().isoformat(timespec="seconds"))
+
+    if assignments:
+        params.append(customer_id)
+        conn.execute(
+            f"UPDATE _Customers SET {', '.join(assignments)} WHERE _id = ?",
+            params,
+        )
+    return token or ""
+
+
+def ensure_all_customer_bonus_cards(conn):
+    if not _bonus_card_columns_ready(conn):
+        return 0
+    rows = conn.execute(
+        f"""
+        SELECT _id
+        FROM _Customers
+        WHERE {visible_customer_condition('_Customers')}
+        ORDER BY _id
+        """
+    ).fetchall()
+    for row in rows:
+        customer_id = row["_id"] if isinstance(row, sqlite3.Row) else row[0]
+        ensure_customer_bonus_card(conn, customer_id)
+    return len(rows)
+
+
+def bonus_card_link(token, *, public=False):
+    if not token:
+        return ""
+    base = BONUS_CARD_PUBLIC_BASE_URL if public else BONUS_CARD_CRM_BASE_URL
+    return f"{base}/{token}"
+
+
+def bonus_card_context(customer):
+    token = _row_value(customer, "bonus_card_token") or ""
+    try:
+        visits = int(_row_value(customer, "bonus_visits", default=0) or 0)
+    except (TypeError, ValueError):
+        visits = 0
+    try:
+        rewards = int(_row_value(customer, "bonus_rewards_redeemed", default=0) or 0)
+    except (TypeError, ValueError):
+        rewards = 0
+    return {
+        "token": token,
+        "visits": visits,
+        "target": BONUS_CARD_TARGET_VISITS,
+        "rewards_redeemed": rewards,
+        "crm_link": bonus_card_link(token),
+        "public_link": bonus_card_link(token, public=True),
+    }
+
+
 CUSTOMER_PERSONAL_PHONE_ALIASES = [
     "Customer_PersoenlichesTelefon",
     "Customer_Pers?nlichesTelefon",
@@ -1515,6 +1651,10 @@ def init_db():
         add_column_if_missing("_Customers", "privacy_consent_at", "TEXT DEFAULT ''")
         add_column_if_missing("_Customers", "whatsapp_contact_allowed", "INTEGER NOT NULL DEFAULT 0")
         add_column_if_missing("_Customers", "marketing_contact_allowed", "INTEGER NOT NULL DEFAULT 0")
+        add_column_if_missing("_Customers", "bonus_card_token", "TEXT")
+        add_column_if_missing("_Customers", "bonus_visits", "INTEGER DEFAULT 0")
+        add_column_if_missing("_Customers", "bonus_rewards_redeemed", "INTEGER DEFAULT 0")
+        add_column_if_missing("_Customers", "bonus_card_created_at", "TEXT")
 
         add_column_if_missing("appointments", "status", "TEXT DEFAULT 'geplant'")
         add_column_if_missing("appointments", "staff_name", "TEXT DEFAULT 'Ute'")
@@ -1555,6 +1695,14 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_appointments_customer_at ON appointments(customer_id, appointment_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_customers_name ON _Customers(_name, _firstname)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_customers_birthdate ON _Customers(_birthdate)")
+        ensure_all_customer_bonus_cards(conn)
+        conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_bonus_card_token
+            ON _Customers(bonus_card_token)
+            WHERE bonus_card_token IS NOT NULL AND TRIM(bonus_card_token) <> ''
+            """
+        )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_push_staff ON push_subscriptions(staff_name)")
 
         ensure_manual_placeholder_customer(conn)
@@ -2423,6 +2571,7 @@ def insert_qr_customer(db, data):
         f"INSERT INTO _Customers({quoted_columns}) VALUES ({placeholders})",
         [values[column] for column in columns],
     )
+    ensure_customer_bonus_card(db, cur.lastrowid)
     return cur.lastrowid
 
 
@@ -5858,6 +6007,8 @@ def customer_new():
             ),
         )
         db.commit()
+        ensure_customer_bonus_card(db, cur.lastrowid)
+        db.commit()
         save_tags(cur.lastrowid, request.form.get("tags", ""))
         flash("Kontakt wurde hinzugefuegt.")
         return redirect(url_for("customer_detail", customer_id=cur.lastrowid))
@@ -5900,6 +6051,9 @@ def customer_detail(customer_id):
     if not customer:
         flash("Kontakt nicht gefunden.")
         return redirect(url_for("index"))
+    ensure_customer_bonus_card(db, customer_id)
+    db.commit()
+    customer = db.execute("SELECT * FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
 
     appt_limit = 40 if is_admin_world_session() else 8
     appointments = db.execute(
@@ -5934,6 +6088,7 @@ def customer_detail(customer_id):
         wa_birthday_link=whatsapp_link(customer, communication_template_text("birthday_message", customer=customer)),
         wa_review_link=whatsapp_link(customer, communication_template_text("review_request", customer=customer)),
         customer_status=customer_activity_status(appointments[0]["appointment_at"]) if appointments else "neu",
+        bonus_card=bonus_card_context(customer),
         current_endpoint="customer_detail",
         app_version=APP_VERSION,
         simple_staff_members=staff_members_for_simple_mode(db),
@@ -7209,6 +7364,7 @@ def import_customers():
                 ),
             )
             inserted += 1
+        ensure_all_customer_bonus_cards(db)
         db.commit()
         flash(f"{inserted} Kontakte importiert.")
         return redirect(url_for("index"))
@@ -7600,6 +7756,7 @@ def merge_database_from_upload(uploaded_file):
                     ),
                 )
                 merged["appointments"] += 1
+        ensure_all_customer_bonus_cards(dest)
         dest.commit()
     finally:
         src.close()
