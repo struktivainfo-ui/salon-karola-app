@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0b09">
+  <title>Digitale Bonuscard &middot; Salon Karola</title>
+  <script>
+    window.addEventListener("beforeinstallprompt", function (event) {
+      try { event.preventDefault(); } catch (error) {}
+      window.__skPublicInstallPromptSuppressed = true;
+    });
+  </script>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=app_version) }}">
+</head>
+<body class="app-body endpoint-bonus_card_public">
+  <main class="app-main">
+    <section class="bonuscard-public-page" aria-labelledby="bonuscardTitle">
+      <article class="bonuscard-card">
+        <header class="bonuscard-card-head">
+          <div class="bonuscard-brand-mark">SK</div>
+          <p class="bonuscard-brand">Salon Karola</p>
+          <h1 id="bonuscardTitle">Digitale Bonuscard</h1>
+          <p>Nach 12 best&auml;tigten Besuchen erhalten Sie 10 &euro; Bonus auf den n&auml;chsten Salonbesuch.</p>
+        </header>
+
+        {% if bonus_card %}
+        <section class="bonuscard-card-body" aria-label="Bonusstand">
+          <p class="bonuscard-greeting">
+            {% if bonus_card.first_name %}
+            Hallo {{ bonus_card.first_name }}
+            {% else %}
+            Ihre pers&ouml;nliche Bonuscard
+            {% endif %}
+          </p>
+
+          <div class="bonuscard-stamp-grid" aria-label="{{ bonus_card.filled_stamps }} von {{ bonus_card.target }} Stempeln gesammelt">
+            {% for slot in bonus_card.stamp_slots %}
+            <span class="bonuscard-stamp {% if slot <= bonus_card.filled_stamps %}is-filled{% endif %}" aria-label="Stempel {{ slot }} {% if slot <= bonus_card.filled_stamps %}gesammelt{% else %}offen{% endif %}">
+              {% if slot <= bonus_card.filled_stamps %}<span>SK</span>{% endif %}
+            </span>
+            {% endfor %}
+          </div>
+
+          <p class="bonuscard-progress">{{ bonus_card.filled_stamps }} von {{ bonus_card.target }} Stempeln gesammelt</p>
+
+          {% if bonus_card.reward_available %}
+          <div class="bonuscard-reward" role="status">
+            <strong>&#127881; 10 &euro; Bonus verf&uuml;gbar</strong>
+            <span>Bitte im Salon beim n&auml;chsten Besuch vorzeigen.</span>
+          </div>
+          {% endif %}
+        </section>
+
+        <footer class="bonuscard-card-foot">
+          <p>Zum Stempeln bitte im Salon vorzeigen.</p>
+        </footer>
+        {% else %}
+        <section class="bonuscard-card-body bonuscard-not-found" role="status">
+          <p class="bonuscard-greeting">Diese Bonuscard wurde nicht gefunden.</p>
+          <p>Bitte pr&uuml;fen Sie den Link oder melden Sie sich direkt im Salon.</p>
+        </section>
+        {% endif %}
+      </article>
+    </section>
+  </main>
+</body>
+</html>

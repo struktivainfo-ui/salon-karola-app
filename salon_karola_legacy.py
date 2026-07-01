@@ -1424,6 +1424,24 @@ def bonus_card_context(customer):
     }
 
 
+def public_bonus_card_context(customer):
+    first_name = ((_row_value(customer, "_firstname") or "").strip())[:80]
+    try:
+        visits = int(_row_value(customer, "bonus_visits", default=0) or 0)
+    except (TypeError, ValueError):
+        visits = 0
+    visits = max(0, visits)
+    filled_stamps = min(visits, BONUS_CARD_TARGET_VISITS)
+    return {
+        "first_name": first_name,
+        "visits": visits,
+        "filled_stamps": filled_stamps,
+        "target": BONUS_CARD_TARGET_VISITS,
+        "reward_available": visits >= BONUS_CARD_TARGET_VISITS,
+        "stamp_slots": list(range(1, BONUS_CARD_TARGET_VISITS + 1)),
+    }
+
+
 CUSTOMER_PERSONAL_PHONE_ALIASES = [
     "Customer_PersoenlichesTelefon",
     "Customer_Pers?nlichesTelefon",
@@ -5979,6 +5997,31 @@ def qr_customer_card():
     )
 
 
+@app.route("/bonuscard/<token>", methods=["GET"])
+def bonus_card_public(token):
+    token = (token or "").strip()[:180]
+    customer = None
+    if token:
+        customer = get_db().execute(
+            f"""
+            SELECT _firstname, bonus_visits
+            FROM _Customers
+            WHERE bonus_card_token = ?
+              AND {visible_customer_condition('_Customers')}
+            LIMIT 1
+            """,
+            (token,),
+        ).fetchone()
+
+    status_code = 200 if customer else 404
+    return render_template(
+        "bonus_card_public.html",
+        bonus_card=public_bonus_card_context(customer) if customer else None,
+        current_endpoint="bonus_card_public",
+        app_version=APP_VERSION,
+    ), status_code
+
+
 @app.route("/customer/new", methods=["GET", "POST"])
 @login_required
 def customer_new():
@@ -7409,7 +7452,11 @@ def inject_globals():
     ui_world = current_ui_world()
     endpoint_name = request.endpoint or ""
     sw_manual_page = endpoint_name == "test_service_worker"
-    suppress_pwa_install = endpoint_name == "qr_customer_card" or request.path in {"/qr-kundenkarte", "/neukunde"}
+    suppress_pwa_install = (
+        endpoint_name in {"qr_customer_card", "bonus_card_public"}
+        or request.path in {"/qr-kundenkarte", "/neukunde"}
+        or request.path.startswith("/bonuscard/")
+    )
     return {
         "admin_name": session.get("admin_name"),
         "logged_in_staff": session.get("staff_name") or get_default_staff(),
