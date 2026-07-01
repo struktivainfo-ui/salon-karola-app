@@ -7558,6 +7558,18 @@ body.endpoint-qr_customer_card::after {
   accent-color: #b98f22;
 }
 
+.qr-card-save-check {
+  padding: 13px 14px;
+  border: 1px solid rgba(185, 143, 34, 0.28);
+  border-radius: 8px;
+  background: #fff7e7;
+}
+
+.qr-card-save-check span {
+  color: #2a1f14;
+  font-weight: 850;
+}
+
 .qr-honeypot {
   position: absolute;
   left: -9999px;

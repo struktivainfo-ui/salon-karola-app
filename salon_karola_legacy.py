@@ -2703,7 +2703,7 @@ def find_customer_by_phone_key(db, phone_key):
     phone_column = customer_personal_phone_column()
     rows = db.execute(
         f"""
-        SELECT _id, Customer_Mobiltelefon, "{phone_column}" AS personal_phone
+        SELECT _id, _firstname, _name, Customer_Mobiltelefon, "{phone_column}" AS personal_phone
         FROM _Customers
         WHERE {visible_customer_condition('_Customers')}
         """
@@ -2714,6 +2714,18 @@ def find_customer_by_phone_key(db, phone_key):
         if customer_phone_match_key(row["personal_phone"]) == phone_key:
             return row
     return None
+
+
+def qr_name_match_key(value):
+    return re.sub(r"\s+", "", (value or "").strip()).casefold()
+
+
+def qr_customer_name_matches(customer, form_data):
+    if not customer:
+        return False
+    first_matches = qr_name_match_key(customer["_firstname"]) == qr_name_match_key(form_data.get("firstname"))
+    name_matches = qr_name_match_key(customer["_name"]) == qr_name_match_key(form_data.get("name"))
+    return bool(first_matches and name_matches)
 
 
 def clean_postal_code(value):
@@ -2733,6 +2745,7 @@ def validate_qr_customer_form(form):
         "notes": clean_public_multiline(form.get("notes"), 1000),
         "privacy_consent": form.get("privacy_consent") == "yes",
         "whatsapp_contact_allowed": form.get("whatsapp_contact_allowed") == "yes",
+        "save_bonuscard_on_device": form.get("save_bonuscard_on_device") == "yes",
     }
     errors = []
     if not data["firstname"]:
@@ -6190,12 +6203,20 @@ def qr_customer_card():
                 if existing_customer:
                     if update_qr_customer_address(db, existing_customer["_id"], form_data):
                         db.commit()
-                    duplicate_message = "Sie sind bereits bei uns erfasst. Bitte fragen Sie kurz im Salon nach Ihrer digitalen Bonuscard."
+                    token = ensure_customer_bonus_card(db, existing_customer["_id"])
+                    db.commit()
+                    if form_data["save_bonuscard_on_device"]:
+                        if qr_customer_name_matches(existing_customer, form_data) and token:
+                            return redirect(url_for("bonus_card_public", token=token))
+                        duplicate_message = "Die eingegebenen Daten konnten nicht eindeutig zugeordnet werden. Bitte fragen Sie kurz im Salon nach Ihrer digitalen Bonuscard."
+                    else:
+                        success_message = "Vielen Dank! Ihre Daten wurden an Salon Karola übermittelt."
+                        form_data = {}
                 else:
                     customer_id = insert_qr_customer(db, form_data)
                     token = ensure_customer_bonus_card(db, customer_id)
                     db.commit()
-                    if token:
+                    if form_data["save_bonuscard_on_device"] and token:
                         return redirect(url_for("bonus_card_public", token=token))
                     success_message = "Vielen Dank! Ihre Daten wurden erfolgreich an Salon Karola übermittelt."
                     form_data = {}

@@ -78,11 +78,15 @@
 
     <label class="qr-check">
       <input type="checkbox" name="privacy_consent" value="yes" required {% if form.privacy_consent %}checked{% endif %}>
-      <span>Ich bin einverstanden, dass Salon Karola meine angegebenen Daten zur Termin- und Kundenverwaltung sowie zur digitalen Bonuscard speichert.</span>
+      <span>Ich bin einverstanden, dass Salon Karola meine angegebenen Daten zur Termin- und Kundenverwaltung sowie zur digitalen Kundenkarte und Bonuscard speichert.</span>
     </label>
     <label class="qr-check">
       <input type="checkbox" name="whatsapp_contact_allowed" value="yes" {% if form.whatsapp_contact_allowed %}checked{% endif %}>
       <span>Ich bin einverstanden, dass Salon Karola mich bei Terminfragen per WhatsApp kontaktieren darf.</span>
+    </label>
+    <label class="qr-check qr-card-save-check">
+      <input type="checkbox" name="save_bonuscard_on_device" value="yes" {% if form.save_bonuscard_on_device %}checked{% endif %}>
+      <span>Ich m&ouml;chte meine digitale Kundenkarte / Bonuscard auf diesem Handy speichern.</span>
     </label>
 
     <label class="qr-honeypot" aria-hidden="true" tabindex="-1">
