@@ -6190,10 +6190,13 @@ def qr_customer_card():
                 if existing_customer:
                     if update_qr_customer_address(db, existing_customer["_id"], form_data):
                         db.commit()
-                    duplicate_message = "Ihre Daten sind bereits bei uns vorhanden. Vielen Dank."
+                    duplicate_message = "Sie sind bereits bei uns erfasst. Bitte fragen Sie kurz im Salon nach Ihrer digitalen Bonuscard."
                 else:
-                    insert_qr_customer(db, form_data)
+                    customer_id = insert_qr_customer(db, form_data)
+                    token = ensure_customer_bonus_card(db, customer_id)
                     db.commit()
+                    if token:
+                        return redirect(url_for("bonus_card_public", token=token))
                     success_message = "Vielen Dank! Ihre Daten wurden erfolgreich an Salon Karola übermittelt."
                     form_data = {}
 

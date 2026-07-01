@@ -9,6 +9,7 @@
   <header class="qr-customer-head">
     <p class="qr-customer-kicker">Salon Karola</p>
     <h1 id="qrCustomerTitle">Informationen zum Salon Karola</h1>
+    <p class="qr-customer-bonus-hint">Nach dem Absenden erhalten Sie direkt Ihre pers&ouml;nliche digitale Bonuscard.</p>
     <p>Bitte füllen Sie kurz Ihre Daten aus, damit wir Ihre Termine und Wünsche besser verwalten können.</p>
   </header>
 
@@ -77,7 +78,7 @@
 
     <label class="qr-check">
       <input type="checkbox" name="privacy_consent" value="yes" required {% if form.privacy_consent %}checked{% endif %}>
-      <span>Ich bin einverstanden, dass Salon Karola meine angegebenen Daten zur Termin- und Kundenverwaltung speichert.</span>
+      <span>Ich bin einverstanden, dass Salon Karola meine angegebenen Daten zur Termin- und Kundenverwaltung sowie zur digitalen Bonuscard speichert.</span>
     </label>
     <label class="qr-check">
       <input type="checkbox" name="whatsapp_contact_allowed" value="yes" {% if form.whatsapp_contact_allowed %}checked{% endif %}>

@@ -7466,6 +7466,11 @@ body.endpoint-qr_customer_card::after {
   line-height: 1.55;
 }
 
+.qr-customer-bonus-hint {
+  color: #f6d879 !important;
+  font-weight: 850;
+}
+
 .qr-customer-form,
 .qr-customer-result,
 .qr-customer-errors {
@@ -7859,6 +7864,14 @@ body.endpoint-bonus_card_public::after {
   color: #5f4a2d;
   line-height: 1.5;
   text-align: center;
+}
+
+.bonuscard-card-foot .bonuscard-save-tip {
+  max-width: 520px;
+  margin: 0 auto;
+  color: #7a6444;
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .bonuscard-qr-box {
