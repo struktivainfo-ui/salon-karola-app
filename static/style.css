@@ -7709,24 +7709,101 @@ body.endpoint-bonus_card_public::after {
 
 .bonuscard-card-head {
   position: relative;
+  overflow: hidden;
   display: grid;
   justify-items: center;
   gap: 7px;
-  padding: 30px 24px 28px;
+  padding: 28px 24px 36px;
   text-align: center;
   color: #fff8e7;
   background:
-    linear-gradient(145deg, rgba(247, 214, 106, 0.18), transparent 40%),
-    linear-gradient(180deg, #17110b 0%, #0d0a07 100%);
+    radial-gradient(circle at 50% 10%, rgba(247, 214, 106, 0.16), transparent 28%),
+    radial-gradient(circle at 14% 18%, rgba(255, 248, 231, 0.08), transparent 22%),
+    radial-gradient(circle at 86% 20%, rgba(255, 248, 231, 0.07), transparent 22%),
+    linear-gradient(145deg, rgba(247, 214, 106, 0.16), transparent 38%),
+    linear-gradient(180deg, #21170d 0%, #120d09 54%, #0b0806 100%);
+}
+
+.bonuscard-card-head::before {
+  content: "";
+  position: absolute;
+  inset: 12px 18px 22px;
+  pointer-events: none;
+  border-top: 1px solid rgba(246, 216, 121, 0.28);
+  border-bottom: 1px solid rgba(246, 216, 121, 0.16);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(246, 216, 121, 0.14), transparent 52%),
+    linear-gradient(90deg, transparent, rgba(246, 216, 121, 0.18), transparent);
+  opacity: 0.78;
 }
 
 .bonuscard-card-head::after {
   content: "";
   position: absolute;
-  inset: auto 26px 0;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, #f1cb67, transparent);
+  inset: auto -18px -34px;
+  height: 62px;
+  pointer-events: none;
+  border-top: 1px solid rgba(211, 168, 54, 0.7);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  background: #fffdf8;
+}
+
+.bonuscard-card-head > * {
+  position: relative;
+  z-index: 2;
+}
+
+.bonuscard-head-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 25%, rgba(247, 214, 106, 0.16), transparent 32%),
+    linear-gradient(90deg, transparent 7%, rgba(246, 216, 121, 0.09), transparent 50%, rgba(246, 216, 121, 0.09), transparent 93%);
+}
+
+.bonuscard-corner {
+  position: absolute;
+  top: 18px;
+  width: 58px;
+  height: 58px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.78;
+}
+
+.bonuscard-corner::before,
+.bonuscard-corner::after {
+  content: "";
+  position: absolute;
+  border-color: rgba(246, 216, 121, 0.62);
+  border-style: solid;
+}
+
+.bonuscard-corner::before {
+  inset: 0;
+  border-width: 1px 0 0 1px;
+  border-top-left-radius: 18px;
+}
+
+.bonuscard-corner::after {
+  width: 34px;
+  height: 34px;
+  top: 10px;
+  left: 10px;
+  border-width: 1px 0 0 1px;
+  border-top-left-radius: 30px;
+  transform: rotate(45deg);
+}
+
+.bonuscard-corner-left {
+  left: 18px;
+}
+
+.bonuscard-corner-right {
+  right: 18px;
+  transform: scaleX(-1);
 }
 
 .bonuscard-brand-mark {
@@ -7740,13 +7817,17 @@ body.endpoint-bonus_card_public::after {
   font-weight: 950;
   letter-spacing: 0;
   background:
-    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.18), transparent 34%),
-    rgba(255, 255, 255, 0.04);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.24), transparent 34%),
+    radial-gradient(circle at 50% 72%, rgba(246, 216, 121, 0.18), transparent 42%),
+    rgba(255, 255, 255, 0.045);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.3),
+    0 0 0 7px rgba(246, 216, 121, 0.045);
 }
 
 .bonuscard-brand {
-  margin: 3px 0 0;
+  position: relative;
+  margin: 3px 0 2px;
   color: #f7d76f;
   font-size: 0.96rem;
   font-weight: 900;
@@ -7754,11 +7835,36 @@ body.endpoint-bonus_card_public::after {
   text-transform: uppercase;
 }
 
+.bonuscard-brand::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 122px;
+  height: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, rgba(246, 216, 121, 0.82), transparent);
+}
+
 .bonuscard-location {
-  margin: -3px 0 3px;
+  margin: 1px 0 3px;
   color: rgba(255, 248, 231, 0.76);
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.bonuscard-location::before,
+.bonuscard-location::after {
+  content: "";
+  display: inline-block;
+  width: 22px;
+  height: 1px;
+  margin: 0 8px 4px;
+  background: linear-gradient(90deg, transparent, rgba(246, 216, 121, 0.7));
+}
+
+.bonuscard-location::after {
+  transform: scaleX(-1);
 }
 
 .bonuscard-card-head h1 {
