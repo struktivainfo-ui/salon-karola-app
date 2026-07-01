@@ -197,6 +197,36 @@ body.employee-mode {
   min-height: 44px;
 }
 
+.employee-mode.endpoint-appointments_hub .app-main {
+  padding-bottom: calc(172px + env(safe-area-inset-bottom, 0px));
+}
+
+.employee-mode.endpoint-appointments_hub .simple-wizard {
+  padding-bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+}
+
+.employee-mode.endpoint-appointments_hub .simple-wizard-actions {
+  bottom: calc(98px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 14px 34px rgba(64, 42, 25, 0.16);
+}
+
+.employee-mode.endpoint-appointments_hub .simple-wizard-actions:not(.has-prev) .simple-next-button,
+.employee-mode.endpoint-appointments_hub .simple-wizard-actions.is-final .simple-next-button {
+  flex: 1 1 100%;
+}
+
+.employee-mode.endpoint-appointments_hub .simple-next-button.is-final-action {
+  background: linear-gradient(180deg, rgba(255, 223, 144, 0.98), rgba(243, 194, 95, 1));
+  color: #4d3117;
+}
+
+@media (max-width: 480px) {
+  .employee-mode.endpoint-appointments_hub .simple-wizard-actions:not(.has-prev),
+  .employee-mode.endpoint-appointments_hub .simple-wizard-actions.is-final {
+    grid-template-columns: 1fr;
+  }
+}
+
 .employee-mode .mobile-app-dock {
   left: 12px;
   right: 12px;
@@ -642,6 +672,15 @@ body.employee-mode {
   .employee-mode .simple-wizard-actions {
     bottom: calc(68px + env(safe-area-inset-bottom, 0px));
     padding: 7px;
+  }
+
+  .employee-mode.endpoint-appointments_hub .simple-wizard-actions {
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .employee-mode.endpoint-appointments_hub .simple-wizard-actions:not(.has-prev),
+  .employee-mode.endpoint-appointments_hub .simple-wizard-actions.is-final {
+    grid-template-columns: 1fr;
   }
 
   .employee-mode .mobile-app-dock {

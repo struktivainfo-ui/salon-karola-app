@@ -108,7 +108,7 @@
 
       <div class="simple-wizard-actions">
         <button type="button" class="simple-action-button" id="simplePrevStep" hidden>Zurück</button>
-        <button type="button" class="simple-action-button simple-next-button" id="simpleNextStep">Weiter →</button>
+        <button type="button" class="simple-action-button simple-next-button" id="simpleNextStep">Weiter</button>
       </div>
     </form>
   </section>
@@ -143,7 +143,9 @@ document.addEventListener("DOMContentLoaded", function () {
   const reminderSelect = document.getElementById("simpleReminderSelect");
   const titleField = document.getElementById("simpleTitleField");
   const submitButton = wizard.querySelector(".simple-submit-button");
+  const actions = wizard.querySelector(".simple-wizard-actions");
   let stepIndex = 0;
+  let isSubmitting = false;
 
   function showError(message) {
     errorBox.textContent = message;
@@ -216,16 +218,33 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function renderStep() {
+    const isFinalStep = stepIndex === steps.length - 1;
     steps.forEach((step, index) => step.classList.toggle("active", index === stepIndex));
     indicators.forEach((indicator, index) => indicator.classList.toggle("active", index === stepIndex));
     prevBtn.hidden = stepIndex === 0;
-    nextBtn.hidden = stepIndex === steps.length - 1;
+    nextBtn.hidden = false;
+    nextBtn.textContent = isFinalStep ? "Termin speichern" : "Weiter";
+    nextBtn.classList.toggle("is-final-action", isFinalStep);
+    if (submitButton) submitButton.hidden = true;
+    if (actions) {
+      actions.classList.toggle("has-prev", stepIndex > 0);
+      actions.classList.toggle("is-final", isFinalStep);
+    }
     showError("");
     updateSummary();
   }
 
-  function validateCurrentStep() {
-    if (stepIndex === 0) {
+  function setStep(nextIndex, message) {
+    stepIndex = Math.max(0, Math.min(nextIndex, steps.length - 1));
+    renderStep();
+    if (message) {
+      showError(message);
+      if (errorBox) errorBox.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }
+
+  function validateStep(targetStepIndex = stepIndex) {
+    if (targetStepIndex === 0) {
       if (activeMode() === "existing" && !customerIdField.value) {
         showError("Bitte zuerst einen Kunden auswählen.");
         return false;
@@ -239,12 +258,36 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
     }
-    if (stepIndex === 1 && !selectedServicesField.value) {
+    if (targetStepIndex === 1 && !selectedServicesField.value) {
       showError("Bitte einen Service auswählen.");
       return false;
     }
-    if (stepIndex === 2 && !wizard.querySelector('[name="appointment_at"]').value) {
+    if (targetStepIndex === 2 && !wizard.querySelector('[name="appointment_at"]').value) {
       showError("Bitte Datum und Uhrzeit auswählen.");
+      return false;
+    }
+    return true;
+  }
+
+  function validateAllSteps() {
+    if (activeMode() === "existing" && !customerIdField.value) {
+      setStep(0, "Bitte zuerst einen Kunden auswählen.");
+      return false;
+    }
+    if (activeMode() === "manual") {
+      const first = (wizard.querySelector('[name="manual_firstname"]').value || "").trim();
+      const last = (wizard.querySelector('[name="manual_lastname"]').value || "").trim();
+      if (!first && !last) {
+        setStep(0, "Bitte mindestens einen Namen eintragen.");
+        return false;
+      }
+    }
+    if (!selectedServicesField.value) {
+      setStep(1, "Bitte einen Service auswählen.");
+      return false;
+    }
+    if (!wizard.querySelector('[name="appointment_at"]').value || !staffField.value) {
+      setStep(2, "Bitte prüfen Sie Datum, Uhrzeit und Kundenauswahl.");
       return false;
     }
     return true;
@@ -306,13 +349,24 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
   nextBtn.addEventListener("click", function () {
-    if (!validateCurrentStep()) return;
-    stepIndex = Math.min(stepIndex + 1, steps.length - 1);
-    renderStep();
+    if (isSubmitting) return;
+    if (stepIndex === steps.length - 1) {
+      if (!validateAllSteps()) return;
+      if (typeof wizard.requestSubmit === "function") {
+        wizard.requestSubmit();
+      } else if (submitButton) {
+        submitButton.click();
+      } else {
+        wizard.submit();
+      }
+      return;
+    }
+    if (!validateStep()) return;
+    setStep(stepIndex + 1);
   });
   prevBtn.addEventListener("click", function () {
-    stepIndex = Math.max(stepIndex - 1, 0);
-    renderStep();
+    if (isSubmitting) return;
+    setStep(stepIndex - 1);
   });
 
   const preselected = String(selectedServicesField.value || "").split(",").filter(Boolean);
@@ -343,11 +397,20 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  wizard.addEventListener("submit", function () {
+  wizard.addEventListener("submit", function (event) {
+    if (!validateAllSteps()) {
+      event.preventDefault();
+      return;
+    }
+    isSubmitting = true;
+    if (nextBtn) {
+      nextBtn.disabled = true;
+      nextBtn.textContent = "Speichert ...";
+    }
     if (!submitButton) return;
     submitButton.disabled = true;
     submitButton.textContent = "Speichert …";
-  }, { once: true });
+  });
 });
 </script>
 {% endblock %}
