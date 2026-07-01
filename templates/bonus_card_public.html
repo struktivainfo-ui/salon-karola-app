@@ -6,9 +6,11 @@
   <meta name="theme-color" content="#0d0b09">
   <title>Digitale Bonuscard &middot; Salon Karola</title>
   <script>
+    window.__skBonuscardSavePrompt = null;
     window.addEventListener("beforeinstallprompt", function (event) {
       try { event.preventDefault(); } catch (error) {}
-      window.__skPublicInstallPromptSuppressed = true;
+      window.__skBonuscardSavePrompt = event;
+      try { window.dispatchEvent(new Event("skbonuscardsaveready")); } catch (error) {}
     });
   </script>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
@@ -81,7 +83,22 @@
             <img src="{{ confirm_qr_url }}" alt="QR-Code zur internen Bonusbesuch-Best&auml;tigung">
           </div>
           {% endif %}
-          <p class="bonuscard-save-tip">Tipp: Speichern Sie diese Bonuscard als Favorit oder auf dem Startbildschirm, damit Sie sie beim n&auml;chsten Besuch schnell wiederfinden.</p>
+          <section class="bonuscard-save-panel" aria-labelledby="bonuscardSaveTitle" data-bonuscard-save-panel>
+            <h2 id="bonuscardSaveTitle">Kundenkarte auf dem Handy speichern</h2>
+            <p>Speichern Sie diese digitale Bonuscard auf Ihrem Handy, damit Sie sie beim n&auml;chsten Besuch schnell wiederfinden.</p>
+            <button type="button" class="bonuscard-save-button" data-bonuscard-save-button>Kundenkarte speichern</button>
+            <p class="bonuscard-save-status" data-bonuscard-save-status hidden>Kundenkarte ist auf Ihrem Handy ge&ouml;ffnet.</p>
+            <div class="bonuscard-save-steps" data-bonuscard-save-steps hidden>
+              <h3>So speichern Sie die Kundenkarte</h3>
+              <p>Tippen Sie im Browser auf Teilen und w&auml;hlen Sie anschlie&szlig;end &bdquo;Zum Home-Bildschirm&ldquo; oder &bdquo;Zum Startbildschirm hinzuf&uuml;gen&ldquo;.</p>
+              <ol>
+                <li>Teilen-Symbol antippen</li>
+                <li>&bdquo;Zum Home-Bildschirm&ldquo; ausw&auml;hlen</li>
+                <li>&bdquo;Hinzuf&uuml;gen&ldquo; antippen</li>
+              </ol>
+              <p>Beim n&auml;chsten Besuch einfach &ouml;ffnen und im Salon vorzeigen.</p>
+            </div>
+          </section>
         </footer>
         {% else %}
         <section class="bonuscard-card-body bonuscard-not-found" role="status">
@@ -92,5 +109,59 @@
       </article>
     </section>
   </main>
+  <script>
+    (function () {
+      var panel = document.querySelector("[data-bonuscard-save-panel]");
+      if (!panel) return;
+      var button = panel.querySelector("[data-bonuscard-save-button]");
+      var steps = panel.querySelector("[data-bonuscard-save-steps]");
+      var status = panel.querySelector("[data-bonuscard-save-status]");
+
+      function isStandaloneView() {
+        return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+      }
+
+      function showStoredState() {
+        if (button) button.hidden = true;
+        if (steps) steps.hidden = true;
+        if (status) status.hidden = false;
+        panel.classList.add("is-opened-from-phone");
+      }
+
+      function showSteps() {
+        if (steps) steps.hidden = false;
+        if (status) status.hidden = true;
+        panel.classList.add("is-showing-steps");
+      }
+
+      if (isStandaloneView()) {
+        showStoredState();
+        return;
+      }
+
+      if (button) {
+        button.addEventListener("click", function () {
+          var promptEvent = window.__skBonuscardSavePrompt;
+          if (promptEvent && typeof promptEvent.prompt === "function") {
+            window.__skBonuscardSavePrompt = null;
+            promptEvent.prompt();
+            if (promptEvent.userChoice && typeof promptEvent.userChoice.then === "function") {
+              promptEvent.userChoice.then(function (choice) {
+                if (choice && choice.outcome === "accepted") {
+                  showStoredState();
+                } else {
+                  showSteps();
+                }
+              }).catch(showSteps);
+            } else {
+              showSteps();
+            }
+          } else {
+            showSteps();
+          }
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

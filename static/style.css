@@ -8038,14 +8038,6 @@ body.endpoint-bonus_card_public::after {
   text-align: center;
 }
 
-.bonuscard-card-foot .bonuscard-save-tip {
-  max-width: 340px;
-  margin: 0 auto;
-  color: #7a6444;
-  font-size: 0.86rem;
-  line-height: 1.45;
-}
-
 .bonuscard-qr-box {
   display: grid;
   justify-items: center;
@@ -8072,6 +8064,92 @@ body.endpoint-bonus_card_public::after {
   border-radius: 18px;
   background: #fff;
   box-shadow: 0 10px 24px rgba(23, 17, 11, 0.1);
+}
+
+.bonuscard-save-panel {
+  display: grid;
+  justify-items: center;
+  gap: 11px;
+  padding: 17px 16px;
+  border: 1px solid rgba(183, 137, 36, 0.26);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 248, 235, 0.86)),
+    #fffaf0;
+  text-align: center;
+}
+
+.bonuscard-save-panel h2 {
+  margin: 0;
+  color: #17110b;
+  font-size: 1.04rem;
+  line-height: 1.24;
+  letter-spacing: 0;
+}
+
+.bonuscard-save-panel p {
+  max-width: 330px;
+  color: #6b5434;
+  font-size: 0.92rem;
+  line-height: 1.48;
+}
+
+.bonuscard-save-button {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 999px;
+  background:
+    linear-gradient(145deg, rgba(246, 216, 121, 0.18), transparent 44%),
+    #17110b;
+  color: #f6d879;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(23, 17, 11, 0.18);
+}
+
+.bonuscard-save-button:active {
+  transform: translateY(1px);
+}
+
+.bonuscard-save-status {
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: #17110b;
+  color: #f6d879 !important;
+  font-weight: 850;
+}
+
+.bonuscard-save-steps {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 13px;
+  border: 1px solid rgba(183, 137, 36, 0.2);
+  border-radius: 16px;
+  background: #fffdf8;
+}
+
+.bonuscard-save-steps[hidden],
+.bonuscard-save-status[hidden],
+.bonuscard-save-button[hidden] {
+  display: none;
+}
+
+.bonuscard-save-steps h3 {
+  margin: 0;
+  color: #17110b;
+  font-size: 0.98rem;
+  letter-spacing: 0;
+}
+
+.bonuscard-save-steps ol {
+  margin: 0;
+  padding-left: 22px;
+  color: #5f4a2d;
+  text-align: left;
+  line-height: 1.55;
 }
 
 .bonuscard-not-found {
