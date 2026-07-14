@@ -432,7 +432,7 @@ def secret_key_status():
     }
 
 
-def latest_customer_rows(limit=10, db=None):
+def latest_customer_rows(limit=10, db=None, scope="all"):
     conn = db or get_db()
     latest_created_select = "created_at" if customer_has_column("created_at") else "'' AS created_at"
     latest_order_sql = "ORDER BY COALESCE(created_at, '') DESC, _id DESC" if customer_has_column("created_at") else "ORDER BY _id DESC"
@@ -441,6 +441,7 @@ def latest_customer_rows(limit=10, db=None):
         SELECT _id, _firstname, _name, _mail, {latest_created_select}
         FROM _Customers
         WHERE {visible_customer_condition('_Customers')}
+          AND {customer_scope_condition('_Customers', scope)}
         {latest_order_sql}
         LIMIT ?
         """,
@@ -461,10 +462,15 @@ def latest_customer_rows(limit=10, db=None):
     return items
 
 
+def latest_archived_customer_rows(limit=10, db=None):
+    return latest_customer_rows(limit=limit, db=db, scope="archived")
+
+
 def customer_audit_snapshot(db=None, latest_limit=25, duplicate_limit=25):
     conn = db or get_db()
     count_stats = exact_customer_counts(db=conn)
-    latest_items = latest_customer_rows(limit=latest_limit, db=conn)
+    latest_items = latest_customer_rows(limit=latest_limit, db=conn, scope="all")
+    latest_archived_items = latest_archived_customer_rows(limit=latest_limit, db=conn)
     hidden_items = desktop_hidden_customer_rows(db=conn)
     all_rows = all_customer_debug_rows(db=conn)
     mobile_sql = customer_mobile_reference("_Customers") or "''"
@@ -505,6 +511,7 @@ def customer_audit_snapshot(db=None, latest_limit=25, duplicate_limit=25):
         "hidden_customer_rows": count_stats["desktop_hidden_customers"],
         "count_stats": count_stats,
         "latest_customers": latest_items,
+        "latest_archived_customers": latest_archived_items,
         "empty_name_customers": [row for row in all_rows if row["empty_name"]][:20],
         "without_phone_customers": [row for row in all_rows if not row["has_phone"]][:20],
         "desktop_hidden_customers": hidden_items[:20],
@@ -1217,6 +1224,40 @@ def visible_customer_condition(alias="c"):
     return f"COALESCE({prefix}_name, '') <> '{MANUAL_PLACEHOLDER_LASTNAME}'"
 
 
+def customer_scope_value(raw_scope, *, allow_all=False):
+    scope = (raw_scope or "").strip().lower()
+    allowed = {"active", "archived"}
+    if allow_all:
+        allowed.add("all")
+    return scope if scope in allowed else "active"
+
+
+def customer_scope_condition(alias="c", scope="active"):
+    prefix = f"{alias}." if alias else ""
+    archived_expr = f"COALESCE({prefix}is_archived, 0)"
+    if scope == "archived":
+        return f"{archived_expr} = 1"
+    if scope == "all":
+        return "1=1"
+    return f"{archived_expr} = 0"
+
+
+def customer_is_archived_row(row):
+    return _row_flag_value(row, CUSTOMER_ARCHIVED_COLUMN_CANDIDATES)
+
+
+def customer_is_deleted_row(row):
+    return _row_flag_value(row, CUSTOMER_DELETED_COLUMN_CANDIDATES)
+
+
+def customer_lifecycle_label(row):
+    if customer_is_deleted_row(row):
+        return "Gelöscht markiert"
+    if customer_is_archived_row(row):
+        return "Archiviert"
+    return "Aktiv"
+
+
 def ensure_manual_placeholder_customer(conn):
     row = conn.execute(
         "SELECT _id FROM _Customers WHERE COALESCE(_name, '') = ? LIMIT 1",
@@ -1832,6 +1873,16 @@ def init_db():
                 conn.execute(fill_sql)
 
         admin_staff_names_sql = ", ".join(f"'{name}'" for name in sorted(ADMIN_STAFF_NAMES))
+        customer_existing_columns = set(_connection_table_columns(conn, "_Customers"))
+        lifecycle_columns_needed = {"is_archived", "archived_at", "deleted_at"}
+        if customer_existing_columns and any(column_name not in customer_existing_columns for column_name in lifecycle_columns_needed):
+            try:
+                backup_before_customer_delete_feature()
+            except Exception as exc:
+                try:
+                    app.logger.warning("Backup vor Kunden-Status-Migration fehlgeschlagen: %s", exc)
+                except Exception:
+                    pass
 
         add_column_if_missing("_Customers", "_mail", "TEXT")
         add_column_if_missing("_Customers", "_birthdate", "TEXT")
@@ -1856,6 +1907,9 @@ def init_db():
         add_column_if_missing("_Customers", "bonus_visits", "INTEGER DEFAULT 0")
         add_column_if_missing("_Customers", "bonus_rewards_redeemed", "INTEGER DEFAULT 0")
         add_column_if_missing("_Customers", "bonus_card_created_at", "TEXT")
+        add_column_if_missing("_Customers", "is_archived", "INTEGER NOT NULL DEFAULT 0")
+        add_column_if_missing("_Customers", "archived_at", "TEXT")
+        add_column_if_missing("_Customers", "deleted_at", "TEXT")
 
         add_column_if_missing("appointments", "status", "TEXT DEFAULT 'geplant'")
         add_column_if_missing("appointments", "staff_name", "TEXT DEFAULT 'Ute'")
@@ -4216,11 +4270,12 @@ def appointment_delete_redirect_target(row, fallback_date=None, fallback_staff=N
     return calendar_day_redirect_for(date_value, staff_name or "Alle", mine=mine_value)
 
 
-def customer_search_results(q="", limit=120, db=None):
+def customer_search_results(q="", limit=120, db=None, scope="active"):
     conn = db or get_db()
     q = (q or "").strip()
     mobile_sql = customer_mobile_reference("c") or "''"
     phone_sql = customer_personal_phone_reference("c") or "''"
+    scope = customer_scope_value(scope, allow_all=True)
     query = f"""
         SELECT c.*, MAX(a.appointment_at) AS last_appointment_at,
                COALESCE({mobile_sql}, '') AS mobile_phone,
@@ -4228,6 +4283,7 @@ def customer_search_results(q="", limit=120, db=None):
         FROM _Customers c
         LEFT JOIN appointments a ON a.customer_id = c._id
         WHERE {visible_customer_condition('c')}
+          AND {customer_scope_condition('c', scope)}
     """
     params = []
     if q:
@@ -4426,12 +4482,14 @@ def diagnose():
         "total_customers": "n/a",
         "active_customers": "n/a",
         "archived_customers": "n/a",
+        "deleted_customers": "n/a",
         "deleted_flag_customers": "n/a",
         "empty_name_customers": "n/a",
         "appointment_count": "n/a",
         "latest_customer_name": "",
         "latest_customer_created_at": "",
         "latest_customer_search_hint": "",
+        "latest_archived_customers": [],
         "push_configured": False,
         "scheduler_enabled": ENABLE_SCHEDULER,
         "scheduler_running": False,
@@ -4504,6 +4562,7 @@ def diagnose():
         diagnostics["total_customers"] = count_stats["total_customers"]
         diagnostics["active_customers"] = count_stats["active_customers"]
         diagnostics["archived_customers"] = count_stats["archived_customers"]
+        diagnostics["deleted_customers"] = count_stats["deleted_flag_customers"]
         diagnostics["deleted_flag_customers"] = count_stats["deleted_flag_customers"]
         diagnostics["empty_name_customers"] = count_stats["customers_with_empty_name"]
         diagnostics["customer_count_raw"] = int(row_customers["cnt"] or 0) if row_customers else 0
@@ -4513,6 +4572,7 @@ def diagnose():
             diagnostics["latest_customer_name"] = latest_rows[0]["name"]
             diagnostics["latest_customer_created_at"] = latest_rows[0]["created_at"]
             diagnostics["latest_customer_search_hint"] = latest_rows[0]["name"]
+        diagnostics["latest_archived_customers"] = latest_archived_customer_rows(limit=10, db=db)
         diagnostics["customer_audit"] = customer_audit_snapshot(db=db, latest_limit=10, duplicate_limit=25)
         diagnostics["database_candidates"] = database_candidates_snapshot()
         diagnostics["active_database_target_status"] = active_database_target_status(db=db, target_count=402)
@@ -4773,6 +4833,26 @@ def diagnose():
 </body>
 </html>"""
     return Response(html, mimetype="text/html")
+
+
+@app.route("/admin/database-check")
+@admin_required
+def admin_database_check():
+    db = get_db()
+    count_stats = exact_customer_counts(db=db)
+    payload = {
+        "ok": True,
+        "database_path": str(DB_PATH),
+        "total_customers": count_stats["total_customers"],
+        "active_customers": count_stats["active_customers"],
+        "archived_customers": count_stats["archived_customers"],
+        "deleted_customers": count_stats["deleted_flag_customers"],
+        "latest_customers": latest_customer_rows(limit=10, db=db, scope="all"),
+        "latest_archived_customers": latest_archived_customer_rows(limit=10, db=db),
+        "customer_audit": customer_audit_snapshot(db=db, latest_limit=10, duplicate_limit=25),
+        "app_version": APP_VERSION,
+    }
+    return json_no_store(payload)
 
 
 @app.route("/admin/icon-check")
@@ -5321,7 +5401,7 @@ def staff_today():
         elif chip_date == today + timedelta(days=1):
             label = "Morgen"
         else:
-            label = chip_date.strftime("%a %d.%m.")
+            label = format_day_chip_label_de(chip_date)
         chip_dates.append({"date": chip_date.isoformat(), "label": label})
 
     filter_summary = "Meine Termine" if mine_mode else ("Alle Termine" if staff_raw == "Alle" else staff_raw)
@@ -5332,7 +5412,7 @@ def staff_today():
         current_endpoint="staff_today",
         app_version=APP_VERSION,
         selected_date=selected_date.isoformat(),
-        selected_date_label=selected_date.strftime("%d.%m.%Y"),
+        selected_date_label=format_day_label_de(selected_date),
         today_date=today.isoformat(),
         own_staff=own_staff,
         staff=staff_raw,
@@ -5465,6 +5545,7 @@ def customer_search_page():
     is_admin_world = is_admin_world_session()
     q = request.args.get("q", "").strip()
     tag = request.args.get("tag", "").strip()
+    scope = customer_scope_value(request.args.get("scope"), allow_all=is_admin_world)
     sort = (request.args.get("sort") or "az").strip().lower()
     if sort not in {"az", "za", "recent"}:
         sort = "az"
@@ -5475,7 +5556,7 @@ def customer_search_page():
         LEFT JOIN appointments a ON a.customer_id = c._id
     """
     params = []
-    conditions = [visible_customer_condition("c")]
+    conditions = [visible_customer_condition("c"), customer_scope_condition("c", scope)]
 
     if tag:
         base_query += " JOIN customer_tags t ON t.customer_id = c._id"
@@ -5517,6 +5598,7 @@ def customer_search_page():
         customers=customers,
         q=q,
         tag=tag,
+        scope=scope,
         sort=sort,
         tags=tags,
         total_customers=count_stats["total_customers"],
@@ -5752,9 +5834,10 @@ def admin_customer_audit():
 def customer_quick_search():
     q = request.args.get("q", "").strip()
     in_admin_world = is_admin_world_session()
+    scope = customer_scope_value(request.args.get("scope"), allow_all=in_admin_world)
     items = []
     db = get_db()
-    for row in customer_search_results(q, limit=12):
+    for row in customer_search_results(q, limit=12, scope=scope):
         mobile = (row["mobile_phone"] or "").strip() if "mobile_phone" in row.keys() else ""
         phone = (row["phone_phone"] or "").strip() if "phone_phone" in row.keys() else ""
         primary_phone = mobile or phone
@@ -5788,6 +5871,7 @@ def customer_count_api():
         "total_customers": count_stats["total_customers"],
         "active_customers": count_stats["active_customers"],
         "archived_customers": count_stats["archived_customers"],
+        "deleted_customers": count_stats["deleted_flag_customers"],
         "deleted_flag_customers": count_stats["deleted_flag_customers"],
         "customers_with_empty_name": count_stats["customers_with_empty_name"],
         "customers_with_phone": count_stats["customers_with_phone"],
@@ -5813,11 +5897,13 @@ def customer_count_api():
 @login_required
 def customer_latest_api():
     db = get_db()
-    items = latest_customer_rows(limit=10, db=db)
+    items = latest_customer_rows(limit=10, db=db, scope="all")
+    archived_items = latest_archived_customer_rows(limit=10, db=db)
     payload = {
         "ok": True,
         "count": len(items),
         "items": items,
+        "archived_items": archived_items,
         "database_path": str(DB_PATH),
         "app_version": APP_VERSION,
     }
@@ -5828,6 +5914,7 @@ def customer_latest_api():
 @login_required
 def customer_search_alias():
     q = request.args.get("q", "").strip()
+    scope = customer_scope_value(request.args.get("scope"), allow_all=is_admin_world_session())
     limit_raw = (request.args.get("limit") or "").strip()
     try:
         limit = int(limit_raw) if limit_raw else 20
@@ -5835,7 +5922,7 @@ def customer_search_alias():
         limit = 20
     limit = max(1, min(limit, 50))
     items = []
-    for row in customer_search_results(q, limit=limit):
+    for row in customer_search_results(q, limit=limit, scope=scope):
         mobile = (row["mobile_phone"] or "").strip() if "mobile_phone" in row.keys() else ""
         phone = (row["phone_phone"] or "").strip() if "phone_phone" in row.keys() else ""
         primary_phone = mobile or phone
@@ -5855,6 +5942,7 @@ def customer_search_alias():
             "ok": True,
             "items": items,
             "query": q,
+            "scope": scope,
             "limit": limit,
             "database_path": str(DB_PATH),
             "app_version": APP_VERSION,
@@ -6322,6 +6410,213 @@ def customer_new():
     return render_template("customer_form.html", customer=None, appointments=[], logs=[], tags_text="", wa_link="", current_endpoint="customer_new", customer_status="neu", app_version=APP_VERSION)
 
 
+def customer_delete_backup_path():
+    return BACKUP_DIR / f"salon_karola_before_customer_delete_feature_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+
+
+def backup_before_customer_delete_feature():
+    if not DB_PATH.exists():
+        return None
+    if not ensure_backup_dir_available():
+        raise RuntimeError("Backup vor Kundenlöschung fehlgeschlagen: Backup-Ordner ist nicht verfügbar.")
+    backup_path = customer_delete_backup_path()
+    shutil.copy2(DB_PATH, backup_path)
+    return backup_path
+
+
+def customer_management_row(customer_id, db=None):
+    conn = db or get_db()
+    row = conn.execute("SELECT * FROM _Customers WHERE _id = ?", (customer_id,)).fetchone()
+    if not row:
+        return None
+    if (row["_name"] or "").strip() == MANUAL_PLACEHOLDER_LASTNAME:
+        return None
+    return row
+
+
+def customer_appointment_count(customer_id, db=None):
+    conn = db or get_db()
+    row = conn.execute("SELECT COUNT(*) AS cnt FROM appointments WHERE customer_id = ?", (customer_id,)).fetchone()
+    return int(row["cnt"] or 0) if row else 0
+
+
+def customer_management_context(customer, db=None):
+    conn = db or get_db()
+    customer_id = int(customer["_id"])
+    return {
+        "customer_id": customer_id,
+        "name": customer_full_name(customer),
+        "phone": customer_phone(customer),
+        "email": (customer["_mail"] or "").strip(),
+        "appointment_count": customer_appointment_count(customer_id, db=conn),
+        "is_archived": customer_is_archived_row(customer),
+        "status_label": customer_lifecycle_label(customer),
+    }
+
+
+def archive_customer_record(customer_id, db=None):
+    conn = db or get_db()
+    customer = customer_management_row(customer_id, db=conn)
+    if not customer:
+        raise ValueError("Kontakt nicht gefunden.")
+    now_value = datetime.now().isoformat(timespec="seconds")
+    conn.execute(
+        "UPDATE _Customers SET is_archived = 1, archived_at = COALESCE(archived_at, ?) WHERE _id = ?",
+        (now_value, customer_id),
+    )
+    return customer_management_context(customer, db=conn)
+
+
+def restore_customer_record(customer_id, db=None):
+    conn = db or get_db()
+    customer = customer_management_row(customer_id, db=conn)
+    if not customer:
+        raise ValueError("Kontakt nicht gefunden.")
+    conn.execute(
+        "UPDATE _Customers SET is_archived = 0, archived_at = NULL WHERE _id = ?",
+        (customer_id,),
+    )
+    return customer_management_context(customer, db=conn)
+
+
+def permanently_delete_customer_record(customer_id, db=None):
+    conn = db or get_db()
+    customer = customer_management_row(customer_id, db=conn)
+    if not customer:
+        raise ValueError("Kontakt nicht gefunden.")
+    backup_path = backup_before_customer_delete_feature()
+    placeholder_id = ensure_manual_placeholder_customer(conn)
+    now_value = datetime.now().isoformat(timespec="seconds")
+    customer_name = customer_full_name(customer) or "Gelöschter Kunde"
+    note_suffix = "Kunde wurde gelöscht."
+    conn.execute(
+        """
+        UPDATE appointments
+        SET customer_id = ?,
+            manual_firstname = CASE WHEN TRIM(COALESCE(manual_firstname, '')) <> '' THEN manual_firstname ELSE ? END,
+            manual_lastname = CASE WHEN TRIM(COALESCE(manual_lastname, '')) <> '' THEN manual_lastname ELSE ? END,
+            manual_phone = CASE WHEN TRIM(COALESCE(manual_phone, '')) <> '' THEN manual_phone ELSE ? END,
+            manual_email = CASE WHEN TRIM(COALESCE(manual_email, '')) <> '' THEN manual_email ELSE ? END,
+            notes = CASE
+                WHEN INSTR(COALESCE(notes, ''), ?) > 0 THEN notes
+                WHEN TRIM(COALESCE(notes, '')) = '' THEN ?
+                ELSE notes || CHAR(10) || CHAR(10) || ?
+            END,
+            updated_at = ?
+        WHERE customer_id = ?
+        """,
+        (
+            placeholder_id,
+            (customer["_firstname"] or "").strip() or customer_name,
+            (customer["_name"] or "").strip() or "Gelöscht",
+            customer_phone(customer),
+            (customer["_mail"] or "").strip(),
+            note_suffix,
+            note_suffix,
+            note_suffix,
+            now_value,
+            customer_id,
+        ),
+    )
+    conn.execute("DELETE FROM bonus_stamps WHERE customer_id = ?", (customer_id,))
+    conn.execute("DELETE FROM customer_tags WHERE customer_id = ?", (customer_id,))
+    conn.execute("UPDATE email_log SET customer_id = NULL WHERE customer_id = ?", (customer_id,))
+    conn.execute("DELETE FROM _Customers WHERE _id = ?", (customer_id,))
+    return {
+        "name": customer_name,
+        "appointment_count": customer_appointment_count(customer_id, db=conn),
+        "backup_path": str(backup_path) if backup_path else "",
+    }
+
+
+def customer_management_response(ok, message, customer_id, *, next_url="", status=200, extra=None):
+    payload = {"ok": bool(ok), "message": message, "customer_id": int(customer_id)}
+    if extra:
+        payload.update(extra)
+    if request.path.startswith("/api/"):
+        return json_no_store(payload, status=status)
+    flash(message)
+    return redirect(next_url or request.form.get("next") or request.referrer or url_for("customer_search_page"))
+
+
+@app.route("/admin/customers/<int:customer_id>/archive", methods=["POST"])
+@app.route("/api/admin/customers/<int:customer_id>/archive", methods=["POST"])
+@admin_required
+def admin_customer_archive(customer_id):
+    db = get_db()
+    try:
+        info = archive_customer_record(customer_id, db=db)
+        db.commit()
+    except ValueError as exc:
+        return customer_management_response(False, str(exc), customer_id, status=404)
+    message = "Kunde wurde archiviert."
+    return customer_management_response(
+        True,
+        message,
+        customer_id,
+        extra={"appointment_count": info["appointment_count"], "status": "archived"},
+    )
+
+
+@app.route("/admin/customers/<int:customer_id>/restore", methods=["POST"])
+@app.route("/api/admin/customers/<int:customer_id>/restore", methods=["POST"])
+@admin_required
+def admin_customer_restore(customer_id):
+    db = get_db()
+    try:
+        info = restore_customer_record(customer_id, db=db)
+        db.commit()
+    except ValueError as exc:
+        return customer_management_response(False, str(exc), customer_id, status=404)
+    message = "Kunde wurde wiederhergestellt."
+    return customer_management_response(
+        True,
+        message,
+        customer_id,
+        extra={"appointment_count": info["appointment_count"], "status": "active"},
+    )
+
+
+@app.route("/admin/customers/<int:customer_id>/delete", methods=["POST"])
+@app.route("/api/admin/customers/<int:customer_id>/delete", methods=["POST"])
+@admin_required
+def admin_customer_delete(customer_id):
+    db = get_db()
+    customer = customer_management_row(customer_id, db=db)
+    if not customer:
+        return customer_management_response(False, "Kontakt nicht gefunden.", customer_id, status=404)
+    appointment_count = customer_appointment_count(customer_id, db=db)
+    confirm_delete = (request.form.get("confirm_delete") or "").strip().lower() in {"1", "true", "yes", "on"}
+    if not confirm_delete:
+        return customer_management_response(
+            False,
+            "Kundenlöschung wurde nicht bestätigt.",
+            customer_id,
+            status=400,
+            extra={"appointment_count": appointment_count},
+        )
+    try:
+        delete_info = permanently_delete_customer_record(customer_id, db=db)
+        db.commit()
+    except ValueError as exc:
+        return customer_management_response(False, str(exc), customer_id, status=404)
+    next_url = request.form.get("next") or url_for("customer_search_page", scope="active")
+    if request.path.startswith("/api/"):
+        next_url = ""
+    return customer_management_response(
+        True,
+        "Kunde wurde endgültig gelöscht. Termine wurden anonymisiert.",
+        customer_id,
+        next_url=next_url,
+        extra={
+            "appointment_count": appointment_count,
+            "appointments_anonymized": appointment_count,
+            "backup_path": delete_info["backup_path"],
+            "status": "deleted",
+        },
+    )
+
+
 @app.route("/customer/<int:customer_id>", methods=["GET", "POST"])
 @login_required
 def customer_detail(customer_id):
@@ -6375,6 +6670,7 @@ def customer_detail(customer_id):
         r["tag"] for r in db.execute("SELECT tag FROM customer_tags WHERE customer_id = ? ORDER BY tag", (customer_id,)).fetchall()
     )
     next_appt = customer_next_appointment(db, customer_id)
+    management = customer_management_context(customer, db=db) if is_admin_world_session() else None
 
     return render_template(
         "admin_customer_detail.html" if is_admin_world_session() else "staff_customer_detail.html",
@@ -6393,6 +6689,7 @@ def customer_detail(customer_id):
         current_endpoint="customer_detail",
         app_version=APP_VERSION,
         simple_staff_members=staff_members_for_simple_mode(db),
+        customer_management=management,
     )
 
 
@@ -6779,8 +7076,24 @@ def month_name_de(month_number):
     return GERMAN_MONTHS[month_number - 1]
 
 
+def format_date_de(date_obj):
+    return date_obj.strftime("%d.%m.%Y")
+
+
+def format_date_short_de(date_obj):
+    return date_obj.strftime("%d.%m.")
+
+
+def format_weekday_short_de(date_obj):
+    return weekday_name_de(date_obj)[:2]
+
+
 def format_day_label_de(date_obj):
-    return f"{weekday_name_de(date_obj)}, {date_obj.strftime('%d.%m.%Y')}"
+    return f"{weekday_name_de(date_obj)}, {format_date_de(date_obj)}"
+
+
+def format_day_chip_label_de(date_obj):
+    return f"{format_weekday_short_de(date_obj)} {format_date_short_de(date_obj)}"
 
 
 def format_month_label_de(date_obj):
@@ -6962,7 +7275,7 @@ def _build_week_view(selected_date, staff="Alle"):
         days.append({
             "date": current.isoformat(),
             "name": weekday_name_de(current),
-            "label": current.strftime("%d.%m."),
+            "label": format_date_short_de(current),
             "items": by_day.get(current.isoformat(), []),
             "is_today": current == datetime.now().date(),
         })
@@ -6996,6 +7309,7 @@ def _build_month_view(selected_date, staff="Alle"):
         current = start_cell + timedelta(days=i)
         cells.append({
             "date": current.isoformat(),
+            "date_label": format_day_label_de(current),
             "day": current.day,
             "items": by_day.get(current.isoformat(), []),
             "in_month": current.month == first_day.month,
@@ -7357,7 +7671,7 @@ def calendar_view():
         is_admin_world=is_admin_world,
         view=view,
         selected_date=selected_date.isoformat(),
-        selected_date_label=selected_date.strftime("%d.%m.%Y"),
+        selected_date_label=format_day_label_de(selected_date),
         month_label=format_month_label_de(month_anchor),
         month_prev=prev_month.isoformat(),
         month_next=next_month.isoformat(),
@@ -7825,7 +8139,8 @@ def format_dt(value):
     if not value:
         return "Kein Termin"
     try:
-        return datetime.fromisoformat(str(value)).strftime("%d.%m.%Y %H:%M")
+        dt_value = datetime.fromisoformat(str(value))
+        return f"{format_day_label_de(dt_value.date())} {dt_value.strftime('%H:%M')}"
     except Exception:
         return str(value)
 
@@ -7866,6 +8181,8 @@ def inject_globals():
         "login_options": default_login_options(),
         "customer_activity_status": customer_activity_status,
         "customer_full_name": customer_full_name,
+        "customer_lifecycle_label": customer_lifecycle_label,
+        "customer_is_archived_row": customer_is_archived_row,
         "whatsapp_link": whatsapp_link,
         "communication_template_text": communication_template_text,
         "communication_template_catalog": COMMUNICATION_TEMPLATE_CATALOG,

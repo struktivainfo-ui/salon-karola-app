@@ -7,7 +7,7 @@
     <h1 class="calendar-hero-title">Kalender</h1>
     <div class="calendar-hero-meta">
       <span class="calendar-meta-pill">{{ staff }}</span>
-      <span class="calendar-meta-pill">{{ selected_date }}</span>
+      <span class="calendar-meta-pill">{{ day_view['label'] if view == 'day' and day_view else selected_date_label or selected_date }}</span>
       <span class="calendar-meta-pill">{% if view == "day" %}Tag{% elif view == "week" %}Woche{% elif view == "month" %}Monat{% else %}{{ view|capitalize }}{% endif %}</span>
     </div>
   </div>
@@ -22,7 +22,7 @@
 <section class="card premium-calendar-panel calendar-controls-panel">
   <div class="calendar-control-head">
     <h2>Steuerung</h2>
-    <span class="badge">{{ staff }} - {{ selected_date }}</span>
+    <span class="badge">{{ staff }} - {{ day_view['label'] if view == 'day' and day_view else selected_date_label or selected_date }}</span>
   </div>
 
   <form method="get" action="{{ url_for('calendar_view') }}#calendar-results" class="calendar-toolbar premium-calendar-toolbar space-top">
@@ -64,7 +64,7 @@
     <div>
       <h2>Tagesansicht</h2>
     </div>
-    <span class="badge">{{ staff }} - {{ selected_date }}</span>
+    <span class="badge">{{ staff }} - {{ selected_date_label or selected_date }}</span>
   </div>
   <div class="split-day-grid space-top">
     {% for staff_name, staff_day in split_day_views.items() %}
@@ -199,7 +199,7 @@
       {% for cell in week %}
         {% if cell['in_month'] and cell['items'] %}
         <div class="mobile-card {% if cell['is_today'] %}today-outline{% endif %}">
-          <h3>{{ cell['date'] }}</h3>
+          <h3>{{ cell['date_label'] or cell['date'] }}</h3>
           {% for appt in cell['items'] %}
           <div class="mobile-line">{{ appt['appointment_at']|dt }} - {{ appt['firstname'] }} {{ appt['lastname'] }} - {{ appt['title'] }}</div>
           {% endfor %}

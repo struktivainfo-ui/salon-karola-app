@@ -32,6 +32,64 @@
   </section>
   {% endif %}
 
+  {% if customer and customer_management %}
+  <section class="premium-panel premium-space-top" id="kundenverwaltung">
+    <div class="premium-panel-head">
+      <div>
+        <div class="premium-panel-kicker">Verwaltung</div>
+        <h2 class="premium-panel-title">Bearbeiten, archivieren oder löschen</h2>
+      </div>
+      <span class="premium-badge">{{ customer_management.status_label }}</span>
+    </div>
+    <div class="premium-page-subtitle">Name: {{ customer_management.name }} | Telefon: {{ customer_management.phone or 'Nicht hinterlegt' }} | E-Mail: {{ customer_management.email or 'Nicht hinterlegt' }}</div>
+    <div class="premium-page-subtitle">Dieser Kunde hat {{ customer_management.appointment_count }} Termine.</div>
+    <div class="premium-button-row compact premium-space-top">
+      <a class="premium-button secondary" href="#kontakt-stammdaten">Bearbeiten</a>
+      {% if customer_management.is_archived %}
+      <form method="post" action="{{ url_for('admin_customer_restore', customer_id=customer['_id']) }}" class="inline-form premium-inline-form">
+        <input type="hidden" name="next" value="{{ request.full_path }}">
+        <button type="submit" class="premium-button secondary">Kunde wiederherstellen</button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('admin_customer_archive', customer_id=customer['_id']) }}" class="inline-form premium-inline-form">
+        <input type="hidden" name="next" value="{{ request.full_path }}">
+        <button type="submit" class="premium-button secondary" onclick="return window.confirm('Diesen Kunden wirklich archivieren?\n\n{{ customer_management.name }}');">Archivieren</button>
+      </form>
+      {% endif %}
+    </div>
+    <details class="premium-details premium-space-top">
+      <summary>Kunde löschen</summary>
+      <div class="premium-space-top">
+        <p><strong>Diesen Kunden wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</strong></p>
+        <p>{{ customer_management.name }}{% if customer_management.phone %} | {{ customer_management.phone }}{% endif %}{% if customer_management.email %} | {{ customer_management.email }}{% endif %}</p>
+        {% if customer_management.appointment_count %}
+        <p>Dieser Kunde hat {{ customer_management.appointment_count }} Termine.</p>
+        <div class="premium-button-row compact">
+          <form method="post" action="{{ url_for('admin_customer_archive', customer_id=customer['_id']) }}" class="inline-form premium-inline-form">
+            <input type="hidden" name="next" value="{{ request.full_path }}">
+            <button type="submit" class="premium-button secondary">A) Kunde archivieren, Termine behalten</button>
+          </form>
+          <form method="post" action="{{ url_for('admin_customer_delete', customer_id=customer['_id']) }}" class="inline-form premium-inline-form">
+            <input type="hidden" name="next" value="{{ url_for('customer_search_page', scope='active') }}">
+            <input type="hidden" name="confirm_delete" value="1">
+            <button type="submit" class="premium-button danger">B) Ja, Kunde löschen und Termine anonymisieren</button>
+          </form>
+        </div>
+        {% else %}
+        <div class="premium-button-row compact">
+          <form method="post" action="{{ url_for('admin_customer_delete', customer_id=customer['_id']) }}" class="inline-form premium-inline-form">
+            <input type="hidden" name="next" value="{{ url_for('customer_search_page', scope='active') }}">
+            <input type="hidden" name="confirm_delete" value="1">
+            <button type="submit" class="premium-button danger">Ja, Kunde löschen</button>
+          </form>
+        </div>
+        {% endif %}
+        <p class="premium-page-subtitle">Endgültiges Löschen ist nur im Adminbereich sichtbar. Mitarbeiter können diesen Schritt nicht ausführen.</p>
+      </div>
+    </details>
+  </section>
+  {% endif %}
+
   {% if customer and bonus_card %}
   <section class="premium-panel premium-space-top">
     <div class="premium-panel-head">
@@ -97,7 +155,7 @@
   {% endif %}
 
   {% if customer %}
-  <section class="premium-panel premium-space-top">
+  <section class="premium-panel premium-space-top" id="kontakt-stammdaten">
     <div class="premium-panel-head">
       <div>
         <div class="premium-panel-kicker">Termin</div>

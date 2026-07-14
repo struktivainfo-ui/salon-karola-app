@@ -6,7 +6,7 @@
     <div>
       <div class="premium-page-kicker">Kunden</div>
       <h1 class="premium-page-title">Kundensuche</h1>
-      <div class="premium-page-subtitle">Schnell finden, öffnen und weiterarbeiten.</div>
+      <div class="premium-page-subtitle">Schnell finden, öffnen und sicher verwalten.</div>
     </div>
     <div class="premium-top-actions">
       <a class="premium-top-action primary" href="{{ url_for('customer_new') }}">Neuer Kontakt</a>
@@ -19,6 +19,14 @@
       <div class="form-group premium-form-group">
         <label>Suche</label>
         <input type="text" name="q" value="{{ q }}" placeholder="Nachname, Vorname, Mail, Stadt, Telefon" autocomplete="off">
+      </div>
+      <div class="form-group premium-form-group">
+        <label>Status</label>
+        <select name="scope">
+          <option value="active" {% if scope == 'active' %}selected{% endif %}>Aktive Kunden</option>
+          <option value="archived" {% if scope == 'archived' %}selected{% endif %}>Archivierte Kunden</option>
+          <option value="all" {% if scope == 'all' %}selected{% endif %}>Alle Kunden</option>
+        </select>
       </div>
       <div class="form-group premium-form-group">
         <label>Tag</label>
@@ -50,17 +58,17 @@
       <div>
         <div class="premium-panel-kicker">Ergebnisse</div>
         <h2 class="premium-panel-title">Suchtreffer</h2>
-        <div class="premium-page-subtitle">{{ desktop_visible_customers }} in der Desktop-Liste sichtbar von {{ total_customers }} gesamt | aktive Statuslogik: {{ active_customers }}{% if archived_customers or deleted_flag_customers or empty_name_customers %} | archiviert: {{ archived_customers }} | gelöscht-Flag: {{ deleted_flag_customers }} | ohne Namen: {{ empty_name_customers }}{% endif %}{% if shown_customers >= customer_search_limit %} | Listenlimit {{ customer_search_limit }}{% endif %}</div>
+        <div class="premium-page-subtitle">Aktive Kunden: {{ active_customers }} | Archiviert: {{ archived_customers }} | Gesamt: {{ total_customers }}{% if deleted_flag_customers or empty_name_customers %} | gelöscht-Flag: {{ deleted_flag_customers }} | ohne Namen: {{ empty_name_customers }}{% endif %}{% if shown_customers >= customer_search_limit %} | Listenlimit {{ customer_search_limit }}{% endif %}</div>
       </div>
-      <span class="premium-badge">{{ desktop_visible_customers }}/{{ total_customers }}</span>
+      <span class="premium-badge">{{ shown_customers }}/{{ total_customers }}</span>
     </div>
     <div class="premium-card-grid premium-space-top">
       {% for customer in customers %}
-      <a class="premium-card-link" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">
-        <article class="premium-contact-card">
+      <article class="premium-contact-card">
+        <a class="premium-card-link" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">
           <div class="premium-list-row">
             <h3>{{ customer['_name'] }}{% if customer['_firstname'] %}, {{ customer['_firstname'] }}{% endif %}</h3>
-            <span class="premium-status-pill premium-activity-{{ customer_activity_status(customer['last_appointment_at'])|lower|replace(' ', '-') }}">{{ customer_activity_status(customer['last_appointment_at']) }}</span>
+            <span class="premium-status-pill premium-activity-{{ customer_activity_status(customer['last_appointment_at'])|lower|replace(' ', '-') }}">{{ customer_lifecycle_label(customer) }}</span>
           </div>
           <div class="premium-contact-meta">{{ customer['_mail'] or 'Keine E-Mail' }}</div>
           <div class="premium-contact-meta">{{ customer_phone(customer) or 'Keine Nummer' }}</div>
@@ -69,11 +77,26 @@
           <div class="bonus-list-badges">
             <span>Bonus: {{ customer.bonus_list.visits }}/{{ customer.bonus_list.target }}</span>
             {% if customer.bonus_list.today_stamped %}<span>Heute da</span>{% endif %}
-            {% if customer.bonus_list.reward_available %}<span>10 &euro; verf&uuml;gbar</span>{% endif %}
+            {% if customer.bonus_list.reward_available %}<span>10 &euro; verfügbar</span>{% endif %}
           </div>
           {% endif %}
-        </article>
-      </a>
+        </a>
+        <div class="premium-button-row compact">
+          <a class="premium-button secondary" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}">Bearbeiten</a>
+          {% if customer_is_archived_row(customer) %}
+          <form method="post" action="{{ url_for('admin_customer_restore', customer_id=customer['_id']) }}" class="inline-form premium-inline-form">
+            <input type="hidden" name="next" value="{{ request.full_path }}">
+            <button type="submit" class="premium-button secondary">Kunde wiederherstellen</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('admin_customer_archive', customer_id=customer['_id']) }}" class="inline-form premium-inline-form">
+            <input type="hidden" name="next" value="{{ request.full_path }}">
+            <button type="submit" class="premium-button secondary" onclick="return window.confirm('Diesen Kunden wirklich archivieren?\n\n{{ customer_full_name(customer) }}');">Archivieren</button>
+          </form>
+          {% endif %}
+          <a class="premium-button danger" href="{{ url_for('customer_detail', customer_id=customer['_id']) }}#kundenverwaltung">Kunde löschen</a>
+        </div>
+      </article>
       {% else %}
       <div class="premium-list-empty">Keine Kontakte gefunden.</div>
       {% endfor %}
