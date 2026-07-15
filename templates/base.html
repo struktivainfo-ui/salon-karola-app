@@ -6,25 +6,10 @@
   <meta name="theme-color" content="#0f172a" />
   <meta name="background-color" content="#0f172a" />
   <meta name="application-name" content="Salon Karola" />
-  {% if not suppress_pwa_install %}
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Salon Karola" />
-  {% endif %}
   <script src="{{ url_for('static', filename='js/crash-guard.js', v=app_version) }}"></script>
   <script src="{{ url_for('static', filename='js/safe-fetch.js', v=app_version) }}"></script>
+  <script src="{{ url_for('static', filename='js/pwa-cleanup.js', v=app_version) }}"></script>
   <title>{% block title %}Salon Karola App{% endblock %}</title>
-  {% if suppress_pwa_install %}
-  <script>
-    window.addEventListener("beforeinstallprompt", function (event) {
-      try { event.preventDefault(); } catch (error) {}
-      window.__skPublicInstallPromptSuppressed = true;
-    });
-  </script>
-  {% else %}
-  <link rel="manifest" href="/manifest.json" />
-  {% endif %}
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}" />
   <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}" />
   <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/icon-512.png') }}" />
@@ -667,35 +652,11 @@
       });
 
       async function registerServiceWorker() {
-        if (!serviceWorkerFeatureEnabled) {
-          setDebugValue("swStatus", "deaktiviert (feature flag)");
-          return null;
+        if (typeof window.__salonKarolaPwaCleanup === "function") {
+          await window.__salonKarolaPwaCleanup();
         }
-        if (isNativeApp) {
-          setDebugValue("swStatus", "deaktiviert (native Android-App)");
-          return null;
-        }
-        if (!(boot.canUseServiceWorker && boot.canUseServiceWorker())) {
-          setDebugValue("swStatus", "nicht verfügbar");
-          return null;
-        }
-        try {
-          const registration = await navigator.serviceWorker.register("/service-worker.js", { updateViaCache: "none" });
-          try { await registration.update(); } catch (e) {}
-          setDebugValue("swStatus", "registriert");
-          return registration;
-        } catch (error) {
-          reportError("registerServiceWorker", error);
-          setDebugValue("swStatus", "Registrierung fehlgeschlagen");
-          try {
-            const registrations = await navigator.serviceWorker.getRegistrations();
-            await Promise.all(registrations.map((registration) => registration.unregister().catch(() => false)));
-            setDebugValue("swStatus", "fehlerhafte Registrierung entfernt");
-          } catch (cleanupError) {
-            reportError("cleanupServiceWorker", cleanupError);
-          }
-          return null;
-        }
+        setDebugValue("swStatus", "deaktiviert und bereinigt");
+        return null;
       }
 
       async function fetchPushConfig() {
@@ -1045,10 +1006,6 @@ ${body}`);
           }, { passive: false });
         });
       }
-        });
-      }
-        });
-      }
 
       if (updatePromptButton) {
         updatePromptButton.addEventListener('click', () => { applyAppUpdate(); });
@@ -1102,8 +1059,7 @@ ${body}`);
           reportError("load.serviceWorker", e);
         }
         closeMobileMenu();
-        closeDeviceStaffBar();, 450);
-        }
+        closeDeviceStaffBar();
       });
 
       window.addEventListener('pagehide', () => {

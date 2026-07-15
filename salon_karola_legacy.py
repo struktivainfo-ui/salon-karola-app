@@ -701,7 +701,8 @@ SAFE_MODE = env_bool("SAFE_MODE", False)
 # Optionale Systeme bleiben standardmäßig aus und werden nur bewusst aktiviert.
 ENABLE_PUSH = env_bool("ENABLE_PUSH", False)
 ENABLE_SCHEDULER = env_bool("ENABLE_SCHEDULER", False)
-ENABLE_SERVICE_WORKER = env_bool("ENABLE_SERVICE_WORKER", False)
+# Browser-PWA und Web-Service-Worker bleiben dauerhaft deaktiviert.
+ENABLE_SERVICE_WORKER = False
 ENABLE_FIREBASE = env_bool("ENABLE_FIREBASE", False)
 CONFIGURED_STAFF_MEMBERS = ["Ute", "Jessi", "Sven"]
 ADMIN_STAFF_NAMES = {"Sven"}
@@ -4312,58 +4313,23 @@ def customer_search_results(q="", limit=120, db=None, scope="active"):
 @app.route("/manifest.webmanifest")
 @app.route("/manifest.json")
 def manifest():
-    manifest_path = Path(app.static_folder) / "manifest.webmanifest"
-    try:
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        payload["start_url"] = "/"
-        payload["scope"] = "/"
-        payload["name"] = "Salon Karola App"
-        payload["short_name"] = "Salon Karola"
-        payload["description"] = "Termin- und Kunden-App für Salon Karola"
-        payload["orientation"] = "portrait"
-        payload["background_color"] = "#0f172a"
-        payload["theme_color"] = "#0f172a"
-        payload["icons"] = [
-            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-            {"src": "/static/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
-            {"src": "/static/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
-        ]
-        response = jsonify(payload)
-        response.mimetype = "application/manifest+json"
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-        return response
-    except Exception:
-        response = send_from_directory(app.static_folder, "manifest.webmanifest", mimetype="application/manifest+json")
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-        return response
+    response = Response("{}\n", status=410, mimetype="application/json")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
 
 
 @app.route("/service-worker.js")
 def service_worker():
-    if SAFE_MODE or not ENABLE_SERVICE_WORKER:
-        content = """self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
-self.addEventListener('fetch', () => {});
-"""
-        response = Response(content, mimetype="application/javascript")
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-        return response
-    service_worker_path = Path(app.static_folder) / "service-worker.js"
-    try:
-        content = service_worker_path.read_text(encoding="utf-8").replace("__APP_VERSION__", APP_VERSION)
-    except Exception:
-        app.logger.exception("Service Worker konnte nicht geladen werden.")
-        content = """const CACHE_NAME = 'salon-karola-fallback';
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
-self.addEventListener('fetch', () => {});
+    content = """self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    } catch (_error) {}
+    try { await self.registration.unregister(); } catch (_error) {}
+  })());
+});
 """
     response = Response(content, mimetype="application/javascript")
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -5016,12 +4982,11 @@ def test_service_worker():
     html = f"""<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test Service Worker</title>
 <style>body{{font-family:Arial,sans-serif;background:#f4efe8;color:#1f1f1f;padding:20px}}.card{{max-width:760px;margin:0 auto;background:#fff;padding:18px;border-radius:12px}}button,a{{display:inline-block;margin:8px 8px 0 0;padding:10px 14px;border:1px solid #222;border-radius:8px;background:#fff;color:#111;text-decoration:none;font-weight:600}}pre{{background:#111;color:#f5f5f5;padding:12px;border-radius:8px;white-space:pre-wrap}}</style></head><body>
 <section class="card"><h1>Service Worker Test</h1>
-<p>Status: bereit | Route: /test-service-worker | Push: inaktiv | Service Worker: testbar | Firebase: inaktiv | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
-<button id="registerBtn">Service Worker registrieren</button>
-<button id="unregisterBtn">Service Worker deregistrieren</button>
-<button id="clearCacheBtn">Cache löschen</button>
+<p>Status: dauerhaft deaktiviert | Route: /test-service-worker | Push: inaktiv | Service Worker: deaktiviert | Firebase: inaktiv | Scheduler: {"aktiv" if ENABLE_SCHEDULER and not SAFE_MODE else "inaktiv"}</p>
+<button id="unregisterBtn">Service Worker und Cache bereinigen</button>
 <a href="/safe-start">Zurück zu Safe-Start</a>
 <pre id="out">Warte auf Test...</pre></section>
+<script src="/static/js/pwa-cleanup.js?v={APP_VERSION}"></script>
 <script src="/static/js/service-worker-register.js?v={APP_VERSION}"></script>
 </body></html>"""
     return Response(html, mimetype="text/html")
@@ -8165,11 +8130,7 @@ def inject_globals():
     ui_world = current_ui_world()
     endpoint_name = request.endpoint or ""
     sw_manual_page = endpoint_name == "test_service_worker"
-    suppress_pwa_install = (
-        endpoint_name in {"qr_customer_card", "bonus_card_public"}
-        or request.path in {"/qr-kundenkarte", "/neukunde"}
-        or request.path.startswith("/bonuscard/")
-    )
+    suppress_pwa_install = True
     return {
         "admin_name": session.get("admin_name"),
         "logged_in_staff": session.get("staff_name") or get_default_staff(),

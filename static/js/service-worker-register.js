@@ -9,16 +9,13 @@
   }
 
   async function registerWorker() {
-    if (!("serviceWorker" in navigator)) {
-      write("Fehler: Service Worker wird nicht unterstützt.");
-      return;
+    if (typeof window.__salonKarolaPwaCleanup === "function") {
+      await window.__salonKarolaPwaCleanup();
+    } else {
+      await unregisterWorker();
+      await clearCaches();
     }
-    try {
-      var reg = await navigator.serviceWorker.register("/service-worker.js", { updateViaCache: "none" });
-      write("OK: Service Worker registriert.\nScope: " + reg.scope);
-    } catch (error) {
-      write("Fehler bei Registrierung: " + String(error));
-    }
+    write("Service Worker und PWA-Cache sind deaktiviert.");
   }
 
   async function unregisterWorker() {

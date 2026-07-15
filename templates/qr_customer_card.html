@@ -84,11 +84,7 @@
       <input type="checkbox" name="whatsapp_contact_allowed" value="yes" {% if form.whatsapp_contact_allowed %}checked{% endif %}>
       <span>Ich bin einverstanden, dass Salon Karola mich bei Terminfragen per WhatsApp kontaktieren darf.</span>
     </label>
-    <label class="qr-check qr-card-save-check">
-      <input type="checkbox" name="save_bonuscard_on_device" value="yes" {% if form.save_bonuscard_on_device %}checked{% endif %}>
-      <span>Ich m&ouml;chte meine digitale Kundenkarte / Bonuscard auf diesem Handy speichern.</span>
-    </label>
-
+    <input type="hidden" name="save_bonuscard_on_device" value="yes">
     <label class="qr-honeypot" aria-hidden="true" tabindex="-1">
       <span>Website</span>
       <input type="text" name="website" autocomplete="off" tabindex="-1">
