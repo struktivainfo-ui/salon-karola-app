@@ -1,0 +1,45 @@
+* text=auto eol=lf
+
+# Windows command files
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Shell / Unix scripts
+*.sh text eol=lf
+android/gradlew text eol=lf
+
+# Web / app text files
+*.py text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+*.gradle text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.properties text eol=lf
+
+# Databases and binary files
+*.db -text
+*.sqlite -text
+*.sqlite3 -text
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.webp -text
+*.ico -text
+*.gif -text
+*.pdf -text
+*.zip -text
+*.jar -text
+*.apk -text
+*.aab -text
+*.keystore -text
+*.jks -text
+*.ttf -text
+*.otf -text
+*.woff -text
+*.woff2 -text
